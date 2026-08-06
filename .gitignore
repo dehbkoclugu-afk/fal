@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Ortam
+.env
+.env.local
+
+# Node / Expo
+node_modules/
+.expo/
+dist/
+web-build/
+*.tsbuildinfo
+
+# Ephemeris veri dosyaları (~30 MB, repoya girmez)
+*.se1
+
+# Yerel test verisi — gerçek fincan fotoğrafları asla commit edilmez
+fal-backend/data/cups/
+*.log
+.DS_Store

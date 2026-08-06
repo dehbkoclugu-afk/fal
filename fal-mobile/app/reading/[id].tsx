@@ -1,0 +1,229 @@
+/**
+ * Fal sonuç ekranı — bekleme ritüelinden yorum metnine.
+ *
+ * Üç durum var ve üçü de farklı ekran:
+ *   1. queued/running → telve halkası dolar, sayaç değil. Sayaç göstermek
+ *      beklemeyi teknik bir gecikmeye çevirir; halka onu ritüele çevirir.
+ *   2. blocked (kriz)  → yorum YOK. Destek mesajı ve yönlendirme.
+ *      guardrail.BLOCK_CRISIS bu ekranı üretiyor; asla fal gösterilmiyor.
+ *   3. done            → fincan overlay + yorum. Metin serif italik (kâhin sesi),
+ *      bölüm etiketleri monospace (defter sesi).
+ */
+import React, { useState } from 'react';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
+
+import { Button } from '@/components/Button';
+import { CupOverlay } from '@/components/CupOverlay';
+import { Screen } from '@/components/Screen';
+import { TelveRing } from '@/components/TelveRing';
+import { api } from '@/lib/api';
+import { color, radius, space, type } from '@/lib/theme';
+
+const WAITING_LINES = [
+  'fincan çevriliyor',
+  'telve yerleşiyor',
+  'kenarlara bakılıyor',
+  'dibe iniliyor',
+];
+
+export default function ReadingScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const [marker, setMarker] = useState<string | null>(null);
+
+  const { data, isError } = useQuery({
+    queryKey: ['reading', id],
+    queryFn: () => api.reading(id!),
+    // Hazır olana kadar yokla. Sunucu ETA'yı da döndürüyor.
+    refetchInterval: (q) => {
+      const s = q.state.data?.status;
+      return s === 'done' || s === 'failed' || s === 'blocked' ? false : 3000;
+    },
+    enabled: !!id,
+  });
+
+  if (isError) {
+    return (
+      <Screen>
+        <Text style={styles.err}>Falı getiremedim. Bağlantını kontrol edip tekrar dene.</Text>
+        <Button label="Geri dön" variant="ghost" onPress={() => router.back()} />
+      </Screen>
+    );
+  }
+
+  // --- 1. Bekleme ritüeli
+  if (!data || data.status === 'queued' || data.status === 'running') {
+    const p = data?.progress ?? 0.05;
+    const line = WAITING_LINES[Math.min(WAITING_LINES.length - 1, Math.floor(p * WAITING_LINES.length))];
+    return (
+      <Screen style={styles.waitRoot}>
+        <TelveRing size={280} value={Math.max(0.06, p)} mode="ritual" />
+        <Text style={styles.waitLine}>{line}</Text>
+        <Text style={styles.waitNote}>
+          Hazır olduğunda haber vereceğim. Uygulamayı kapatabilirsin.
+        </Text>
+        <Pressable onPress={() => router.replace('/(tabs)')} style={{ marginTop: space.xl }}>
+          <Text style={styles.waitLink}>ana ekrana dön</Text>
+        </Pressable>
+      </Screen>
+    );
+  }
+
+  // --- 2. Kriz akışı: fal üretilmedi, üretilmeyecek
+  if (data.status === 'blocked') {
+    return (
+      <Screen scroll>
+        <Text style={styles.careTitle}>Bir dakika duralım</Text>
+        <Text style={styles.careBody}>{data.output_json?.ozet ?? ''}</Text>
+
+        <View style={styles.helpBox}>
+          <Pressable onPress={() => Linking.openURL('tel:112')} style={styles.helpRow}>
+            <Text style={styles.helpNum}>112</Text>
+            <Text style={styles.helpLabel}>acil yardım</Text>
+          </Pressable>
+          <Pressable onPress={() => Linking.openURL('tel:183')} style={styles.helpRow}>
+            <Text style={styles.helpNum}>183</Text>
+            <Text style={styles.helpLabel}>sosyal destek hattı, 7/24</Text>
+          </Pressable>
+        </View>
+
+        <Button label="Ana ekrana dön" variant="ghost" onPress={() => router.replace('/(tabs)')} />
+      </Screen>
+    );
+  }
+
+  // --- Fotoğraf reddi (bulanık, fincan bulunamadı vb.)
+  if (data.status === 'failed') {
+    return (
+      <Screen>
+        <Text style={styles.eyebrow}>Olmadı</Text>
+        <Text style={styles.failTitle}>Fincanı okuyamadım</Text>
+        <Text style={styles.failBody}>
+          Fotoğrafı yukarıdan, fincanın içi net görünecek şekilde tekrar çekelim.
+          Jetonun geri yüklendi.
+        </Text>
+        <View style={{ flex: 1 }} />
+        <Button label="Yeniden çek" onPress={() => router.replace('/ritual/coffee')} />
+      </Screen>
+    );
+  }
+
+  // --- 3. Sonuç
+  const out = data.output_json!;
+  const markers = data.extra_json?.overlay ?? [];
+  const cupPhoto = (data.extra_json as any)?.photo_uri as string | undefined;
+
+  return (
+    <Screen scroll>
+      <Text style={styles.eyebrow}>
+        {data.kind === 'coffee' ? 'kahve falı' : data.kind === 'tarot' ? 'tarot' : 'yorum'}
+      </Text>
+
+      {data.kind === 'coffee' && cupPhoto && markers.length > 0 && (
+        <View style={{ marginTop: space.md }}>
+          <CupOverlay
+            photoUri={cupPhoto}
+            markers={markers}
+            srcWidth={1280}
+            srcHeight={1280}
+            selectedId={marker}
+            onSelect={setMarker}
+          />
+        </View>
+      )}
+
+      <Text style={styles.lead}>{out.ozet}</Text>
+
+      {out.bolumler?.map((b, i) => (
+        <View key={i} style={styles.section}>
+          <Text style={styles.sectionTitle}>{b.baslik}</Text>
+          <Text style={styles.sectionBody}>{b.metin}</Text>
+        </View>
+      ))}
+
+      {!!out.tavsiye && (
+        <View style={styles.adviceBox}>
+          <Text style={styles.adviceLabel}>ne yapmalı</Text>
+          <Text style={styles.advice}>{out.tavsiye}</Text>
+        </View>
+      )}
+
+      {/* Tahminler defter kaydına geçiyor — kullanıcı burada "hesabı sorulacak"
+          iddiaları görüyor. Ürünün ana farkının kullanıcıya göründüğü yer. */}
+      {out.tahminler?.length > 0 && (
+        <View style={styles.predBox}>
+          <Text style={styles.predLabel}>deftere yazıldı</Text>
+          {out.tahminler.map((t, i) => (
+            <View key={i} style={styles.predRow}>
+              <Text style={styles.predWindow}>{t.pencere_gun}g</Text>
+              <Text style={styles.predClaim}>{t.iddia}</Text>
+            </View>
+          ))}
+          <Text style={styles.predNote}>
+            Süre dolunca sana soracağım: tuttu mu? Cevabın Kader Günlüğü'ne işlenecek.
+          </Text>
+        </View>
+      )}
+
+      <Button
+        label="Kader Günlüğü'ne git"
+        variant="ghost"
+        style={{ marginTop: space.xl }}
+        onPress={() => router.replace('/(tabs)/journal')}
+      />
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  eyebrow: { ...type.eyebrow, color: color.kul },
+
+  waitRoot: { alignItems: 'center', justifyContent: 'center' },
+  waitLine: { ...type.oracle, color: color.porselen, marginTop: space.xl },
+  waitNote: { ...type.body, color: color.kul, marginTop: space.md, textAlign: 'center' },
+  waitLink: { ...type.data, color: color.kulKoyu },
+
+  lead: { ...type.oracleLead, color: color.porselen, marginTop: space.xl },
+
+  section: { marginTop: space.xl },
+  sectionTitle: { ...type.eyebrow, color: color.bakir },
+  sectionBody: { ...type.oracle, color: color.porselen, marginTop: space.sm },
+
+  adviceBox: {
+    marginTop: space.xl,
+    padding: space.lg,
+    borderRadius: radius.md,
+    backgroundColor: color.cezve,
+    borderLeftWidth: 2,
+    borderLeftColor: color.bakir,
+  },
+  adviceLabel: { ...type.eyebrow, color: color.kul },
+  advice: { ...type.bodyStrong, color: color.porselen, marginTop: space.sm },
+
+  predBox: { marginTop: space.xxl, borderTopWidth: 1, borderTopColor: color.cizgi, paddingTop: space.lg },
+  predLabel: { ...type.eyebrow, color: color.cini },
+  predRow: { flexDirection: 'row', gap: space.md, marginTop: space.md },
+  predWindow: { ...type.dataStrong, color: color.kulKoyu, width: 32 },
+  predClaim: { ...type.data, color: color.porselen, flex: 1 },
+  predNote: { ...type.data, color: color.kulKoyu, fontSize: 11, marginTop: space.lg },
+
+  careTitle: { ...type.title, color: color.porselen, marginTop: space.xl },
+  careBody: { ...type.body, color: color.porselen, marginTop: space.lg },
+  helpBox: { marginTop: space.xl, gap: space.md },
+  helpRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: space.md,
+    paddingVertical: space.md,
+    borderBottomWidth: 1,
+    borderBottomColor: color.cizgi,
+  },
+  helpNum: { ...type.figure, color: color.cini, fontSize: 26 },
+  helpLabel: { ...type.body, color: color.kul },
+
+  failTitle: { ...type.title, color: color.porselen, marginTop: space.sm },
+  failBody: { ...type.body, color: color.kul, marginTop: space.md },
+  err: { ...type.body, color: color.kiremit, marginBottom: space.lg },
+});

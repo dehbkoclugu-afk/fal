@@ -1,0 +1,26 @@
+# --- API
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+python-multipart==0.0.20
+
+# --- Veri
+asyncpg==0.30.0
+redis==5.2.1
+rq==2.1.0
+pgvector==0.3.6
+
+# --- Astroloji (deterministik çekirdek)
+pyswisseph==2.10.3.2
+timezonefinder==6.5.7
+
+# --- Görüntü işleme (kahve falı)
+opencv-python-headless==4.10.0.84
+numpy==2.2.1
+
+# --- LLM + embedding
+httpx==0.28.1
+sentence-transformers==3.3.1   # yerel embedding: CPU'da çalışır, bedava
+
+# --- Yardımcı
+python-dotenv==1.0.1

@@ -1,0 +1,173 @@
+/**
+ * Kader Günlüğü — ürünün ana farkının yaşadığı ekran.
+ *
+ * Bu ekran kasıtlı olarak MİSTİK DEĞİL. Ritüel ekranları sıcak, serif, yavaş;
+ * burası monospace, hairline cetvel, tablo. Çünkü burada yapılan iş kehanet
+ * değil muhasebe: yapılmış iddiaların hesabı görülüyor.
+ *
+ * Rakiplerin hiçbirinde bu yok. Aynı zamanda Apple'ın 4.3(b) reddine karşı en
+ * güçlü argüman: bu ekran, uygulamayı "başka bir burç uygulaması" olmaktan
+ * çıkaran şey.
+ *
+ * Dürüstlük kuralı: tutmayan tahminler gizlenmiyor, aynı listede duruyor.
+ * Oranı şişirmek kısa vadede iyi görünür, güveni öldürür.
+ */
+import React from 'react';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { PredictionRow } from '@/components/PredictionRow';
+import { TelveRing } from '@/components/TelveRing';
+import { api } from '@/lib/api';
+import { color, space, type } from '@/lib/theme';
+
+const TOPIC_TR: Record<string, string> = {
+  ask: 'aşk', para: 'para', kariyer: 'kariyer', aile: 'aile', kendim: 'kendim', genel: 'genel',
+};
+
+export default function Journal() {
+  const insets = useSafeAreaInsets();
+  const qc = useQueryClient();
+
+  const { data, isRefetching, refetch } = useQuery({
+    queryKey: ['accuracy'],
+    queryFn: api.accuracy,
+  });
+
+  const verdict = useMutation({
+    mutationFn: ({ id, v }: { id: string; v: 'hit' | 'partial' | 'miss' }) => api.verdict(id, v),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['accuracy'] }),
+  });
+
+  const o = data?.overall;
+  const score = o?.score ?? null;
+  const answered = o ? o.hits + o.partials : 0;
+
+  return (
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={{
+        paddingTop: insets.top + space.lg,
+        paddingBottom: insets.bottom + space.xxl,
+        paddingHorizontal: space.lg,
+      }}
+      refreshControl={
+        <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={color.bakir} />
+      }
+    >
+      <Text style={styles.eyebrow}>kader günlüğü</Text>
+
+      {/* İsabet paneli */}
+      <View style={styles.panel}>
+        <TelveRing size={92} value={(score ?? 0) / 100} mode="ledger" breathing={false} />
+        <View style={styles.panelText}>
+          {score != null ? (
+            <>
+              <Text style={styles.figure}>%{score}</Text>
+              <Text style={styles.figureNote}>
+                {o!.total} tahmin · {o!.hits} tuttu · {o!.partials} kısmen
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.figureEmpty}>—</Text>
+              <Text style={styles.figureNote}>
+                Henüz değerlendirilmiş tahmin yok. İlk falından sonra burası dolmaya başlar.
+              </Text>
+            </>
+          )}
+        </View>
+      </View>
+
+      {/* Konu kırılımı — hangi alanda isabet yüksek */}
+      {!!data?.by_topic?.length && (
+        <>
+          <Text style={styles.sectionLabel}>konuya göre</Text>
+          <View style={styles.topics}>
+            {data.by_topic.map((t) => {
+              const pct = t.total ? Math.round((t.hits / t.total) * 100) : 0;
+              return (
+                <View key={t.topic} style={styles.topicRow}>
+                  <Text style={styles.topicName}>{TOPIC_TR[t.topic] ?? t.topic}</Text>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, { width: `${pct}%` }]} />
+                  </View>
+                  <Text style={styles.topicPct}>%{pct}</Text>
+                  <Text style={styles.topicCount}>{t.total}</Text>
+                </View>
+              );
+            })}
+          </View>
+        </>
+      )}
+
+      {/* Cevap bekleyenler */}
+      {!!data?.awaiting_verdict?.length && (
+        <>
+          <Text style={styles.sectionLabel}>cevabını bekliyorum</Text>
+          {data.awaiting_verdict.map((p) => (
+            <PredictionRow
+              key={p.id}
+              claim={p.claim}
+              topic={p.topic}
+              dueAt={p.window_end}
+              verdict="pending"
+              onVerdict={(v) => verdict.mutate({ id: p.id, v })}
+            />
+          ))}
+        </>
+      )}
+
+      {answered === 0 && !data?.awaiting_verdict?.length && (
+        <View style={styles.empty}>
+          <Text style={styles.emptyTitle}>Defter boş</Text>
+          <Text style={styles.emptyBody}>
+            Her fal, süresi belli olan iddialar üretiyor. Süre dolunca sana soruyorum:
+            tuttu mu? Cevapların burada birikiyor ve tutmayanlar da silinmiyor.
+          </Text>
+        </View>
+      )}
+
+      <Text style={styles.foot}>
+        Yorumlar eğlence amaçlıdır. İsabet oranı senin kendi değerlendirmelerine dayanır.
+      </Text>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: color.telve },
+  eyebrow: { ...type.eyebrow, color: color.kul },
+
+  panel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.lg,
+    marginTop: space.lg,
+    paddingVertical: space.lg,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: color.cizgi,
+  },
+  panelText: { flex: 1 },
+  figure: { ...type.figure, color: color.cini },
+  figureEmpty: { ...type.figure, color: color.kulKoyu },
+  figureNote: { ...type.data, color: color.kul, marginTop: space.xs },
+
+  sectionLabel: { ...type.eyebrow, color: color.kulKoyu, marginTop: space.xxl, marginBottom: space.md },
+
+  topics: { gap: space.md },
+  topicRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  topicName: { ...type.data, color: color.porselen, width: 62 },
+  barTrack: { flex: 1, height: 3, backgroundColor: color.cizgi },
+  barFill: { height: 3, backgroundColor: color.cini },
+  topicPct: { ...type.dataStrong, color: color.porselen, width: 40, textAlign: 'right' },
+  topicCount: { ...type.data, color: color.kulKoyu, width: 24, textAlign: 'right', fontSize: 11 },
+
+  empty: { marginTop: space.xxl },
+  emptyTitle: { ...type.title, color: color.porselen, fontSize: 22 },
+  emptyBody: { ...type.body, color: color.kul, marginTop: space.md },
+
+  foot: { ...type.data, color: color.kulKoyu, fontSize: 10, marginTop: space.xxl, lineHeight: 16 },
+});

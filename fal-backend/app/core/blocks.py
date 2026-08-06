@@ -1,0 +1,217 @@
+"""
+Blok kütüphanesi — bootstrap bütçesinin asıl kurtarıcısı.
+
+Problem: ücretsiz kullanıcıların %97'si hiç ödemez, ama her biri LLM maliyeti üretir.
+10.000 günlük aktif kullanıcı × günde 1 fal × 0,02 $ = ayda 6.000 $. Bu bütçeyle biter.
+
+Çözüm: içeriği İKİ kaynaktan üret.
+  - %75-85'i ÖNCEDEN üretilmiş metin bloklarından gelir (bir kez üretilir, sonsuz kullanılır)
+  - %15-25'i canlı, kısa bir LLM çağrısıyla kişiselleştirilir ve birleştirilir
+
+astro.condition_keys() → blok anahtarları → DB'den blok metinleri → kısa stitch çağrısı.
+
+Maliyet karşılaştırması (tek ücretsiz günlük yorum):
+  Saf LLM  : ~1.800 giriş + 700 çıkış token  ≈ 0,006 $
+  Hibrit   : ~500 giriş + 180 çıkış token    ≈ 0,0012 $   → 5x tasarruf
+Ölçekte fark aylık yüzlerce dolar. Blok kütüphanesini bir kez üretmenin
+toplam maliyeti ise ~15-40 $ (aşağıdaki seed_library ile batch olarak).
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import random
+from dataclasses import dataclass
+
+# Her koşul anahtarı için kaç varyant üretilecek. 4 varyant × rotasyon =
+# kullanıcı aynı bloğu 4 günde bir görür, tekrar hissi oluşmaz.
+VARIANTS_PER_KEY = 4
+
+# Blok tipleri: hangi anahtar hangi bölüme yazar
+BLOCK_SECTIONS = {
+    "asc_": "karakter",
+    "sun_": "karakter",
+    "moon_": "duygu",
+    "mercury_": "iletisim",
+    "venus_": "ask",
+    "mars_": "enerji",
+    "saturn_": "sinav",
+    "asp_": "dinamik",
+    "element_dom_": "genel",
+    "moon_new": "donem", "moon_full": "donem",
+}
+
+
+@dataclass
+class Block:
+    key: str
+    variant: int
+    locale: str
+    section: str
+    text: str
+
+
+def section_of(key: str) -> str:
+    for prefix, sec in BLOCK_SECTIONS.items():
+        if key.startswith(prefix):
+            return sec
+    return "genel"
+
+
+def pick_variant(user_id: str, key: str, day_bucket: int) -> int:
+    """Kullanıcı + anahtar + gün → deterministik varyant seçimi.
+
+    Deterministik olması önemli: aynı gün iki kez açan kullanıcı aynı metni görür
+    (tutarlılık), ama farklı günlerde farklı varyant alır (tazelik).
+    """
+    h = hashlib.sha256(f"{user_id}:{key}:{day_bucket}".encode()).hexdigest()
+    return int(h[:8], 16) % VARIANTS_PER_KEY
+
+
+async def fetch_blocks(db, keys: list[str], user_id: str, locale: str,
+                       day_bucket: int, limit: int = 6) -> list[Block]:
+    """DB'den ilgili blokları çeker. Bölüm çeşitliliği için section bazında tekilleştirir."""
+    wanted = []
+    seen_sections: set[str] = set()
+    for k in keys:
+        sec = section_of(k)
+        if sec in seen_sections and len(wanted) >= 3:
+            continue
+        seen_sections.add(sec)
+        wanted.append((k, pick_variant(user_id, k, day_bucket)))
+        if len(wanted) >= limit:
+            break
+
+    if not wanted:
+        return []
+    rows = await db.fetch(
+        """
+        SELECT key, variant, locale, section, text
+        FROM content_blocks
+        WHERE locale = $1 AND (key, variant) = ANY($2::block_ref[])
+        """,
+        locale, wanted,
+    )
+    return [Block(**dict(r)) for r in rows]
+
+
+STITCH_SYSTEM = """Sana hazır yorum parçaları verilecek. Görevin bunları tek, akıcı bir
+Türkçe metne dönüştürmek.
+
+KURALLAR
+- Parçaların ANLAMINI koru, içeriğine yeni kehanet ekleme.
+- Tekrar eden fikirleri birleştir, geçiş cümleleri kur.
+- Kullanıcının adını en fazla bir kez kullan.
+- Sonuna 1 kısa tavsiye ve 1 doğrulanabilir tahmin ekle.
+- Çıktı SADECE şu JSON: {"ozet": "...", "metin": "...", "tavsiye": "...",
+  "tahmin": {"konu": "...", "iddia": "...", "pencere_gun": 7, "guven": "orta"}}"""
+
+
+async def compose_free(db, user_id: str, user_ctx: dict, keys: list[str],
+                       locale: str, day_bucket: int,
+                       transits: list[dict] | None = None) -> dict:
+    """Ücretsiz kullanıcı için hibrit üretim."""
+    from .llm import complete
+
+    blocks = await fetch_blocks(db, keys, user_id, locale, day_bucket)
+    if not blocks:
+        return {"ozet": "", "metin": "", "tavsiye": "", "tahmin": None,
+                "source": "empty"}
+
+    parts = "\n\n".join(f"[{b.section}] {b.text}" for b in blocks)
+    tr_line = ""
+    if transits:
+        tr_line = "\nBUGÜNÜN TRANSİTİ: " + ", ".join(
+            f"{t['transit']} {t['aspect_tr']} {t['natal']}" for t in transits[:2])
+
+    user_msg = (
+        f"KULLANICI: {json.dumps(user_ctx, ensure_ascii=False)}{tr_line}\n\n"
+        f"PARÇALAR:\n{parts}"
+    )
+    res = await complete(system=STITCH_SYSTEM, user=user_msg, tier="small",
+                         max_tokens=600, temperature=0.75, expect_json=True)
+    out = res.data or {}
+    out["source"] = "hybrid"
+    out["_cost"] = res.cost_usd
+    out["_blocks"] = [b.key for b in blocks]
+    return out
+
+
+# ------------------------------------------------- kütüphaneyi bir kez doldurmak
+
+SEED_SYSTEM = """Sen bir astroloji metni yazarısın. Türkçe yazarsın.
+
+Sana bir astrolojik koşul verilecek (örn. "venus_scorpio" = Venüs Akrep'te,
+"asp_saturn_venus_square" = Satürn Venüs'e kare).
+
+Bu koşul için {n} FARKLI paragraf yaz. Her paragraf:
+- 3-4 cümle
+- "sen" diliyle, sıcak ve kendinden emin
+- SADECE bu koşulun anlamını anlatır, başka gösterge uydurmaz
+- kesin tarih, para tutarı, hastalık, ölüm, hamilelik içermez
+- diğer varyantlarla aynı kelimeleri tekrarlamaz (farklı imge, farklı açı)
+
+Çıktı SADECE: {{"variants": ["...", "...", ...]}}"""
+
+
+async def seed_library(db, keys: list[str], locale: str = "tr") -> dict:
+    """Blok kütüphanesini doldurur. BİR KEZ çalıştırılır (veya yeni anahtar eklendikçe).
+
+    Toplam anahtar sayısı kabaca:
+      12 yükselen + 7 gezegen × 12 burç + 7 gezegen × 12 ev + retro + ~40 açı çifti
+      ≈ 300 anahtar × 4 varyant = 1.200 paragraf
+    Batch API ile toplam maliyet ~15-40 $. Sonrasında sonsuz ücretsiz kullanım.
+
+    Not: batch endpoint kullan, acele yok. Gece çalıştır.
+    """
+    from .llm import complete
+
+    created = 0
+    for key in keys:
+        exists = await db.fetchval(
+            "SELECT count(*) FROM content_blocks WHERE key=$1 AND locale=$2", key, locale)
+        if exists:
+            continue
+        res = await complete(
+            system=SEED_SYSTEM.format(n=VARIANTS_PER_KEY),
+            user=f"Koşul: {key}\nBölüm: {section_of(key)}",
+            tier="small", max_tokens=1200, temperature=1.0, expect_json=True,
+        )
+        variants = (res.data or {}).get("variants", [])
+        for i, text in enumerate(variants[:VARIANTS_PER_KEY]):
+            await db.execute(
+                """INSERT INTO content_blocks (key, variant, locale, section, text)
+                   VALUES ($1,$2,$3,$4,$5)
+                   ON CONFLICT (key, variant, locale) DO NOTHING""",
+                key, i, locale, section_of(key), text,
+            )
+            created += 1
+    return {"created": created}
+
+
+def all_condition_keys() -> list[str]:
+    """seed_library'ye verilecek tam anahtar listesini üretir."""
+    from .astro import SIGN_KEYS
+
+    planets = ["sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn"]
+    keys = [f"asc_{s}" for s in SIGN_KEYS]
+    for p in planets:
+        keys += [f"{p}_{s}" for s in SIGN_KEYS]
+        keys += [f"{p}_h{h}" for h in range(1, 13)]
+        if p in ("mercury", "venus", "mars", "jupiter", "saturn"):
+            keys.append(f"{p}_retro")
+    aspect_kinds = ["conjunction", "square", "trine", "opposition", "sextile"]
+    for i in range(len(planets)):
+        for j in range(i + 1, len(planets)):
+            pair = "_".join(sorted([planets[i], planets[j]]))
+            keys += [f"asp_{pair}_{k}" for k in aspect_kinds]
+    keys += [f"element_dom_{e}" for e in ("fire", "earth", "air", "water")]
+    keys += ["moon_new_moon", "moon_full_moon", "moon_first_quarter", "moon_last_quarter"]
+    return sorted(set(keys))
+
+
+if __name__ == "__main__":
+    ks = all_condition_keys()
+    print("anahtar sayısı:", len(ks), "→ paragraf:", len(ks) * VARIANTS_PER_KEY)
+    print("örnek:", random.sample(ks, 8))
