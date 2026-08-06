@@ -24,13 +24,33 @@ class Action(str, Enum):
     BLOCK_MINOR = "block_minor"
 
 
+# Türkçe harf sadeleştirmesi. Küçültmeden ÖNCE uygulanmak zorunda:
+# Python'da "İ".lower() tek harf değil, "i" + U+0307 (COMBINING DOT ABOVE)
+# ikilisi üretir. Önce lower() çağrılırsa sonraki replace("İ","i") hiçbir şey
+# bulamaz ve metinde görünmez birleşen noktalar kalır — "İNTİHAR" normalize
+# edildiğinde "i̇nti̇har" olur ve r"intihar" deseni EŞLEŞMEZ.
+# Sonuç: büyük harfle yazılmış kriz mesajları guardrail'den sessizce geçer.
+# Sıkıntıdaki kullanıcılar sıklıkla büyük harfle yazar; bu tam olarak
+# kaçırılmaması gereken vaka.
+_TR_MAP = str.maketrans({
+    "İ": "i", "I": "i", "ı": "i",
+    "Ş": "s", "ş": "s",
+    "Ğ": "g", "ğ": "g",
+    "Ü": "u", "ü": "u",
+    "Ö": "o", "ö": "o",
+    "Ç": "c", "ç": "c",
+    "Â": "a", "â": "a", "Î": "i", "î": "i", "Û": "u", "û": "u",
+})
+
+
 def _norm(t: str) -> str:
     """TR harflerini sadeleştir + küçült — 'öldürmek/oldurmek' varyantlarını yakalamak için."""
-    t = t.lower()
-    t = (t.replace("ı", "i").replace("İ", "i").replace("ş", "s").replace("ğ", "g")
-          .replace("ü", "u").replace("ö", "o").replace("ç", "c"))
+    t = (t or "").translate(_TR_MAP).lower()
     t = unicodedata.normalize("NFKD", t)
-    return re.sub(r"\s+", " ", t)
+    # NFKD sonrası artakalan birleşen işaretleri at; başka dillerden gelen
+    # aksanlı girdiler de böylece desenlere uyar.
+    t = "".join(c for c in t if not unicodedata.combining(c))
+    return re.sub(r"\s+", " ", t).strip()
 
 
 # Kriz sinyalleri. Liste kasıtlı olarak geniş; yanlış pozitif maliyeti düşük

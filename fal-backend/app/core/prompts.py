@@ -136,6 +136,9 @@ HESAPLANMIŞ HARİTA (Swiss Ephemeris, birebir kullan):
 KULLANICI:
 {user}
 
+GEÇMİŞ BAĞLAM (varsa, doğal biçimde bağ kur, alıntı yapma):
+{memory}
+
 ODAK: {focus}
 
 Yorumu şu bölümlerle kur: Karakter çekirdeği, Duygusal yapı, İlişki kalıbı,
@@ -200,7 +203,11 @@ def tarot_prompt(cards_ctx: dict, user_ctx: dict, memory: str,
     )
 
 
-def natal_prompt(chart_ctx: dict, user_ctx: dict, focus: str) -> str:
+def natal_prompt(chart_ctx: dict, user_ctx: dict, focus: str,
+                 memory: str = "") -> str:
+    """memory: 'hafızası olan danışman' tezi doğum haritası yorumunu da kapsar —
+    ürünün vaat ettiği "geçen ay sorduğun kişi konusunda haritanda hareket var"
+    cümlesi tam olarak burada kuruluyor."""
     warn = ("UYARI: Doğum saati bilinmiyor. Ev konumlarına ve yükselene DAYANMA, "
             "sadece gezegen burçlarını ve açıları yorumla. Kullanıcıya saatin "
             "bilinmediğini bir cümleyle nazikçe belirt."
@@ -209,5 +216,6 @@ def natal_prompt(chart_ctx: dict, user_ctx: dict, focus: str) -> str:
         chart=json.dumps(chart_ctx, ensure_ascii=False, indent=1),
         time_warning=warn,
         user=json.dumps(user_ctx, ensure_ascii=False),
+        memory=memory or "yok",
         focus=focus or "genel",
     )

@@ -13,17 +13,18 @@ Cron planı (bootstrap için yeterli, ayrı scheduler servisine gerek yok):
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from datetime import datetime, timedelta, timezone
 
-import asyncpg
 from redis import Redis
 
 from ..core import astro
+from ..core.db import DB_URL, connect
+from ..core.pricing import COIN_PRICES
 from ..core.pipeline import (CrisisIntercept, ReadingRejected, extract_memory,
                              generate_reading, _chart_from_row)
 
-DB_URL = os.getenv("DATABASE_URL", "postgresql://localhost/fal")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 
@@ -39,7 +40,7 @@ def run_reading(reading_id: str, kind: str, inputs: dict):
 
 
 async def _run_reading(reading_id: str, kind: str, inputs: dict):
-    db = await asyncpg.connect(DB_URL)
+    db = await connect()
     r = Redis.from_url(REDIS_URL)
     try:
         row = await db.fetchrow("SELECT user_id FROM readings WHERE id=$1", reading_id)
@@ -69,7 +70,7 @@ async def _run_reading(reading_id: str, kind: str, inputs: dict):
         # Push GÖNDERİLMEZ. Kullanıcı uygulamayı açtığında destek mesajını görür.
         await db.execute(
             "UPDATE readings SET status='blocked', block_reason='crisis', output_json=$2 WHERE id=$1",
-            reading_id, f'{{"ozet": {e.reply!r}}}')
+            reading_id, json.dumps({"ozet": e.reply}, ensure_ascii=False))
     except ReadingRejected as e:
         await db.execute(
             "UPDATE readings SET status='failed', block_reason=$2 WHERE id=$1",
@@ -82,7 +83,6 @@ async def _run_reading(reading_id: str, kind: str, inputs: dict):
 
 
 async def refund(db, user_id: str, kind: str):
-    from ..main import COIN_PRICES
     cost = COIN_PRICES.get(kind, 0)
     if not cost:
         return
@@ -102,7 +102,7 @@ def nightly_transits():
 async def _nightly_transits(days_ahead: int = 7, per_batch: int = 500):
     """Bu iş bildirim stratejisinin yakıtı. Jenerik burç bildirimi yerine
     'Satürn senin Venüs'üne kare yapıyor' diyebilmenin tek yolu."""
-    db = await asyncpg.connect(DB_URL)
+    db = await connect()
     try:
         offset = 0
         now = datetime.now(timezone.utc)
@@ -147,7 +147,7 @@ async def _ask_verdicts(limit: int):
     Bu push, kategorinin en yüksek açılma oranlı bildirimi olma potansiyeline sahip:
     kullanıcı kendi hakkındaki bir iddianın hesabını görmeye geliyor.
     """
-    db = await asyncpg.connect(DB_URL)
+    db = await connect()
     try:
         rows = await db.fetch(
             """SELECT p.id, p.user_id, p.claim FROM predictions p
@@ -176,7 +176,7 @@ async def _queue_daily(limit: int):
     o yüzden bu iş toplu çalışsa bile maliyet düşük kalır.
     """
     import uuid as _uuid
-    db = await asyncpg.connect(DB_URL)
+    db = await connect()
     r = Redis.from_url(REDIS_URL)
     from rq import Queue
     q = Queue("readings", connection=r)
@@ -211,7 +211,7 @@ async def _purge_assets():
     Bunu ihmal etmek, en büyük yasal riskin biriktiği yer. Avuç içi/yüz
     fotoğrafına hiç girmemek ise en güvenli yol (bkz. README, hukuk bölümü).
     """
-    db = await asyncpg.connect(DB_URL)
+    db = await connect()
     r = Redis.from_url(REDIS_URL)
     try:
         rows = await db.fetch(
@@ -247,8 +247,34 @@ async def push(db, user_id: str, title: str, body: str, data: dict):
            WHERE user_id=$1 AND created_at > date_trunc('day', now())""", user_id) or 0
     if sent_today >= 2:
         return False
-    # TODO: OneSignal REST çağrısı
+    ok = await _send_push(row["push_token"], title, body, data)
     await db.execute(
         """INSERT INTO push_log (user_id, title, body, data)
-           VALUES ($1,$2,$3,$4::jsonb)""", user_id, title, body, str(data).replace("'", '"'))
-    return True
+           VALUES ($1,$2,$3,$4::jsonb)""",
+        user_id, title, body, json.dumps(data, ensure_ascii=False))
+    return ok
+
+
+ONESIGNAL_APP_ID = os.getenv("ONESIGNAL_APP_ID", "")
+ONESIGNAL_API_KEY = os.getenv("ONESIGNAL_API_KEY", "")
+
+
+async def _send_push(token: str, title: str, body: str, data: dict) -> bool:
+    """OneSignal REST çağrısı. Anahtar yoksa sessizce atlar (yerel geliştirme)."""
+    if not (ONESIGNAL_APP_ID and ONESIGNAL_API_KEY):
+        return False
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.post(
+                "https://api.onesignal.com/notifications",
+                headers={"Authorization": f"Key {ONESIGNAL_API_KEY}",
+                         "content-type": "application/json"},
+                json={"app_id": ONESIGNAL_APP_ID,
+                      "include_subscription_ids": [token],
+                      "headings": {"tr": title, "en": title},
+                      "contents": {"tr": body, "en": body},
+                      "data": data})
+            return r.status_code < 300
+    except Exception:
+        return False

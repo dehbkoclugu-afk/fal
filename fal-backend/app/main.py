@@ -14,16 +14,18 @@ import json
 import os
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timezone
+from typing import Literal
 
-import asyncpg
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from redis import asyncio as aioredis
 from rq import Queue
 
-DB_URL = os.getenv("DATABASE_URL", "postgresql://localhost/fal")
+from .core import db as dbmod
+
+DB_URL = dbmod.DB_URL
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 MAX_UPLOAD_MB = 8
 
@@ -32,7 +34,7 @@ state: dict = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    state["db"] = await asyncpg.create_pool(DB_URL, min_size=2, max_size=10)
+    state["db"] = await dbmod.create_pool()
     state["redis"] = await aioredis.from_url(REDIS_URL)
     import redis as sync_redis
     state["queue"] = Queue("readings", connection=sync_redis.from_url(REDIS_URL))
@@ -70,8 +72,11 @@ class ProfileIn(BaseModel):
     focus_topic: str | None = None
     locale: str | None = None
     tz_name: str | None = None
-    birth_date: str | None = None            # YYYY-MM-DD
-    birth_time: str | None = None            # HH:MM
+    # date/time olarak tiplenmiş: pydantic sınırda parse eder, hatalı girdi 500
+    # değil 422 döner ve asyncpg'ye doğru Python tipi gider (str geçilirse
+    # $2::date argümanı DataError ile düşer).
+    birth_date: date | None = None           # YYYY-MM-DD
+    birth_time: time | None = None           # HH:MM
     time_known: bool = True
     place_name: str | None = None
     lat: float | None = None
@@ -79,17 +84,31 @@ class ProfileIn(BaseModel):
 
 
 class TarotIn(BaseModel):
-    spread: str = "three_card"
-    question: str = ""
-    seed: str | None = None
+    # Sınırda doğrula: tarot.draw() bilinmeyen açılımda sessizce three_card'a
+    # düşer. Jeton çoktan düşülmüş olacağı için kullanıcı istemediği açılımı
+    # ödemiş olur — istemci hatası 422 olarak geri dönmeli.
+    spread: Literal["single", "three_card", "situation",
+                    "love_five", "celtic_cross"] = "three_card"
+    question: str = Field("", max_length=1000)
+    seed: str | None = Field(None, max_length=64)
+
+
+class NatalIn(BaseModel):
+    focus: Literal["genel", "ask", "para", "kariyer", "kendim"] = "genel"
+    question: str = Field("", max_length=1000)
 
 
 class VerdictIn(BaseModel):
     verdict: str = Field(pattern="^(hit|miss|partial)$")
 
 
-COIN_PRICES = {"coffee": 3, "tarot": 1, "natal": 5, "daily": 0}
-DAILY_SPEND_CAP = 25       # kumar döngüsü önlemi — kaldırma
+class PushTokenIn(BaseModel):
+    push_token: str = Field(max_length=200)
+    push_optin: bool = True
+    active_hour: int = Field(9, ge=0, le=23)
+
+
+from .core.pricing import COIN_PRICES, DAILY_SPEND_CAP  # noqa: E402
 
 
 async def _charge(db, user_id: str, kind: str) -> None:
@@ -135,7 +154,7 @@ async def upsert_profile(p: ProfileIn, user=Depends(get_user)):
             """INSERT INTO birth_profiles
                  (user_id, label, is_primary, birth_date, birth_time, time_known,
                   place_name, lat, lon, tz_name)
-               VALUES ($1,'ben',true,$2::date,$3::time,$4,$5,$6,$7,$8)
+               VALUES ($1,'ben',true,$2,$3,$4,$5,$6,$7,$8)
                ON CONFLICT (user_id) WHERE is_primary DO UPDATE SET
                  birth_date=EXCLUDED.birth_date, birth_time=EXCLUDED.birth_time,
                  time_known=EXCLUDED.time_known, place_name=EXCLUDED.place_name,
@@ -147,10 +166,10 @@ async def upsert_profile(p: ProfileIn, user=Depends(get_user)):
     teaser = None
     if p.birth_date:
         from .core import astro
-        d = datetime.fromisoformat(p.birth_date)
-        hh, mm = (p.birth_time or "12:00").split(":")[:2]
+        d, t = p.birth_date, p.birth_time
         chart = astro.compute_chart(astro.BirthInput(
-            d.year, d.month, d.day, int(hh), int(mm),
+            d.year, d.month, d.day,
+            t.hour if t else 12, t.minute if t else 0,
             p.lat or 41.0082, p.lon or 28.9784,
             p.tz_name or "Europe/Istanbul", p.time_known))
         teaser = {
@@ -194,6 +213,56 @@ async def tarot_reading(body: TarotIn, user=Depends(get_user)):
     state["queue"].enqueue("app.workers.tasks.run_reading", rid, "tarot",
                            body.model_dump())
     return {"reading_id": rid, "eta_seconds": 90, "status": "queued"}
+
+
+async def _require_birth(db, user_id) -> None:
+    ok = await db.fetchval(
+        "SELECT 1 FROM birth_profiles WHERE user_id=$1 AND is_primary", user_id)
+    if not ok:
+        raise HTTPException(400, {"code": "no_birth_data",
+                                  "message": "Önce doğum bilgilerini tamamla."})
+
+
+@app.post("/v1/readings/natal", status_code=202)
+async def natal_reading(body: NatalIn, user=Depends(get_user)):
+    db = state["db"]
+    await _require_birth(db, user["id"])
+    await _charge(db, user["id"], "natal")
+    rid = str(uuid.uuid4())
+    await db.execute(
+        """INSERT INTO readings (id, user_id, kind, input_json, eta_seconds)
+           VALUES ($1,$2,'natal',$3,120)""",
+        rid, user["id"], json.dumps(body.model_dump()))
+    state["queue"].enqueue("app.workers.tasks.run_reading", rid, "natal",
+                           body.model_dump())
+    return {"reading_id": rid, "eta_seconds": 120, "status": "queued"}
+
+
+@app.post("/v1/readings/daily", status_code=202)
+async def daily_reading(user=Depends(get_user)):
+    """Günün yorumu. Ücretsiz (jeton düşmez) ve günde bir üretilir.
+
+    Aynı gün ikinci kez istenirse mevcut kayıt döner — hem maliyet hem
+    tutarlılık için: kullanıcı günü içinde iki farklı yorum görmemeli.
+    """
+    db = state["db"]
+    await _require_birth(db, user["id"])
+    mevcut = await db.fetchrow(
+        """SELECT id, eta_seconds, status FROM readings
+           WHERE user_id=$1 AND kind='daily' AND status <> 'failed'
+             AND created_at > date_trunc('day', now())
+           ORDER BY created_at DESC LIMIT 1""", user["id"])
+    if mevcut:
+        return {"reading_id": str(mevcut["id"]),
+                "eta_seconds": mevcut["eta_seconds"],
+                "status": mevcut["status"], "cached": True}
+
+    rid = str(uuid.uuid4())
+    await db.execute(
+        """INSERT INTO readings (id, user_id, kind, eta_seconds)
+           VALUES ($1,$2,'daily',20)""", rid, user["id"])
+    state["queue"].enqueue("app.workers.tasks.run_reading", rid, "daily", {})
+    return {"reading_id": rid, "eta_seconds": 20, "status": "queued"}
 
 
 @app.get("/v1/readings/{rid}")
@@ -257,6 +326,125 @@ async def accuracy(user=Depends(get_user)):
     return {"overall": dict(acc) if acc else None,
             "by_topic": [dict(r) for r in by_topic],
             "awaiting_verdict": [dict(r) for r in pending]}
+
+
+@app.get("/v1/me")
+async def me(user=Depends(get_user)):
+    """Ana ekranın tek çağrısı: profil + jeton + abonelik + streak.
+
+    Ayrı uçlara bölmemek kasıtlı — ana ekran açılışında üç ayrı istek,
+    yavaş bağlantıda görünür gecikme demek.
+    """
+    db = state["db"]
+    bal = await db.fetchval(
+        "SELECT coalesce(sum(delta),0) FROM coin_ledger WHERE user_id=$1",
+        user["id"]) or 0
+    spent = await db.fetchval(
+        """SELECT coalesce(-sum(delta),0) FROM coin_ledger
+           WHERE user_id=$1 AND delta<0 AND created_at > date_trunc('day', now())""",
+        user["id"]) or 0
+    ent = await db.fetchrow(
+        """SELECT tier, expires_at, will_renew FROM entitlements
+           WHERE user_id=$1 AND expires_at > now()""", user["id"])
+    birth = await db.fetchval(
+        "SELECT 1 FROM birth_profiles WHERE user_id=$1 AND is_primary", user["id"])
+    return {
+        "first_name": user["first_name"],
+        "tone": user["tone"],
+        "locale": user["locale"],
+        "has_birth_data": bool(birth),
+        "coins": int(bal),
+        "daily_spend_left": max(0, DAILY_SPEND_CAP - int(spent)),
+        "prices": COIN_PRICES,
+        "entitlement": dict(ent) if ent else None,
+        "streak": {"count": user["streak_count"], "last_day": user["streak_last_day"]},
+        "push_optin": user["push_optin"],
+    }
+
+
+@app.get("/v1/me/next-transit")
+async def next_transit(user=Depends(get_user)):
+    """Bildirim izni istenmeden ÖNCE gösterilecek gerçek transit.
+
+    "Bildirimlere izin ver" ile "14 Ağustos'ta Merkür senin iletişim evine
+    giriyor, haber vereyim mi" arasındaki opt-in farkı ~%40 → ~%70. Bu uç
+    olmadan onboarding/notifications ekranı jenerik bir izin ekranına düşer.
+    """
+    db = state["db"]
+    row = await db.fetchrow(
+        """SELECT birth_date, birth_time, time_known, lat, lon, tz_name
+           FROM birth_profiles WHERE user_id=$1 AND is_primary""", user["id"])
+    if not row:
+        raise HTTPException(400, {"code": "no_birth_data",
+                                  "message": "Önce doğum bilgilerini tamamla."})
+
+    from .core.astro import BODIES, next_notable_transits
+    from .core.pipeline import _chart_from_row
+    chart = _chart_from_row(dict(row))
+    hits = next_notable_transits(chart, datetime.now(timezone.utc), days=120, top=3)
+    if not hits:
+        return {"transit": None}
+
+    h = hits[0]
+    isim = {k: tr for k, _code, tr in BODIES}
+    return {
+        "transit": {
+            "code": h["code"],
+            "exact_at": h["exact_at"],
+            "severity": h["severity"],
+            "house": h["house_touched"],
+            "metin": (f"{isim.get(h['transit'], h['transit'])}, "
+                      f"{isim.get(h['natal'], h['natal'])} konumuna "
+                      f"{h['aspect_tr']} yapıyor"),
+        }
+    }
+
+
+@app.put("/v1/me/push-token")
+async def set_push_token(body: PushTokenIn, user=Depends(get_user)):
+    await state["db"].execute(
+        """UPDATE users SET push_token=$2, push_optin=$3, active_hour=$4
+           WHERE id=$1""",
+        user["id"], body.push_token, body.push_optin, body.active_hour)
+    return {"ok": True}
+
+
+@app.delete("/v1/me", status_code=202)
+async def delete_me(user=Depends(get_user)):
+    """KVKK silme talebi. Uygulama içinden çalışır durumda olmak zorunda.
+
+    Soft delete + gece işi kalıcı siler; anon_id serbest bırakılır ki aynı
+    cihaz yeniden kurulumda temiz başlasın.
+    """
+    await state["db"].execute(
+        """UPDATE users SET deleted_at=now(), push_token=NULL, push_optin=false,
+             anon_id = 'deleted:' || id::text
+           WHERE id=$1""", user["id"])
+    return {"ok": True, "message": "Verilerin silinmek üzere işaretlendi."}
+
+
+@app.post("/v1/coins/reward")
+async def reward_coins(user=Depends(get_user)):
+    """Ödüllü reklam karşılığı jeton.
+
+    Günlük tavan var: ödüllü reklam sınırsız olursa hem eCPM düşer hem de
+    jeton ekonomisi anlamsızlaşır.
+    """
+    db = state["db"]
+    bugun = await db.fetchval(
+        """SELECT count(*) FROM coin_ledger
+           WHERE user_id=$1 AND reason='rewarded_ad'
+             AND created_at > date_trunc('day', now())""", user["id"]) or 0
+    if bugun >= 5:
+        raise HTTPException(429, {"code": "reward_cap",
+                                  "message": "Bugünlük ödül hakkın doldu."})
+    bal = await db.fetchval(
+        "SELECT coalesce(sum(delta),0) FROM coin_ledger WHERE user_id=$1",
+        user["id"]) or 0
+    await db.execute(
+        """INSERT INTO coin_ledger (user_id, delta, reason, balance_after)
+           VALUES ($1,1,'rewarded_ad',$2)""", user["id"], bal + 1)
+    return {"ok": True, "coins": int(bal) + 1}
 
 
 @app.post("/v1/webhooks/revenuecat")

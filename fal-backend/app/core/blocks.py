@@ -28,8 +28,15 @@ from dataclasses import dataclass
 # kullanıcı aynı bloğu 4 günde bir görür, tekrar hissi oluşmaz.
 VARIANTS_PER_KEY = 4
 
-# Blok tipleri: hangi anahtar hangi bölüme yazar
+# Blok tipleri: hangi anahtar hangi bölüme yazar.
+# SIRA ÖNEMLİ — ilk eşleşen prefix kazanır, o yüzden özelden genele dizili.
+# "moon_full_moon" önce ay fazı olarak eşleşmeli; "moon_" üstte olsaydı ay
+# fazı blokları "duygu" bölümüne düşer ve fetch_blocks'un bölüm tekilleştirmesi
+# onları Ay-burç bloğuyla aynı kovaya koyup birini eler.
 BLOCK_SECTIONS = {
+    "moon_new_moon": "donem", "moon_full_moon": "donem",
+    "moon_first_quarter": "donem", "moon_last_quarter": "donem",
+    "moon_waxing_": "donem", "moon_waning_": "donem",
     "asc_": "karakter",
     "sun_": "karakter",
     "moon_": "duygu",
@@ -39,7 +46,6 @@ BLOCK_SECTIONS = {
     "saturn_": "sinav",
     "asp_": "dinamik",
     "element_dom_": "genel",
-    "moon_new": "donem", "moon_full": "donem",
 }
 
 
@@ -110,8 +116,14 @@ KURALLAR
 
 async def compose_free(db, user_id: str, user_ctx: dict, keys: list[str],
                        locale: str, day_bucket: int,
-                       transits: list[dict] | None = None) -> dict:
-    """Ücretsiz kullanıcı için hibrit üretim."""
+                       transits: list[dict] | None = None,
+                       extra_note: str | None = None) -> dict:
+    """Ücretsiz kullanıcı için hibrit üretim.
+
+    extra_note: guardrail'in yumuşak kısıtı (sağlık/hukuk/şiddet). Ücretsiz
+    kullanıcılar tüm tabanın ~%97'si; bu kısıt buraya taşınmazsa çoğunluk
+    için hiç uygulanmamış olur.
+    """
     from .llm import complete
 
     blocks = await fetch_blocks(db, keys, user_id, locale, day_bucket)
@@ -129,7 +141,10 @@ async def compose_free(db, user_id: str, user_ctx: dict, keys: list[str],
         f"KULLANICI: {json.dumps(user_ctx, ensure_ascii=False)}{tr_line}\n\n"
         f"PARÇALAR:\n{parts}"
     )
-    res = await complete(system=STITCH_SYSTEM, user=user_msg, tier="small",
+    system = STITCH_SYSTEM
+    if extra_note:
+        system += f"\n\nEK KISIT: {extra_note}"
+    res = await complete(system=system, user=user_msg, tier="small",
                          max_tokens=600, temperature=0.75, expect_json=True)
     out = res.data or {}
     out["source"] = "hybrid"
@@ -191,23 +206,27 @@ async def seed_library(db, keys: list[str], locale: str = "tr") -> dict:
 
 
 def all_condition_keys() -> list[str]:
-    """seed_library'ye verilecek tam anahtar listesini üretir."""
-    from .astro import SIGN_KEYS
+    """seed_library'ye verilecek tam anahtar listesini üretir.
 
-    planets = ["sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn"]
+    astro.condition_keys()'in üretebileceği HER anahtarı kapsamak zorunda.
+    Kapsamayan bir anahtar = o kullanıcı için boş içerik. İkisi de
+    astro.BLOCK_* listelerinden türediği için ayrışamazlar.
+    """
+    from .astro import (BLOCK_ASPECT_KINDS, BLOCK_PLANETS, MOON_PHASE_KEYS,
+                        RETRO_PLANETS, SIGN_KEYS)
+
     keys = [f"asc_{s}" for s in SIGN_KEYS]
-    for p in planets:
+    for p in BLOCK_PLANETS:
         keys += [f"{p}_{s}" for s in SIGN_KEYS]
         keys += [f"{p}_h{h}" for h in range(1, 13)]
-        if p in ("mercury", "venus", "mars", "jupiter", "saturn"):
+        if p in RETRO_PLANETS:
             keys.append(f"{p}_retro")
-    aspect_kinds = ["conjunction", "square", "trine", "opposition", "sextile"]
-    for i in range(len(planets)):
-        for j in range(i + 1, len(planets)):
-            pair = "_".join(sorted([planets[i], planets[j]]))
-            keys += [f"asp_{pair}_{k}" for k in aspect_kinds]
+    for i in range(len(BLOCK_PLANETS)):
+        for j in range(i + 1, len(BLOCK_PLANETS)):
+            pair = "_".join(sorted([BLOCK_PLANETS[i], BLOCK_PLANETS[j]]))
+            keys += [f"asp_{pair}_{k}" for k in BLOCK_ASPECT_KINDS]
     keys += [f"element_dom_{e}" for e in ("fire", "earth", "air", "water")]
-    keys += ["moon_new_moon", "moon_full_moon", "moon_first_quarter", "moon_last_quarter"]
+    keys += [f"moon_{p}" for p in MOON_PHASE_KEYS]
     return sorted(set(keys))
 
 

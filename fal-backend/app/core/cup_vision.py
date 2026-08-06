@@ -145,7 +145,11 @@ def detect_cup(img: np.ndarray) -> tuple[np.ndarray, list[int]] | tuple[None, No
     )
     mask = np.zeros((h, w), np.uint8)
     if circles is not None:
-        x, y, r = np.round(circles[0][0]).astype(int)
+        # int() zorunlu: np.int64 JSON'a serileşmez ve pipeline'daki
+        # json.dumps(..., default=str) onu SESSİZCE "136" string'ine çevirir.
+        # extra_json'a string koordinat yazılırsa mobildeki CupOverlay
+        # ölçeklemesi NaN üretir ve işaretler yanlış yere düşer.
+        x, y, r = (int(v) for v in np.round(circles[0][0]))
         # Kenar gölgesinden kaçınmak için yarıçapı %88'e çek
         r_in = int(r * 0.88)
         cv2.circle(mask, (x, y), r_in, 255, -1)
@@ -165,7 +169,7 @@ def detect_cup(img: np.ndarray) -> tuple[np.ndarray, list[int]] | tuple[None, No
         cv2.ellipse(mask, ((ex, ey), (ea * 0.88, eb * 0.88), ang), 255, -1)
     else:
         cv2.drawContours(mask, [c], -1, 255, -1)
-    x, y, bw, bh = cv2.boundingRect(c)
+    x, y, bw, bh = (int(v) for v in cv2.boundingRect(c))
     return mask, [x, y, bw, bh]
 
 
@@ -282,18 +286,20 @@ def extract_blobs(img: np.ndarray, binary: np.ndarray, cup_bbox: list[int],
         ok, enc = cv2.imencode(".jpg", crop, [int(cv2.IMWRITE_JPEG_QUALITY), 82])
         crop_b64 = base64.b64encode(enc.tobytes()).decode() if ok else ""
 
+        # float()/int(): OpenCV ve numpy türleri extra_json'a sızmasın (bkz.
+        # detect_cup içindeki not — default=str onları string'e çevirir).
         blob = Blob(
             id=f"b{i}",
-            area_ratio=round(ratio, 4),
-            cx=round(cx_norm, 3), cy=round(cy_norm, 3),
+            area_ratio=round(float(ratio), 4),
+            cx=round(float(cx_norm), 3), cy=round(float(cy_norm), 3),
             region=_region_of(cy_norm),
-            clock_angle=round(ang, 1),
+            clock_angle=round(float(ang), 1),
             side=_side_of(ang),
-            solidity=round(solidity, 3),
-            elongation=round(elong, 2),
-            circularity=round(circularity, 3),
+            solidity=round(float(solidity), 3),
+            elongation=round(float(elong), 2),
+            circularity=round(float(circularity), 3),
             hint=_shape_hint(solidity, elong, circularity, ratio),
-            bbox=[x, y, w, h],
+            bbox=[int(x), int(y), int(w), int(h)],
             crop_b64=crop_b64,
         )
         # Sıralama skoru: büyük + ağza yakın olan yoruma daha çok konu olur
@@ -302,7 +308,7 @@ def extract_blobs(img: np.ndarray, binary: np.ndarray, cup_bbox: list[int],
 
     cand.sort(key=lambda t: -t[0])
     blobs = [b for _, b in cand[:MAX_BLOBS]]
-    coverage = min(1.0, total_ink / cup_area)
+    coverage = float(min(1.0, total_ink / cup_area))
     return blobs, coverage
 
 

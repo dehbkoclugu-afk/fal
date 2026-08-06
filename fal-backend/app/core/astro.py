@@ -69,6 +69,24 @@ ASPECTS: list[tuple[str, float, float, str]] = [
 ]
 HARD_ASPECTS = {"conjunction", "square", "opposition"}
 
+# --------------------------------------------- blok kütüphanesinin kelime dağarcığı
+#
+# condition_keys() ve blocks.all_condition_keys() AYNI listelerden türer.
+# Ayrışırlarsa ücretsiz kullanıcının günlük yorumu sessizce boş çıkar: üretilen
+# anahtarın kütüphanede karşılığı olmaz, fetch_blocks boş döner, compose_free
+# {"source": "empty"} verir. Hata hiçbir yerde patlamaz, sadece içerik kaybolur.
+#
+# Dış gezegenler (Uranüs/Neptün/Plüton) ve ay düğümü kasıtlı olarak DIŞARIDA:
+# burçtaki konumları kuşaksaldır (aynı yıl doğan herkeste aynı), yani
+# kişiselleştirme değeri yok — ama kütüphane maliyetini 3-4 katına çıkarırlar.
+BLOCK_PLANETS = ["sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn"]
+BLOCK_ASPECT_KINDS = ["conjunction", "square", "trine", "opposition", "sextile"]
+RETRO_PLANETS = ["mercury", "venus", "mars", "jupiter", "saturn"]
+MOON_PHASE_KEYS = [
+    "new_moon", "waxing_crescent", "first_quarter", "waxing_gibbous",
+    "full_moon", "waning_gibbous", "last_quarter", "waning_crescent",
+]
+
 # Burç yöneticileri (geleneksel + modern karışık, ürün tonuna göre değiştir)
 RULERS = {
     "aries": "mars", "taurus": "venus", "gemini": "mercury", "cancer": "moon",
@@ -424,16 +442,19 @@ def condition_keys(chart: Chart) -> list[str]:
     keys: list[str] = []
     asc_sign = SIGN_KEYS[int(chart.ascendant // 30)]
     keys.append(f"asc_{asc_sign}")
-    for k in ("sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn"):
+    for k in BLOCK_PLANETS:
         if k in chart.bodies:
             b = chart.bodies[k]
             keys.append(f"{k}_{b.sign}")
             if b.house:
                 keys.append(f"{k}_h{b.house}")
-            if b.retrograde:
+            if b.retrograde and k in RETRO_PLANETS:
                 keys.append(f"{k}_retro")
     for a in chart.aspects[:8]:
-        if a.strength > 0.6:
+        # Dağarcık dışındaki açılar (dış gezegenler, düğüm, chiron, quincunx)
+        # atlanır — kütüphanede karşılıkları yok.
+        if (a.strength > 0.6 and a.kind in BLOCK_ASPECT_KINDS
+                and a.a in BLOCK_PLANETS and a.b in BLOCK_PLANETS):
             pair = "_".join(sorted([a.a, a.b]))
             keys.append(f"asp_{pair}_{a.kind}")
     dom_el = max(chart.element_balance, key=chart.element_balance.get)

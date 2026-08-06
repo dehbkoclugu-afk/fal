@@ -127,7 +127,7 @@ async def generate_reading(db, user_id: str, reading_id: str, kind: str,
         if not chart:
             raise ReadingRejected("no_birth_data", "Doğum bilgilerini tamamlaman gerekiyor.")
         user_msg = prompts.natal_prompt(chart.llm_context(), user_ctx,
-                                        inputs.get("focus", "genel"))
+                                        inputs.get("focus", "genel"), memory)
         extra = {"chart": chart.to_dict()}
 
     elif kind == "daily":
@@ -140,9 +140,13 @@ async def generate_reading(db, user_id: str, reading_id: str, kind: str,
         # Ücretsiz kullanıcı → hibrit blok üretimi (5x daha ucuz)
         if tier == "free":
             keys = astro.condition_keys(chart)
+            # g["note"] burada da geçmek ZORUNDA: ücretsiz günlük yol
+            # kullanıcıların çoğunluğunun geçtiği yol ve guardrail'in yumuşak
+            # kısıtı (sağlık/hukuk/şiddet) buradan düşerse hiçbir yerde
+            # uygulanmamış olur.
             out = await blocks.compose_free(
                 db, user_id, user_ctx, keys, user.get("locale") or "tr",
-                day_bucket, transits=trs)
+                day_bucket, transits=trs, extra_note=g.get("note"))
             return await _finalize(db, user_id, reading_id, kind,
                                    _normalize_hybrid(out), {"transits": trs},
                                    cost=out.get("_cost", 0.0), tier=tier)
@@ -161,7 +165,8 @@ async def generate_reading(db, user_id: str, reading_id: str, kind: str,
         """SELECT embedding FROM readings
            WHERE user_id=$1 AND status='done' AND embedding IS NOT NULL
            ORDER BY created_at DESC LIMIT 10""", user_id)
-    recent_vecs = [list(r["embedding"]) for r in recent]
+    # pgvector codec ndarray[float32] döner; cosine() saf float listesiyle çalışır.
+    recent_vecs = [[float(x) for x in r["embedding"]] for r in recent]
 
     max_tokens = 2400 if tier == "paid" else 900
     total_cost = 0.0
