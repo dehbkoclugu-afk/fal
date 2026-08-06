@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import re
 import time
@@ -24,6 +25,8 @@ from dataclasses import dataclass
 from typing import Any
 
 import httpx
+
+log = logging.getLogger(__name__)
 
 BASE_URL = os.getenv("LLM_BASE_URL", "https://api.anthropic.com/v1/messages")
 API_KEY = os.getenv("LLM_API_KEY", "")
@@ -199,7 +202,14 @@ async def label_symbols(blobs: list[Any], lexicon: list[str],
             if res.data and isinstance(res.data.get("labels"), list):
                 b.symbols = [s for s in res.data["labels"]
                              if isinstance(s, dict) and s.get("confidence", 0) >= 0.35]
-        except Exception:
+            else:
+                # Sessizce boş bırakma: sembol etiketleme çökerse kahve falı
+                # geometri ipuçlarına düşer ve hiçbir yerde iz kalmaz.
+                # Kalibrasyon sırasında bu satır olmadan sorunu göremezsin.
+                log.warning("sembol etiketleme boş döndü (blob=%s, hint=%s)",
+                            b.id, b.hint)
+        except Exception as e:      # noqa: BLE001
+            log.warning("sembol etiketleme hatası (blob=%s): %s", b.id, e)
             b.symbols = []
 
     await asyncio.gather(*(one(b) for b in blobs[:max_blobs]))

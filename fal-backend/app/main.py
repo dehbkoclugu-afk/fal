@@ -274,7 +274,10 @@ async def get_reading(rid: str, user=Depends(get_user)):
     if not row:
         raise HTTPException(404, "Bulunamadı.")
     d = dict(row)
-    if d["status"] != "done":
+    # Metin SADECE ritüel sürerken gizlenir. 'blocked' durumunda output_json
+    # kriz destek mesajını taşır — onu da gizlemek, guardrail'in tek işini
+    # (kullanıcıya gerçek yönlendirmeyi ulaştırmak) boşa çıkarır.
+    if d["status"] in ("queued", "running"):
         elapsed = (datetime.now(timezone.utc) - d["created_at"]).total_seconds()
         d["progress"] = min(0.95, elapsed / max(1, d["eta_seconds"]))
         d.pop("output_json", None)

@@ -285,6 +285,38 @@ async def test_biten_fal_metni_donuyor(client, db, anon):
     assert "gorunur" in d["output_json"]
 
 
+async def test_kriz_mesaji_kullaniciya_ulasiyor(client, db, anon):
+    """Regresyon: 'done' değilse output_json'ı gizleme kuralı, kriz akışının
+    destek mesajını da gizliyordu. Guardrail'in tek işi o mesajı ulaştırmak;
+    gizlenirse kullanıcı boş bir ekran görür."""
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    rid = str(uuid.uuid4())
+    await db.execute(
+        """INSERT INTO readings (id,user_id,kind,status,block_reason,output_json)
+           VALUES ($1,$2,'tarot','blocked','crisis',
+                   '{"ozet":"112 acil yardım, 183 Sosyal Destek Hattı"}')""",
+        rid, uid)
+
+    d = (await client.get(f"/v1/readings/{rid}", headers=H(anon))).json()
+    assert d["status"] == "blocked"
+    assert d["block_reason"] == "crisis"
+    assert d["output_json"], "kriz destek mesajı gizlenmiş"
+    assert "183" in str(d["output_json"])
+
+
+async def test_basarisiz_falin_sebebi_donuyor(client, db, anon):
+    """Fotoğraf reddedildiğinde mobil 'tekrar çek' akışını gösterebilmeli."""
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    rid = str(uuid.uuid4())
+    await db.execute(
+        """INSERT INTO readings (id,user_id,kind,status,block_reason)
+           VALUES ($1,$2,'coffee','failed','blurry')""", rid, uid)
+    d = (await client.get(f"/v1/readings/{rid}", headers=H(anon))).json()
+    assert d["status"] == "failed" and d["block_reason"] == "blurry"
+
+
 async def test_gecmis_sadece_biten_fallari_veriyor(client, db, anon):
     await client.put("/v1/profile", json=PROFIL, headers=H(anon))
     uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
