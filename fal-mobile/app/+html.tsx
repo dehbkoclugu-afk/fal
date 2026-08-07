@@ -70,6 +70,20 @@ export default function Root({ children }: PropsWithChildren) {
 const ARKAPLAN = `
 html, body { background-color: #16100E; }
 body { overscroll-behavior-y: none; }
+
+/* Tarayıcının varsayılan odak halkası beyaz bir dikdörtgen çiziyor ve
+   girdi alanlarının alt-çizgi tasarımını bozuyor. Kaldırmıyoruz —
+   klavyeyle gezinen kullanıcı odağı görmek zorunda — paletin bakır
+   rengine çeviriyoruz. */
+input:focus, textarea:focus, select:focus { outline: none; }
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 2px solid #C87942;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Metin seçimi de varsayılan mavi yerine palet içinde kalsın. */
+::selection { background: #C8794255; color: #EFE7DA; }
 `;
 
 // Service worker'ı yalnızca üretimde ve güvenli bağlamda kaydet.
