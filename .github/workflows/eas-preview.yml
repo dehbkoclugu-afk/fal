@@ -45,7 +45,21 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx --yes eas-cli@21.6.0 init --force --non-interactive
 
-      - name: Android preview APK build başlat
+      - name: Android preview APK oluştur
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: npx --yes eas-cli@21.6.0 build --platform android --profile preview --non-interactive --no-wait
+        run: |
+          set -o pipefail
+          log="$RUNNER_TEMP/eas-build.log"
+          npx --yes eas-cli@21.6.0 build --platform android --profile preview --non-interactive 2>&1 | tee "$log"
+
+          apk_url="$(grep -Eo 'https://expo\.dev/artifacts/eas/[^[:space:]]+' "$log" | tail -1 || true)"
+          {
+            echo "## Telve Android Preview"
+            echo
+            if [ -n "$apk_url" ]; then
+              echo "✅ APK hazır: [$apk_url]($apk_url)"
+            else
+              echo "✅ EAS build tamamlandı. APK bağlantısı bu adımın EAS çıktısında."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
