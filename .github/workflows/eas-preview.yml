@@ -1,4 +1,6 @@
-name: EAS Preview APK
+# Meditasyon reposundaki çalışan APK yolu: Expo prebuild + yerel Gradle.
+# EAS/Expo token gerektirmez. Çıktı GitHub Actions'ta "telve-apk" artifact'i olur.
+name: Android Preview APK
 
 on:
   workflow_dispatch:
@@ -11,18 +13,19 @@ permissions:
   contents: read
 
 concurrency:
-  group: eas-preview-apk
+  group: android-preview-apk
   cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     env:
-      # Farklı repolarda kullanılan yaygın EAS/Expo secret adlarını destekle.
-      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN || secrets.EAS_TOKEN || secrets.EAS_ACCESS_TOKEN || secrets.EXPO_ACCESS_TOKEN }}
+      EXPO_PUBLIC_API_URL: https://api-staging.telve.app
     defaults:
       run:
         working-directory: fal-mobile
+
     steps:
       - uses: actions/checkout@v4
 
@@ -32,31 +35,44 @@ jobs:
           cache: npm
           cache-dependency-path: fal-mobile/package-lock.json
 
-      - run: npm ci
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
 
-      - name: EAS token kontrolü
+      - name: Disk temizliği
         run: |
-          if [ -z "$EXPO_TOKEN" ]; then
-            echo "::error::EAS/Expo GitHub Actions secret bulunamadı (EXPO_TOKEN, EAS_TOKEN, EAS_ACCESS_TOKEN veya EXPO_ACCESS_TOKEN)."
-            exit 1
-          fi
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/lib/node_modules
+          df -h /
 
-      - name: EAS projesini bağla
-        run: npx --yes eas-cli@21.6.0 init --force --non-interactive
+      - name: Bağımlılıkları kur
+        run: npm ci
 
-      - name: Android preview APK oluştur
+      - name: Android projesini üret
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Mimarileri daralt
         run: |
-          set -o pipefail
-          log="$RUNNER_TEMP/eas-build.log"
-          npx --yes eas-cli@21.6.0 build --platform android --profile preview --non-interactive 2>&1 | tee "$log"
+          sed -i 's/^reactNativeArchitectures=.*/reactNativeArchitectures=arm64-v8a,x86_64/' android/gradle.properties
+          grep reactNativeArchitectures android/gradle.properties
 
-          apk_url="$(grep -Eo 'https://expo\.dev/artifacts/eas/[^[:space:]]+' "$log" | tail -1 || true)"
+      - name: Preview APK derle
+        run: cd android && ./gradlew assembleRelease --no-daemon
+
+      - name: APK'yı yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: telve-apk
+          path: fal-mobile/android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Özet
+        run: |
           {
             echo "## Telve Android Preview"
             echo
-            if [ -n "$apk_url" ]; then
-              echo "✅ APK hazır: [$apk_url]($apk_url)"
-            else
-              echo "✅ EAS build tamamlandı. APK bağlantısı bu adımın EAS çıktısında."
-            fi
+            echo "✅ APK derlendi ve **telve-apk** artifact'i olarak yüklendi."
+            echo
+            echo "[Actions çalışmasını aç](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
           } >> "$GITHUB_STEP_SUMMARY"
