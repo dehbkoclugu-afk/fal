@@ -23,7 +23,7 @@ import { api } from '@/lib/api';
 import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
-import { t } from '@/lib/i18n';
+import { t, tarih } from '@/lib/i18n';
 
 // Fiyatlar sunucudan (/v1/me → prices) geliyor; buradakiler sadece sunucu
 // yanıtı gelmeden önceki gösterim. Sabit fiyat yazmak, fiyat değiştiğinde
@@ -44,6 +44,11 @@ export default function Home() {
 
   const { data: me } = useQuery({ queryKey: ['me'], queryFn: api.me });
   const { data: acc } = useQuery({ queryKey: ['accuracy'], queryFn: api.accuracy });
+
+  // Geçmiş fallar. Sunucu ucu ve istemci fonksiyonu vardı ama hiçbir ekran
+  // çağırmıyordu: kullanıcı jeton ödeyip ürettiği yorumu bir kez okuyup bir
+  // daha ulaşamıyordu. Burada son üçü, tamamı /gecmis ekranında.
+  const { data: gecmis } = useQuery({ queryKey: ['history'], queryFn: () => api.history(10) });
 
   // Günün yorumu: history(1) son YAPILAN falı döndürüyor — geçen haftaki
   // kahve falı da olabilir. "Bugün" kartı gerçekten bugüne ait olmalı,
@@ -156,7 +161,27 @@ export default function Home() {
         })}
       </View>
 
-      {/* 4. İsabet özeti — defter kaydına köprü */}
+      {/* 4. Geçmiş fallar — üretilen içerik erişilebilir kalsın */}
+      {!!gecmis?.length && (
+        <>
+          <Pressable style={styles.gecmisBaslik} onPress={() => router.push('/gecmis')}>
+            <Eyebrow style={styles.sectionLabelSatir}>{t('ana.gecmis')}</Eyebrow>
+            <Text style={styles.scoreArrow}>{t('ana.gecmisOk')}</Text>
+          </Pressable>
+          {gecmis.slice(0, 3).map((r) => (
+            <Pressable
+              key={r.id}
+              onPress={() => router.push(`/reading/${r.id}`)}
+              style={({ pressed }) => [styles.gecmisSatir, pressed && styles.gecmisBasili]}
+            >
+              <Text style={styles.gecmisOzet} numberOfLines={1}>{r.ozet}</Text>
+              <Text style={styles.gecmisTarih}>{tarih(r.created_at)}</Text>
+            </Pressable>
+          ))}
+        </>
+      )}
+
+      {/* 5. İsabet özeti — defter kaydına köprü */}
       {acc?.overall?.score != null && (
         <Pressable style={styles.scoreRow} onPress={() => router.push('/(tabs)/journal')}>
           <TelveRing size={44} value={(acc.overall.score ?? 0) / 100} mode="ledger" breathing={false} />
@@ -213,6 +238,25 @@ const styles = StyleSheet.create({
   cupText: { ...type.oracle, color: color.porselen, textAlign: 'center', fontSize: 15, lineHeight: 24 },
 
   sectionLabel: { ...type.eyebrow, color: color.kulKoyu, marginTop: space.xxl, marginBottom: space.md },
+  sectionLabelSatir: { ...type.eyebrow, color: color.kulKoyu },
+  gecmisBaslik: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: space.xxl,
+    marginBottom: space.sm,
+  },
+  gecmisSatir: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    paddingVertical: space.md,
+    borderBottomWidth: 1,
+    borderBottomColor: color.cizgi,
+  },
+  gecmisBasili: { backgroundColor: color.cezve },
+  gecmisOzet: { ...type.oracle, color: color.kul, flex: 1, fontSize: 15 },
+  gecmisTarih: { ...type.data, color: color.kulKoyu, fontSize: 11 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },
   tile: {
     width: '47.5%',

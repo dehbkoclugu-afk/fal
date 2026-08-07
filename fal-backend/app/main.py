@@ -457,9 +457,21 @@ async def get_reading(rid: str, user=Depends(get_user)):
 
 @app.get("/v1/readings")
 async def history(limit: int = 20, user=Depends(get_user)):
+    """Geçmiş fallar — arşiv ekranını besliyor.
+
+    GÜNLÜK YORUM HARİÇ. Günlük her gün otomatik üretiliyor; listeye
+    katılırsa bir ay sonra arşivde 30 günlük kayıt ve aralarında kaybolmuş
+    3-5 ritüel oluyor. Kullanıcının geri dönmek istediği şey jeton ödeyip
+    ürettiği fal; günlük zaten ana ekranda "bugün" kartında ve tanımı gereği
+    ertesi gün bayat.
+
+    Yalnızca 'done': üretimi yarıda kalmış veya kriz nedeniyle durdurulmuş
+    kayıtlar arşivde yer almamalı.
+    """
     rows = await state["db"].fetch(
         """SELECT id, kind, status, output_json->>'ozet' AS ozet, created_at
-           FROM readings WHERE user_id=$1 AND status='done'
+           FROM readings
+           WHERE user_id=$1 AND status='done' AND kind <> 'daily'
            ORDER BY created_at DESC LIMIT $2""", user["id"], min(limit, 50))
     return [dict(r) for r in rows]
 

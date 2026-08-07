@@ -144,6 +144,8 @@ export const tr = {
   'ana.isabetOranin': 'isabet oranın',
   'ana.isabetOzet': '%{score} · {total} tahmin',
   'ana.defterOk': 'defter →',
+  'ana.gecmis': 'geçmiş fallarım',
+  'ana.gecmisOk': 'hepsi →',
   'ana.seri': '{n} gündür buradasın',
   'ana.seriOdul': ' · jeton kazandın',
 
@@ -239,6 +241,14 @@ export const tr = {
   'sonuc.okuyamadim': 'Fincanı okuyamadım',
   'sonuc.okuyamadimAciklama':
     'Fotoğrafı yukarıdan, fincanın içi net görünecek şekilde tekrar çekelim. Jetonun geri yüklendi.',
+
+  // --- geçmiş fallar
+  'gecmis.eyebrow': 'geçmiş fallarım',
+  'gecmis.bos': 'Henüz fal bakmadın.',
+  'gecmis.bosMetin':
+    'Baktığın her fal burada kalıyor; istediğin zaman geri dönüp okuyabilirsin.',
+  'gecmis.ilkFal': 'İlk falına bak',
+  'gecmis.getirilemedi': 'Geçmişini getiremedim. Bağlantını kontrol edip tekrar dene.',
 
   // --- kader günlüğü
   'gunluk.eyebrow': 'kader günlüğü',

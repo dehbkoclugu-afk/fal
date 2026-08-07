@@ -1141,3 +1141,78 @@ async def test_silinen_kullanici_yeniden_hediye_almiyor(client, db, anon):
     toplam = await db.fetchval(
         "SELECT count(*) FROM coin_ledger WHERE reason='signup'")
     assert toplam == 1 if yeni_uid is None else toplam <= 2
+
+
+# ------------------------------------------------------------- geçmiş fallar
+
+async def _fal_yaz(db, uid, kind, ozet, gun_once=0, status="done"):
+    return await db.fetchval(
+        """INSERT INTO readings (user_id, kind, status, output_json, created_at)
+           VALUES ($1,$2,$3,$4, now() - ($5 || ' days')::interval)
+           RETURNING id""",
+        uid, kind, status, {"ozet": ozet}, str(gun_once))
+
+
+async def test_gecmis_uretilen_fallari_donuyor(client, db, anon):
+    """Regresyon zemini: bu uç ve istemcideki api.history() yazılmıştı ama
+    hiçbir ekran çağırmıyordu — kullanıcı jeton ödeyip ürettiği yorumu bir
+    kez okuyup bir daha ulaşamıyordu."""
+    await client.get("/v1/me", headers=H(anon))
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    await _fal_yaz(db, uid, "coffee", "Fincanında bir kapı var", 2)
+    await _fal_yaz(db, uid, "tarot", "Kartlar bekleme diyor", 1)
+
+    r = await client.get("/v1/readings", headers=H(anon))
+    assert r.status_code == 200
+    d = r.json()
+    assert len(d) == 2
+    assert [x["kind"] for x in d] == ["tarot", "coffee"]     # yeniden eskiye
+    assert d[0]["ozet"] == "Kartlar bekleme diyor"
+
+
+async def test_gecmis_gunluk_yorumu_gostermiyor(client, db, anon):
+    """Günlük her gün otomatik üretiliyor; listeye katılırsa bir ay sonra
+    arşivde 30 günlük kayıt ve aralarında kaybolmuş birkaç ritüel oluyor."""
+    await client.get("/v1/me", headers=H(anon))
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    for g in range(10):
+        await _fal_yaz(db, uid, "daily", f"{g}. günün yorumu", g)
+    await _fal_yaz(db, uid, "coffee", "Fincanında bir kapı var", 3)
+
+    d = (await client.get("/v1/readings", headers=H(anon))).json()
+    assert [x["kind"] for x in d] == ["coffee"], "günlük yorum arşivi dolduruyor"
+
+
+async def test_gecmis_tamamlanmamis_fali_gostermiyor(client, db, anon):
+    """Yarıda kalmış veya kriz nedeniyle durdurulmuş kayıt arşivde
+    görünmemeli — kullanıcı boş bir karta dokunmuş olur."""
+    await client.get("/v1/me", headers=H(anon))
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    for durum in ("queued", "running", "failed", "blocked"):
+        await _fal_yaz(db, uid, "tarot", "yarım", 1, status=durum)
+    await _fal_yaz(db, uid, "tarot", "tamam", 1)
+
+    d = (await client.get("/v1/readings", headers=H(anon))).json()
+    assert [x["ozet"] for x in d] == ["tamam"]
+
+
+async def test_gecmis_baskasinin_fallarini_gostermiyor(client, db, anon):
+    await client.get("/v1/me", headers=H(anon))
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    await _fal_yaz(db, uid, "coffee", "benim falım", 1)
+
+    baskasi = str(uuid.uuid4())
+    await client.get("/v1/me", headers=H(baskasi))
+    d = (await client.get("/v1/readings", headers=H(baskasi))).json()
+    assert d == []
+
+
+async def test_gecmis_limiti_sinirli(client, db, anon):
+    """İstemci istediği sayıyı gönderiyor; sınırsız sorgu açık bırakılmamalı."""
+    await client.get("/v1/me", headers=H(anon))
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    for i in range(60):
+        await _fal_yaz(db, uid, "tarot", f"fal {i}", i)
+
+    d = (await client.get("/v1/readings?limit=500", headers=H(anon))).json()
+    assert len(d) == 50
