@@ -121,9 +121,9 @@ cp .env.example .env    # LLM_API_KEY'i doldur
 # Ephemeris dosyaları (opsiyonel, ~30 MB — koymazsan Moshier kullanılır, ürün için yeterli)
 # sepl_18.se1 ve semo_18.se1 dosyalarını bir klasöre koy, SWE_EPHE_PATH'e yaz
 
-# Blok kütüphanesini doldur — parça parça, maliyeti izleyerek
-python -m scripts.seed_blocks --limit 50
-python -m scripts.seed_blocks --limit 50   # ~6 tur, toplam ~300 anahtar
+# Blok kütüphanesini doldur (tek seferlik, ~302 anahtar, 15-40 $)
+python -m scripts.seed_blocks --dry-run    # önce ne yapılacağını gör
+python -m scripts.seed_blocks              # eşzamanlı, kaldığı yerden devam eder
 
 # Çalıştır
 uvicorn app.main:app --reload --port 8000
@@ -138,6 +138,7 @@ rq worker readings &
 0  * * * * cd /srv/fal && .venv/bin/python -c "from app.workers.tasks import send_daily_push; send_daily_push()"
 0 12 * * * cd /srv/fal && .venv/bin/python -c "from app.workers.tasks import ask_verdicts; ask_verdicts()"
 0  4 * * * cd /srv/fal && .venv/bin/python -c "from app.workers.tasks import purge_assets; purge_assets()"
+30 4 * * * cd /srv/fal && .venv/bin/python -c "from app.workers.tasks import purge_deleted_users; purge_deleted_users()"
 0  5 * * * cd /srv/fal && .venv/bin/python -c "from app.workers.tasks import winback; winback()"
 ```
 
@@ -263,6 +264,10 @@ reddedilenleri elle gözden geçir. Bir öğleden sonra sürer, ürün kalitesin
 
 Bunlar "sonra ekleyeceğim" listesine giremez, çünkü mimariyi belirliyorlar:
 
+- **Silme talebi KALICI.** `DELETE /v1/me` kaydı işaretliyor ve anon_id'yi
+  serbest bırakıyor; `purge_deleted_users` gece işi 24 saat sonra satırı
+  gerçekten siliyor ve cascade ile doğum verisi, fal geçmişi, tahminler ve
+  hafıza da gidiyor. Bu iş çalışmazsa "sildim" demiş ama saklamış olursun.
 - **Ham fotoğraf saklanmıyor.** Redis'te 24 saat TTL, sonra silinir (`purge_assets`).
   Kalıcı olarak sadece çıkarım (`overlay`, sembol listesi) tutuluyor.
 - **El falı / yüz falı yok.** Avuç içi ve yüz görüntüsü KVKK m.6 kapsamında özel

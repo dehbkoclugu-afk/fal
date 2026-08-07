@@ -266,3 +266,46 @@ class _Sarmal:
 
     async def close(self):
         return None
+
+
+# ------------------------------------------------------------- KVKK kalıcı silme
+
+async def test_silinen_kullanici_kalici_siliniyor(db, monkeypatch):
+    """DELETE /v1/me yalnızca işaretliyordu; bu iş yazılmadan kullanıcının
+    doğum verisi, fal geçmişi ve tahminleri veritabanında süresiz kalıyordu.
+    "Sildim" deyip saklamak silme talebini karşılamamak demek."""
+    uid = await _kullanici(db)
+    await db.execute(
+        """INSERT INTO birth_profiles (user_id, is_primary, birth_date, lat, lon)
+           VALUES ($1,true,$2,41.0,29.0)""", uid, date(1993, 6, 14))
+    rid = str(uuid.uuid4())
+    await db.execute("INSERT INTO readings (id,user_id,kind,status) "
+                     "VALUES ($1,$2,'daily','done')", rid, uid)
+    await db.execute(
+        """INSERT INTO predictions (reading_id,user_id,topic,claim,
+                                    window_start,window_end)
+           VALUES ($1,$2,'ask','x', now(), now())""", rid, uid)
+    await db.execute(
+        "UPDATE users SET deleted_at = now() - interval '2 days' WHERE id=$1", uid)
+    monkeypatch.setattr(tasks, "connect", lambda: _ayni(db))
+
+    n = await tasks._purge_deleted_users(24)
+    assert n == 1
+    # Cascade her şeyi götürmeli — arkada kişisel veri kalmamalı
+    for tablo in ("users", "birth_profiles", "readings", "predictions"):
+        assert await db.fetchval(f"SELECT count(*) FROM {tablo}") == 0, tablo
+
+
+async def test_bekleme_suresi_dolmadan_silinmiyor(db, monkeypatch):
+    uid = await _kullanici(db)
+    await db.execute("UPDATE users SET deleted_at = now() WHERE id=$1", uid)
+    monkeypatch.setattr(tasks, "connect", lambda: _ayni(db))
+    assert await tasks._purge_deleted_users(24) == 0
+    assert await db.fetchval("SELECT count(*) FROM users") == 1
+
+
+async def test_aktif_kullanici_silinmiyor(db, monkeypatch):
+    await _kullanici(db)
+    monkeypatch.setattr(tasks, "connect", lambda: _ayni(db))
+    assert await tasks._purge_deleted_users(0) == 0
+    assert await db.fetchval("SELECT count(*) FROM users") == 1

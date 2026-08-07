@@ -8,12 +8,14 @@ Cron planı (bootstrap için yeterli, ayrı scheduler servisine gerek yok):
   12:00  ask_verdicts        — penceresi kapanan tahminler için doğrulama push'u
   04:00  purge_assets        — 24 saati geçen fincan fotoğraflarını sil (KVKK)
   05:00  winback             — iptal etmiş kullanıcılara teklif
+  04:30  purge_deleted_users — KVKK silme talebini kalıcı hale getir
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -27,6 +29,8 @@ from ..core.pipeline import (CrisisIntercept, ReadingRejected, extract_memory,
                              generate_reading, _chart_from_row)
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+
+log = logging.getLogger(__name__)
 
 
 def _run(coro):
@@ -324,6 +328,41 @@ async def _winback(limit: int):
 
 
 # ------------------------------------------------------- fotoğraf silme (KVKK)
+
+def purge_deleted_users(grace_hours: int = 24):
+    return _run(_purge_deleted_users(grace_hours))
+
+
+async def _purge_deleted_users(grace_hours: int):
+    """KVKK silme talebini KALICI hale getirir.
+
+    DELETE /v1/me yalnızca `deleted_at` işaretliyor ve anon_id'yi serbest
+    bırakıyordu; bu iş yazılmadığı sürece kullanıcının doğum verisi, fal
+    geçmişi, tahminleri ve hafızası veritabanında süresiz kalıyordu.
+    "Sildim" deyip saklamak, silme talebini karşılamamak demek.
+
+    Kısa bekleme (varsayılan 24 saat) yanlışlıkla silme talebi için değil —
+    anon_id zaten serbest bırakıldığı için kullanıcı geri dönemez — operasyon
+    için: aynı gün içinde fark edilen bir hata (yanlış toplu güncelleme gibi)
+    yedekten dönmeden düzeltilebilsin.
+
+    users satırı silinince şema ON DELETE CASCADE ile birth_profiles,
+    natal_charts, readings, predictions, memories, coin_ledger, entitlements,
+    push_log, transits_queue kayıtlarını da götürüyor.
+    """
+    db = await connect()
+    try:
+        silinen = await db.fetch(
+            f"""DELETE FROM users
+                WHERE deleted_at IS NOT NULL
+                  AND deleted_at < now() - interval '{int(grace_hours)} hours'
+                RETURNING id""")
+        if silinen:
+            log.info("KVKK: %d kullanıcı kalıcı silindi", len(silinen))
+        return len(silinen)
+    finally:
+        await db.close()
+
 
 def purge_assets():
     return _run(_purge_assets())
