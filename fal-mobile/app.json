@@ -60,7 +60,7 @@
     "web": {
       "bundler": "metro",
       "favicon": "./assets/favicon.png",
-      "output": "single"
+      "output": "static"
     },
     "icon": "./assets/icon.png"
   }

@@ -46,6 +46,7 @@ Mobil:
 ```bash
 cd fal-mobile && npm install
 EXPO_PUBLIC_API_URL=http://10.0.2.2:8000 npx expo start   # Android emülatör
+npm run build:web                                          # kurulabilir PWA
 ```
 
 Testler:
@@ -68,11 +69,12 @@ TEST_DATABASE_URL=postgresql://localhost/fal_test python -m pytest   # tamamı
 | Tahmin doğrulama + isabet paneli + takip yorumu | ✓ uçtan uca |
 | Transit bildirimleri (gece tarama → kişisel push) | ✓ zincir bağlı, **OneSignal anahtarıyla denenmedi** |
 | Seri (streak), winback, KVKK kalıcı silme | ✓ |
-| Jeton ekonomisi + ödüllü reklam yolu | ✓ backend tam; reklam SDK paketi eklenecek |
+| Jeton + 3 abonelik katmanı (kotalı) + ödüllü reklam yolu | ✓ backend tam; reklam SDK paketi eklenecek |
 | Mobil: onboarding → harita → ritüeller → defter | ✓ tarayıcıda gerçek backend'e karşı çalıştırıldı |
+| Web PWA (kurulabilir, çevrimdışı kabuk) | ✓ tarayıcıda doğrulandı — Apple beklerken ikinci kanal |
 | RevenueCat / paylaşım kartı / kamera | ✓ yazıldı, **cihazda denenmedi** |
 
-Test: **198 test** (`fal-backend/tests`) + üç uçtan uca senaryo (ana akış,
+Test: **212 test** (`fal-backend/tests`) + üç uçtan uca senaryo (ana akış,
 zincirler, hata yolları).
 
 ### Sırada ne var
@@ -93,7 +95,7 @@ zincirler, hata yolları).
 ### Hâlâ yok
 
 Rüya yorumu · sesli anlatım · çift modu · sinastri · Arapça · insan falcı
-pazaryeri · web2app hunisi · semantic cache · el falı ve yüz falı (biyometrik
+pazaryeri · web2app hunisi (Stripe) · web push · semantic cache · el falı ve yüz falı (biyometrik
 veri riski nedeniyle bilerek dışarıda).
 
 ## Uyarı

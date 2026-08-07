@@ -161,6 +161,33 @@ Hepsi `null` iken uygulama çalışıyor; ilgili özellik sessizce kapalı kalı
 | `posthogKey` | Onboarding hunisi ve retention ölçümü |
 | `maxSdkKey`, `maxAndroidRewardedUnit` | Ödüllü reklam — jeton kazanma yolu |
 
+## 6a. Web (PWA)
+
+```bash
+npm run build:web          # dist-web/ — statik, kurulabilir PWA
+```
+
+Kurulabilirlik kriterleri tarayıcıda doğrulandı: manifest, 192/512 + maskable
+ikonlar, theme-color, apple-touch-icon, service worker, çevrimdışı kabuk,
+derin bağlantı (`/onboarding/name` doğrudan açılıyor).
+
+**`web.output` "static"**: her route ayrı HTML üretiyor. Sebep tek değil —
+(1) `app/+html.tsx` yalnızca statik render'da kullanılıyor, PWA etiketleri
+oradan geliyor; (2) derin bağlantılar sunucu yapılandırması gerektirmeden
+çalışıyor; (3) SEO için zemin hazır oluyor.
+
+**Yayınlarken:** `dist-web/` herhangi bir statik hosta (Cloudflare Pages,
+Netlify, Vercel) konur. Host'un uzantısız yolları `.html` dosyasına eşlemesi
+gerekiyor — üçü de varsayılan olarak yapıyor.
+
+**`npm run build:web` kullan, düz `expo export` değil.** Statik render boş
+bir `<title>` basıyor ve HTML'de ilk title geçerli olduğu için sekme ve
+paylaşılan link önizlemesi boş görünüyor; `scripts/postexport.mjs` bunu
+temizliyor.
+
+Kamera web'de çalışıyor (getUserMedia), yani kahve falı ritüeli PWA'da da
+tam. Bildirimler çalışmıyor — web push ayrı bir iş.
+
 ## 6b. Derleme (EAS)
 
 ```bash
