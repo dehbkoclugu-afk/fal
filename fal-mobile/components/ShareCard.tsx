@@ -25,16 +25,28 @@ import { t } from '@/lib/i18n';
 type Props = {
   line: string;
   symbol?: string;
-  kind: 'coffee' | 'tarot' | 'natal' | 'daily';
+  kind: string;
   photoUri?: string;
 };
 
-const BASLIK: Record<Props['kind'], string> = {
-  coffee: t('sonuc.kahveFali'),
-  tarot: t('tarot.eyebrow'),
-  natal: t('natal.eyebrow'),
-  daily: t('paylas.gununYorumu'),
-};
+// Anahtar tutuluyor, metin render anında üretiliyor: modül gövdesindeki t()
+// dili içe aktarma anında dondurur.
+//
+// `kind` gevşek tiplenmiş ve bilinmeyen değer için karşılığı var: rüya
+// ritüeli eklendiğinde bu eşleme güncellenmemişti ve paylaşım görselinin
+// başlığı BOŞ çıkıyordu. Sunucu yeni bir ritüel türü gönderdiğinde görsel
+// başlıksız kalmasın.
+const BASLIK_ANAHTAR = {
+  coffee: 'sonuc.kahveFali',
+  tarot: 'tarot.eyebrow',
+  natal: 'natal.eyebrow',
+  dream: 'sonuc.ruya',
+  daily: 'paylas.gununYorumu',
+} as const;
+
+const baslik = (k: string) =>
+  t(k in BASLIK_ANAHTAR ? BASLIK_ANAHTAR[k as keyof typeof BASLIK_ANAHTAR]
+                        : 'sonuc.yorum');
 
 export function ShareCard({ line, symbol, kind, photoUri }: Props) {
   const cardRef = useRef<View>(null);
@@ -80,7 +92,7 @@ export function ShareCard({ line, symbol, kind, photoUri }: Props) {
         )}
 
         <View style={styles.body}>
-          <Eyebrow style={styles.eyebrow}>{BASLIK[kind]}</Eyebrow>
+          <Eyebrow style={styles.eyebrow}>{baslik(kind)}</Eyebrow>
           <Text style={styles.line} numberOfLines={4}>
             {line}
           </Text>

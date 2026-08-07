@@ -19,8 +19,15 @@ değişmeli — özellikle Veri Güvenliği (Data Safety) formu.
 | 2 | Yasal sayfaları `telve.app` alan adında yayınla, tarayıcıda aç ve doğrula | ⬜ |
 | 3 | Bir avukata gizlilik politikası ve kullanım koşullarını inceletin | ⬜ |
 | 4 | `app.json` içindeki `extra` anahtarlarını doldur (RevenueCat, PostHog, MAX) | ⬜ |
-| 5 | `versionCode`'u artır | ⬜ |
-| 6 | `npm run release:check` | ⬜ |
+| 5 | `npm run yetenek:check` — hangi özelliğin kapalı olduğunu gör, bilerek karar ver | ⬜ |
+| 6 | `versionCode`'u artır | ⬜ |
+| 7 | `npm run release:check` | ⬜ |
+
+**`yetenek:check` neyi yakalıyor:** bu projede birkaç özellik iki yere birden
+bağlı — `app.json`'daki anahtar ve `package.json`'daki paket. Biri eksikse
+özellik sessizce kapalı kalıyor; sarmalayıcı hatayı yutuyor ve arayüz butonu
+hiç göstermiyor. En sinsi hâli anahtarın dolu, paketin eksik olması:
+yapılandırmaya bakan herkes "açık" sanıyor, kullanıcı özelliği hiç görmüyor.
 
 Doldurulacak yer tutucular:
 
@@ -57,15 +64,25 @@ Play'in kendi kategori adlarıyla. **Toplanan** = sunucumuza gidiyor,
 | Kullanıcı kimlikleri (User IDs) | Evet | Evet² | Zorunlu | Uygulama işlevi, analitik |
 | Fotoğraflar | **Evet** | **Evet¹** | İsteğe bağlı³ | Uygulama işlevi |
 | Diğer kullanıcı içeriği (soru ve rüya metni) | Evet | Evet¹ | İsteğe bağlı | Uygulama işlevi |
-| Cihaz/diğer kimlikler | Evet | Evet⁴ | İsteğe bağlı | Reklam, analitik |
-| Uygulama etkileşimleri | Evet | Evet⁵ | İsteğe bağlı | Analitik |
-| Satın alma geçmişi | Evet | Evet⁶ | Zorunlu | Uygulama işlevi |
+| Cihaz/diğer kimlikler | Reklam açıksa⁴ | Reklam açıksa⁴ | İsteğe bağlı | Reklam |
+| Uygulama etkileşimleri | Analitik açıksa⁵ | Analitik açıksa⁵ | İsteğe bağlı | Analitik |
+| Satın alma geçmişi | Abonelik açıksa⁶ | Abonelik açıksa⁶ | Zorunlu | Uygulama işlevi |
 | Konum | **Hayır** | Hayır | — | Cihaz konumu HİÇ okunmuyor; doğum yeri kullanıcının elle seçtiği şehir |
 | Kişiler, takvim, SMS, dosyalar | **Hayır** | Hayır | — | Toplanmıyor |
 | Sağlık ve fitness | **Hayır** | Hayır | — | Toplanmıyor |
 
-¹ Anthropic (yorum üretimi) · ² PostHog, RevenueCat · ³ Yalnızca kahve falı
-ritüelini kullanırsan · ⁴ AppLovin MAX · ⁵ PostHog · ⁶ RevenueCat, Google Play
+¹ Anthropic (yorum üretimi) · ² RevenueCat, PostHog — açıksa · ³ Yalnızca
+kahve falı ritüelini kullanırsan · ⁴ AppLovin MAX · ⁵ PostHog · ⁶ RevenueCat,
+Google Play
+
+> **Son üç satır YAPILANDIRMAYA BAĞLI ve şu anda üçü de KAPALI.** Reklam SDK'sı
+> bağımlılıklarda yok; PostHog ve RevenueCat anahtarları boş. Bu hâliyle
+> yayına çıkarsan üçünü de **"Hayır"** olarak beyan etmelisin — toplanmayan
+> veriyi beyan etmek de yanlış beyan.
+>
+> `npm run yetenek:check` hangisinin açık olduğunu söylüyor. Formu doldurmadan
+> önce çalıştır ve çıktısına göre işaretle; bu tablo neyin mümkün olduğunu
+> anlatıyor, neyin açık olduğunu değil.
 
 **Doğum tarihi/saati/yeri:** Play'de bunun için ayrı bir kategori yok.
 "Diğer kişisel bilgiler" (Other personal info) altında beyan et; amacı
@@ -145,12 +162,18 @@ Kayıt yok: e-posta, şifre, telefon istemiyoruz. Fincan fotoğrafın kalıcı
 olarak saklanmıyor, yorum üretilir üretilmez siliniyor. Verilerini tek bir
 dokunuşla, uygulama içinden kalıcı olarak sildirebiliyorsun.
 
-Ücretsiz kullanabilirsin. Jetonla ritüel açabilir, reklam izleyerek jeton
-kazanabilir veya abone olabilirsin.
+Ücretsiz başlıyorsun: uygulamayı açtığında ilk falını bakmaya yetecek jetonun
+hazır. Sonrasında tahminlerini değerlendirerek jeton kazanabilir veya abone
+olabilirsin.
 
 Uygulamadaki tüm yorumlar eğlence amaçlıdır. Tıbbi, hukuki veya finansal
 tavsiye yerine geçmez. 18 yaş ve üzeri içindir.
 ```
+
+> Açıklamadaki her cümle uygulamada karşılığı olduğu için böyle yazıldı.
+> Reklamdan jeton kazanma cümlesi ÇIKARILDI: reklam SDK'sı şu anda derlemede
+> yok, yani mağazada var denen bir şey uygulamada bulunmuyor olurdu. Reklamı
+> açtığında bu cümleyi geri ekleyebilirsin.
 
 **Kategori:** Yaşam Tarzı
 **Etiketler:** fal, kahve falı, astroloji, doğum haritası, tarot, rüya yorumu
@@ -223,11 +246,29 @@ ekranından kullanım koşullarına bağlantı var.
 
 ## 6. Reklamlar
 
+> **Şu anda reklam YOK.** `react-native-applovin-max` bağımlılıklarda değil
+> ve `maxSdkKey` boş; sarmalayıcı SDK'yı bulamayınca jeton kapısındaki
+> "reklam izle" butonu hiç görünmüyor. Bu hâliyle Play Console'da
+> **"Hayır, reklam içermiyor"** işaretlenmeli — olmayan reklamı beyan etmek
+> de yanlış beyan.
+>
+> Reklamı açmak istediğinde: `npx expo install react-native-applovin-max`,
+> `app.json` → `extra.maxSdkKey` ve rewarded unit kimliklerini doldur,
+> `npm run yetenek:check` yeşile dönsün, sonra bu bölümü ve Play Console
+> ayarını güncelle. `yetenek:check` anahtar dolu / paket eksik durumunu
+> hata olarak yakalıyor.
+
+Reklam açıldığındaki tasarım:
+
 - Yalnızca **ödüllü video**; kullanıcı izlemeyi kendisi seçiyor.
 - Açılışta, geçişte veya banner reklam **yok**.
-- Play Console → Uygulama içeriği → Reklamlar: **"Evet, reklam içeriyor"**.
 - Ödül jetonunu **sunucu** veriyor (`POST /v1/coins/reward`, günde 5 tavan).
   İstemci "izledim" deyip jeton basamıyor.
+
+**Reklam kapalıyken jeton nereden geliyor:** açılış hediyesi (5), doğrulanan
+her tahmin (+1) ve seri ödülleri (7/30/100. gün). Açılış hediyesi bu döngüyü
+başlatabilmek için var — onsuz kullanıcı ilk falı bakamıyor, tahmin
+üretilmiyor ve doğrulama ödülü hiç kazanılamıyordu.
 
 ---
 

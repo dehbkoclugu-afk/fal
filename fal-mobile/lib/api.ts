@@ -84,7 +84,7 @@ export type CupMarker = {
 
 export type Reading = {
   id: string;
-  kind: 'coffee' | 'tarot' | 'natal' | 'daily';
+  kind: 'coffee' | 'tarot' | 'natal' | 'dream' | 'daily';
   status: 'queued' | 'running' | 'done' | 'failed' | 'blocked';
   block_reason?: string | null;
   output_json?: ReadingOutput | null;
