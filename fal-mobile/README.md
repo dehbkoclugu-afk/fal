@@ -165,7 +165,15 @@ Hepsi `null` iken uygulama çalışıyor; ilgili özellik sessizce kapalı kalı
 
 ```bash
 npm run build:web          # dist-web/ — statik, kurulabilir PWA
+npm run build:web:local    # yerel API'ye bakan build (tarayıcıda test için)
 ```
+
+**`EXPO_PUBLIC_*` değiştiyse `--clear` şart.** Bu değerler derleme anında
+koda gömülüyor ve Metro'nun önbellek anahtarı ortam değişkenlerini
+içermiyor: dosya değişmediyse eski değerle gömülmüş modül aynen yeniden
+kullanılıyor. Sonuç, sessizce yanlış API adresine bakan bir build — hata
+vermiyor, sadece istekler başka yere gidiyor. `build:web:local` bu yüzden
+`--clear` taşıyor.
 
 Kurulabilirlik kriterleri tarayıcıda doğrulandı: manifest, 192/512 + maskable
 ikonlar, theme-color, apple-touch-icon, service worker, çevrimdışı kabuk,

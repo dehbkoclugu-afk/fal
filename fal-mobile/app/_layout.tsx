@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -13,6 +13,9 @@ import {
 } from '@expo-google-fonts/newsreader';
 import { Karla_400Regular, Karla_500Medium, Karla_700Bold } from '@expo-google-fonts/karla';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { dilSec, uygulaYon } from '@/lib/i18n';
 import { hydrateDraft, useDraft } from '@/lib/store';
 import {
   JetBrainsMono_400Regular,
@@ -39,6 +42,19 @@ export default function RootLayout() {
     JetBrainsMono_500Medium,
   });
 
+  // Dili açılışta bir kez belirle. RTL (Arapça) düzen yönünü değiştiriyor ve
+  // native'de bu ancak yeniden başlatmayla uygulanıyor — o yüzden render
+  // başlamadan önce yapılmak zorunda.
+  const [dilHazir, setDilHazir] = useState(false);
+  useEffect(() => {
+    (async () => {
+      const kayitli = await AsyncStorage.getItem('dil');
+      const d = dilSec(kayitli ?? undefined);
+      uygulaYon(d.rtl);
+      setDilHazir(true);
+    })();
+  }, []);
+
   // Kalıcı taslağı depodan oku. Splash yazı tipleriyle birlikte bunu da
   // bekliyor: okunmadan yönlendirme yapılırsa mevcut kullanıcı bir kare
   // boyunca onboarding'e düşer.
@@ -51,7 +67,7 @@ export default function RootLayout() {
     if (ready && hydrated) SplashScreen.hideAsync();
   }, [ready, hydrated]);
 
-  if (!ready || !hydrated) return null;
+  if (!ready || !hydrated || !dilHazir) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: color.telve }}>

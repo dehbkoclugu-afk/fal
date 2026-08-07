@@ -21,6 +21,7 @@ import { Eyebrow } from '@/components/Eyebrow';
 import { api } from '@/lib/api';
 import * as ads from '@/lib/ads';
 import { color, radius, space, type } from '@/lib/theme';
+import { t } from '@/lib/i18n';
 
 type Props = {
   /** Ritüel türü — fiyat ve bakiye sunucudan okunuyor. */
@@ -54,18 +55,18 @@ export function CoinGate({ kind }: Props) {
     }
     setNot(
       r.reason === 'cap'
-        ? 'Bugünlük ödül hakkın doldu. Yarın devam edelim.'
+        ? t('kapi.odulBitti')
         : r.reason === 'not_loaded'
-          ? 'Reklam henüz hazır değil, birazdan tekrar dene.'
+          ? t('kapi.reklamHazirDegil')
           : r.reason === 'dismissed'
-            ? 'Video tamamlanmadı.'
-            : 'Şu an reklam gösteremiyorum.',
+            ? t('kapi.videoTamamlanmadi')
+            : t('kapi.reklamGosterilemiyor'),
     );
   };
 
   return (
     <View style={styles.kutu}>
-      <Eyebrow style={styles.baslik}>jeton gerekiyor</Eyebrow>
+      <Eyebrow style={styles.baslik}>{t('kapi.baslik')}</Eyebrow>
       <Text style={styles.metin}>
         Bu ritüel {gerekli} jeton. Şu an {mevcut} jetonun var.
       </Text>
@@ -73,14 +74,14 @@ export function CoinGate({ kind }: Props) {
       {reklamVar && (
         <Pressable onPress={izle} disabled={busy} style={styles.birincil}>
           <Text style={styles.birincilText}>
-            {busy ? 'reklam yükleniyor…' : 'Reklam izle · +1 jeton'}
+            {busy ? t('kapi.reklamYukleniyor') : t('kapi.reklamIzle')}
           </Text>
         </Pressable>
       )}
 
       <Pressable onPress={() => router.push('/onboarding/paywall')}>
         <Text style={styles.ikincil}>
-          {reklamVar ? 'veya sınırsız kullan' : 'Sınırsız kullan'}
+          {reklamVar ? t('kapi.veyaSinirsiz') : t('kapi.sinirsizKullan')}
         </Text>
       </Pressable>
 

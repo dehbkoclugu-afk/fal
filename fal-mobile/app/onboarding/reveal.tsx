@@ -22,6 +22,7 @@ import { api, ApiError, type Teaser } from '@/lib/api';
 import { useDraft } from '@/lib/store';
 import { color, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
 export default function Reveal() {
   const router = useRouter();
@@ -63,9 +64,9 @@ export default function Reveal() {
 
   const rows = teaser
     ? [
-        { key: 'Yükselen', value: teaser.yukselen, note: 'dışa dönük yüzün' },
-        { key: 'Güneş', value: teaser.gunes, note: 'özün' },
-        { key: 'Ay', value: teaser.ay, note: 'duygun' },
+        { key: t('ob.reveal.yukselen'), value: teaser.yukselen, note: t('ob.reveal.yukselenNot') },
+        { key: t('ob.reveal.gunes'), value: teaser.gunes, note: t('ob.reveal.gunesNot') },
+        { key: 'Ay', value: teaser.ay, note: t('ob.reveal.ayNot') },
       ]
     : [];
 
@@ -77,7 +78,7 @@ export default function Reveal() {
           {teaser ? (
             <Eyebrow style={styles.phase}>{teaser.ay_fazi}</Eyebrow>
           ) : (
-            <Text style={styles.calc}>haritan{'\n'}çiziliyor</Text>
+            <Text style={styles.calc}>{t('ob.reveal.hesaplaniyor')}</Text>
           )}
         </View>
       </View>
@@ -85,7 +86,7 @@ export default function Reveal() {
       {error ? (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>{error}</Text>
-          <Button label="Tekrar dene" variant="ghost" onPress={() => router.replace('/onboarding/reveal')} />
+          <Button label={t('ortak.tekrarDeneButon')} variant="ghost" onPress={() => router.replace('/onboarding/reveal')} />
         </View>
       ) : (
         <>
@@ -112,7 +113,7 @@ export default function Reveal() {
                 </Text>
               )}
               <Button
-                label="Devam et"
+                label={t('ortak.devam')}
                 onPress={() => router.push('/onboarding/about-you')}
                 style={{ marginTop: space.lg }}
               />

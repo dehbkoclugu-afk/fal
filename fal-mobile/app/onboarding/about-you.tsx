@@ -7,9 +7,10 @@ import { Screen } from '@/components/Screen';
 import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
-const STATUSES = ['ilişkim yok', 'ilişkim var', 'evli', 'karışık'];
-const FOCUS = ['aşk', 'para', 'kariyer', 'aile', 'kendim'];
+const STATUSES = [t('ob.tani.iliskiYok'), t('ob.tani.iliskiVar'), t('ob.tani.evli'), t('ob.tani.karisik')];
+const FOCUS = [t('konu.ask'), t('konu.para'), 'kariyer', t('konu.aile'), t('konu.kendim')];
 
 export default function AboutYou() {
   const router = useRouter();
@@ -19,17 +20,17 @@ export default function AboutYou() {
 
   return (
     <Screen scroll>
-      <Eyebrow style={styles.eyebrow}>Seni tanıyorum</Eyebrow>
-      <Text style={styles.q}>Şu an nerede duruyorsun?</Text>
+      <Eyebrow style={styles.eyebrow}>{t('ob.tani.eyebrow')}</Eyebrow>
+      <Text style={styles.q}>{t('ob.tani.soru')}</Text>
 
-      <Eyebrow style={styles.label}>İlişki durumu</Eyebrow>
+      <Eyebrow style={styles.label}>{t('ob.tani.iliskiDurumu')}</Eyebrow>
       <View style={styles.chips}>
         {STATUSES.map((s) => (
           <Chip key={s} label={s} on={status === s} onPress={() => setStatus(s)} />
         ))}
       </View>
 
-      <Eyebrow style={styles.label}>En çok neyi merak ediyorsun?</Eyebrow>
+      <Eyebrow style={styles.label}>{t('ob.tani.merak')}</Eyebrow>
       <View style={styles.chips}>
         {FOCUS.map((f) => (
           <Chip key={f} label={f} on={focus === f} onPress={() => setFocus(f)} />
@@ -37,7 +38,7 @@ export default function AboutYou() {
       </View>
 
       <Button
-        label="Devam et"
+        label={t('ortak.devam')}
         disabled={!status || !focus}
         style={{ marginTop: space.xxl }}
         onPress={() => {

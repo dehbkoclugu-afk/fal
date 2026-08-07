@@ -887,3 +887,50 @@ async def test_kota_kullanimi_gunluk_tavani_etkilemiyor(client, db, anon):
     d = (await client.get("/v1/me", headers=H(anon))).json()
     assert d["coins"] == 100
     assert d["daily_spend_left"] == 25
+
+
+# --------------------------------------------------------------------- dil
+
+async def test_desteklenmeyen_dil_422_donuyor(client, anon):
+    """Sessizce kabul edilirse guardrail varsayılana düşer ve kullanıcı
+    YANLIŞ DİLDE kriz kaynağı görür — sınırda reddetmek doğrusu."""
+    r = await client.put("/v1/profile", json={**PROFIL, "locale": "klingon"},
+                         headers=H(anon))
+    assert r.status_code == 422
+    d = r.json()["detail"]
+    assert d["code"] == "unsupported_locale"
+    assert "tr" in d["supported"]
+
+
+async def test_kapali_dil_de_reddediliyor(client, anon):
+    """Kayıtlı ama enabled=False bir dil seçilemez: altyapı hazır olsa da
+    içerik (blok kütüphanesi, tarot korpusu) yoksa kullanıcı boş yorum alır."""
+    from app.core import locales
+
+    kapali = [l.code for l in locales.all_locales() if not l.enabled]
+    if not kapali:
+        pytest.skip("kapalı dil yok")
+    r = await client.put("/v1/profile", json={**PROFIL, "locale": kapali[0]},
+                         headers=H(anon))
+    assert r.status_code == 422
+
+
+async def test_dil_kaydediliyor_ve_me_uzerinden_donuyor(client, anon):
+    r = await client.put("/v1/profile", json={**PROFIL, "locale": "tr-TR"},
+                         headers=H(anon))
+    assert r.status_code == 200
+
+    me = (await client.get("/v1/me", headers=H(anon))).json()
+    assert me["locale"] == "tr"          # normalize edilmiş hâli
+    assert me["rtl"] is False
+    kodlar = [d["code"] for d in me["supported_locales"]]
+    assert "tr" in kodlar
+    # dil seçici bunu gösteriyor: kendi dilindeki adı olmadan liste işe yaramaz
+    assert all(d["name"] for d in me["supported_locales"])
+
+
+async def test_dil_verilmezse_profil_kabul_ediliyor(client, anon):
+    """locale isteğe bağlı: eski istemciler alanı hiç göndermiyor."""
+    r = await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    assert r.status_code == 200
+    assert (await client.get("/v1/me", headers=H(anon))).json()["locale"] == "tr"

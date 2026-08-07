@@ -10,6 +10,7 @@ import * as purchases from '@/lib/purchases';
 import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
 /**
  * Onboarding paywall'ı.
@@ -29,15 +30,15 @@ import { Eyebrow } from '@/components/Eyebrow';
 const VARYANT = 'soft_yillik_one_v1';
 
 const YEDEK_PLANLAR = [
-  { key: 'yearly', title: 'Yıllık', price: '—', per: 'yılda', badge: 'en avantajlı' },
-  { key: 'monthly', title: 'Aylık', price: '—', per: 'ayda', badge: null },
+  { key: 'yearly', title: t('ob.paywall.yillik'), price: '—', per: t('ob.paywall.yildaBir'), badge: t('ob.paywall.enAvantajli') },
+  { key: 'monthly', title: t('ob.paywall.aylik'), price: '—', per: t('ob.paywall.aydaBir'), badge: null },
 ];
 
 function planBasligi(period: string | null): { title: string; per: string } {
-  if (period === 'P1Y') return { title: 'Yıllık', per: 'yılda' };
-  if (period === 'P1M') return { title: 'Aylık', per: 'ayda' };
-  if (period === 'P1W') return { title: 'Haftalık', per: 'haftada' };
-  return { title: 'Abonelik', per: '' };
+  if (period === 'P1Y') return { title: t('ob.paywall.yillik'), per: t('ob.paywall.yildaBir') };
+  if (period === 'P1M') return { title: t('ob.paywall.aylik'), per: t('ob.paywall.aydaBir') };
+  if (period === 'P1W') return { title: t('ob.paywall.haftalik'), per: t('ob.paywall.haftadaBir') };
+  return { title: t('ob.paywall.abonelik'), per: '' };
 }
 
 // Kapsam katmana göre değişiyor. Tek bir liste gösterip her plana
@@ -45,16 +46,16 @@ function planBasligi(period: string | null): { title: string; per: string } {
 // Yanlış vaat bu kategoride iade dalgası ve 1 yıldız yorum demek — mağaza
 // kuralı da abonelik kapsamının açıkça yazılmasını istiyor.
 const ORTAK = [
-  'Gerçek doğum haritası çözümü',
-  'Kişisel transit uyarıları',
-  'Reklamsız',
+  t('ob.paywall.natal'),
+  t('ob.paywall.transit'),
+  t('ob.paywall.reklamsiz'),
 ];
 
 /** Plan anahtarından kapsam satırlarını türetir. */
 function kapsam(key: string): string[] {
   const yillik = /year|yil|yıl|annual/i.test(key);
   const ust = yillik || /fate|kader|unlimited/i.test(key);
-  return [ust ? 'Sınırsız kahve falı ve tarot' : 'Ayda 10 fal (kahve, tarot, harita)',
+  return [ust ? t('ob.paywall.sinirsizFal') : t('ob.paywall.aylik10'),
           ...ORTAK];
 }
 
@@ -83,7 +84,7 @@ export default function Paywall() {
           title,
           per,
           price: x.priceString,
-          badge: x.period === 'P1Y' ? 'en avantajlı' : null,
+          badge: x.period === 'P1Y' ? t('ob.paywall.enAvantajli') : null,
         };
       });
       setPlans(list);
@@ -128,20 +129,18 @@ export default function Paywall() {
       finish();
       router.replace('/(tabs)');
     } else {
-      setError('Geri yüklenecek bir abonelik bulamadım.');
+      setError(t('ob.paywall.geriYuklenemedi'));
     }
   };
 
   return (
     <Screen scroll>
-      <Pressable onPress={skip} style={styles.close} accessibilityRole="button" accessibilityLabel="Kapat">
-        <Text style={styles.closeText}>kapat</Text>
+      <Pressable onPress={skip} style={styles.close} accessibilityRole="button" accessibilityLabel={t('ortak.kapatEtiket')}>
+        <Text style={styles.closeText}>{t('ortak.kapat')}</Text>
       </Pressable>
 
-      <Text style={styles.title}>Falın hazır</Text>
-      <Text style={styles.sub}>
-        Ücretsiz kullanmaya devam edebilirsin. Abone olursan bekleme ve jeton sınırı kalkar.
-      </Text>
+      <Text style={styles.title}>{t('ob.paywall.baslik')}</Text>
+      <Text style={styles.sub}>{t('ob.paywall.altBaslik')}</Text>
 
       <View style={styles.list}>
         {kapsam(plan).map((i) => (
@@ -168,7 +167,7 @@ export default function Paywall() {
         })}
       </View>
 
-      <Button label="Abone ol" loading={busy} onPress={go} style={{ marginTop: space.lg }} />
+      <Button label={t('ob.paywall.aboneOl')} loading={busy} onPress={go} style={{ marginTop: space.lg }} />
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <Text style={styles.terms}>
@@ -179,10 +178,10 @@ export default function Paywall() {
 
       <View style={styles.footerLinks}>
         <Pressable onPress={skip}>
-          <Text style={styles.free}>Ücretsiz devam et</Text>
+          <Text style={styles.free}>{t('ob.paywall.ucretsizDevam')}</Text>
         </Pressable>
         <Pressable onPress={restore}>
-          <Text style={styles.free}>Satın alımı geri yükle</Text>
+          <Text style={styles.free}>{t('ob.paywall.geriYukle')}</Text>
         </Pressable>
       </View>
     </Screen>

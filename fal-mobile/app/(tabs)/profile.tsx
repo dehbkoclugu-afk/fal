@@ -9,6 +9,7 @@ import { resetAnonId } from '@/lib/anon';
 import { useDraft } from '@/lib/store';
 import { color, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
 const GIZLILIK_URL = 'https://telve.app/gizlilik';
 
@@ -23,12 +24,12 @@ export default function Profile() {
 
   const rows = [
     { k: 'ad', v: me?.first_name ?? draft.firstName ?? '—' },
-    { k: 'doğum', v: draft.birthDate ?? '—' },
-    { k: 'saat', v: draft.timeKnown ? draft.birthTime ?? '—' : 'bilinmiyor' },
-    { k: 'yer', v: draft.placeName ?? '—' },
-    { k: 'ton', v: me?.tone ?? draft.tone },
-    { k: 'jeton', v: me?.entitlement ? 'sınırsız' : String(me?.coins ?? 0) },
-    { k: 'seri', v: `${me?.streak?.count ?? 0} gün` },
+    { k: t('profil.dogum'), v: draft.birthDate ?? '—' },
+    { k: t('profil.saat'), v: draft.timeKnown ? draft.birthTime ?? '—' : t('profil.bilinmiyor') },
+    { k: t('profil.yer'), v: draft.placeName ?? '—' },
+    { k: t('profil.ton'), v: me?.tone ?? draft.tone },
+    { k: t('profil.jetonSatir'), v: me?.entitlement ? t('ana.sinirsiz') : String(me?.coins ?? 0) },
+    { k: t('profil.seri'), v: t('profil.seriGun', { n: me?.streak?.count ?? 0 }) },
   ];
 
   /**
@@ -41,13 +42,12 @@ export default function Profile() {
    */
   const sil = () => {
     Alert.alert(
-      'Verilerin silinsin mi?',
-      'Doğum bilgilerin, fal geçmişin ve tahmin defterin kalıcı olarak silinir. ' +
-        'Bu işlem geri alınamaz.',
+      t('profil.silOnayBaslik'),
+      t('profil.silOnayMetin'),
       [
-        { text: 'Vazgeç', style: 'cancel' },
+        { text: t('ortak.vazgec'), style: 'cancel' },
         {
-          text: 'Sil',
+          text: t('profil.sil'),
           style: 'destructive',
           onPress: async () => {
             setBusy(true);
@@ -58,7 +58,7 @@ export default function Profile() {
               qc.clear();
               router.replace('/onboarding/name');
             } catch {
-              Alert.alert('Silinemedi', 'Bağlantını kontrol edip tekrar dener misin?');
+              Alert.alert(t('profil.silinemedi'), t('ortak.baglantiHatasi'));
             } finally {
               setBusy(false);
             }
@@ -70,7 +70,7 @@ export default function Profile() {
 
   return (
     <Screen scroll>
-      <Eyebrow style={styles.eyebrow}>profil</Eyebrow>
+      <Eyebrow style={styles.eyebrow}>{t('profil.eyebrow')}</Eyebrow>
 
       <View style={styles.table}>
         {rows.map((r) => (
@@ -83,8 +83,8 @@ export default function Profile() {
 
       {/* Hesap bağlama: değer gösterildikten SONRA öneriliyor, onboarding'de değil */}
       <Pressable style={styles.link}>
-        <Text style={styles.linkText}>Google ile hesabımı bağla</Text>
-        <Text style={styles.linkNote}>Telefonunu değiştirdiğinde geçmişin kaybolmaz.</Text>
+        <Text style={styles.linkText}>{t('profil.googleBagla')}</Text>
+        <Text style={styles.linkNote}>{t('profil.googleBaglaNot')}</Text>
       </Pressable>
 
       <View style={styles.legal}>
@@ -94,11 +94,11 @@ export default function Profile() {
         </Text>
         <Pressable onPress={sil} disabled={busy}>
           <Text style={[styles.legalLink, { color: color.kiremit }]}>
-            {busy ? 'siliniyor…' : 'Verilerimi sil'}
+            {busy ? t('profil.siliniyor') : t('profil.verileriSil')}
           </Text>
         </Pressable>
         <Pressable onPress={() => Linking.openURL(GIZLILIK_URL)}>
-          <Text style={styles.legalLink}>Gizlilik politikası</Text>
+          <Text style={styles.legalLink}>{t('profil.gizlilik')}</Text>
         </Pressable>
       </View>
     </Screen>

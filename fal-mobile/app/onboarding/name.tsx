@@ -7,6 +7,7 @@ import { Screen } from '@/components/Screen';
 import { useDraft } from '@/lib/store';
 import { color, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
 /** İlk kanca: isim. Kişiselleşme burada başlıyor, kayıt ekranı yok. */
 export default function Name() {
@@ -16,16 +17,14 @@ export default function Name() {
 
   return (
     <Screen>
-      <Eyebrow style={styles.eyebrow}>Başlarken</Eyebrow>
-      <Text style={styles.q}>Sana ne diyeyim?</Text>
-      <Text style={styles.sub}>
-        Yorumlarda adını kullanacağım. Soyadına, e-postaya, şifreye gerek yok.
-      </Text>
+      <Eyebrow style={styles.eyebrow}>{t('ob.isim.eyebrow')}</Eyebrow>
+      <Text style={styles.q}>{t('ob.isim.soru')}</Text>
+      <Text style={styles.sub}>{t('ob.isim.aciklama')}</Text>
 
       <TextInput
         value={value}
         onChangeText={setValue}
-        placeholder="adın"
+        placeholder={t('ob.isim.placeholder')}
         placeholderTextColor={color.kulKoyu}
         autoFocus
         autoCapitalize="words"
@@ -37,7 +36,7 @@ export default function Name() {
 
       <View style={styles.spacer} />
       <Button
-        label="Devam et"
+        label={t('ortak.devam')}
         disabled={value.trim().length < 2}
         onPress={() => {
           set({ firstName: value.trim() });

@@ -23,12 +23,13 @@ import { api } from '@/lib/api';
 import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
 const WAITING_LINES = [
-  'fincan çevriliyor',
-  'telve yerleşiyor',
-  'kenarlara bakılıyor',
-  'dibe iniliyor',
+  t('sonuc.bekleme1'),
+  t('sonuc.bekleme2'),
+  t('sonuc.bekleme3'),
+  t('sonuc.bekleme4'),
 ];
 
 export default function ReadingScreen() {
@@ -51,8 +52,8 @@ export default function ReadingScreen() {
   if (isError) {
     return (
       <Screen>
-        <Text style={styles.err}>Falı getiremedim. Bağlantını kontrol edip tekrar dene.</Text>
-        <Button label="Geri dön" variant="ghost" onPress={() => router.back()} />
+        <Text style={styles.err}>{t('sonuc.getirilemedi')}</Text>
+        <Button label={t('ortak.geriDon')} variant="ghost" onPress={() => router.back()} />
       </Screen>
     );
   }
@@ -65,11 +66,9 @@ export default function ReadingScreen() {
       <Screen style={styles.waitRoot}>
         <TelveRing size={280} value={Math.max(0.06, p)} mode="ritual" />
         <Text style={styles.waitLine}>{line}</Text>
-        <Text style={styles.waitNote}>
-          Hazır olduğunda haber vereceğim. Uygulamayı kapatabilirsin.
-        </Text>
+        <Text style={styles.waitNote}>{t('sonuc.beklemeNot')}</Text>
         <Pressable onPress={() => router.replace('/(tabs)')} style={{ marginTop: space.xl }}>
-          <Text style={styles.waitLink}>ana ekrana dön</Text>
+          <Text style={styles.waitLink}>{t('ortak.anaEkranKucuk')}</Text>
         </Pressable>
       </Screen>
     );
@@ -79,21 +78,21 @@ export default function ReadingScreen() {
   if (data.status === 'blocked') {
     return (
       <Screen scroll>
-        <Text style={styles.careTitle}>Bir dakika duralım</Text>
+        <Text style={styles.careTitle}>{t('sonuc.krizBaslik')}</Text>
         <Text style={styles.careBody}>{data.output_json?.ozet ?? ''}</Text>
 
         <View style={styles.helpBox}>
           <Pressable onPress={() => Linking.openURL('tel:112')} style={styles.helpRow}>
             <Text style={styles.helpNum}>112</Text>
-            <Text style={styles.helpLabel}>acil yardım</Text>
+            <Text style={styles.helpLabel}>{t('sonuc.acilYardim')}</Text>
           </Pressable>
           <Pressable onPress={() => Linking.openURL('tel:183')} style={styles.helpRow}>
             <Text style={styles.helpNum}>183</Text>
-            <Text style={styles.helpLabel}>sosyal destek hattı, 7/24</Text>
+            <Text style={styles.helpLabel}>{t('sonuc.destekHatti')}</Text>
           </Pressable>
         </View>
 
-        <Button label="Ana ekrana dön" variant="ghost" onPress={() => router.replace('/(tabs)')} />
+        <Button label={t('ortak.anaEkran')} variant="ghost" onPress={() => router.replace('/(tabs)')} />
       </Screen>
     );
   }
@@ -102,14 +101,14 @@ export default function ReadingScreen() {
   if (data.status === 'failed') {
     return (
       <Screen>
-        <Eyebrow style={styles.eyebrow}>Olmadı</Eyebrow>
-        <Text style={styles.failTitle}>Fincanı okuyamadım</Text>
+        <Eyebrow style={styles.eyebrow}>{t('sonuc.olmadi')}</Eyebrow>
+        <Text style={styles.failTitle}>{t('sonuc.okuyamadim')}</Text>
         <Text style={styles.failBody}>
           Fotoğrafı yukarıdan, fincanın içi net görünecek şekilde tekrar çekelim.
           Jetonun geri yüklendi.
         </Text>
         <View style={{ flex: 1 }} />
-        <Button label="Yeniden çek" onPress={() => router.replace('/ritual/coffee')} />
+        <Button label={t('kahve.yenidenCek')} onPress={() => router.replace('/ritual/coffee')} />
       </Screen>
     );
   }
@@ -132,7 +131,7 @@ export default function ReadingScreen() {
   return (
     <Screen scroll>
       <Eyebrow style={styles.eyebrow}>
-        {data.kind === 'coffee' ? 'kahve falı' : data.kind === 'tarot' ? 'tarot' : 'yorum'}
+        {data.kind === 'coffee' ? t('sonuc.kahveFali') : data.kind === 'tarot' ? t('sonuc.tarot') : t('sonuc.yorum')}
       </Eyebrow>
 
       {data.kind === 'coffee' && cupPhoto && markers.length > 0 && q && (
@@ -159,7 +158,7 @@ export default function ReadingScreen() {
 
       {!!out.tavsiye && (
         <View style={styles.adviceBox}>
-          <Eyebrow style={styles.adviceLabel}>ne yapmalı</Eyebrow>
+          <Eyebrow style={styles.adviceLabel}>{t('sonuc.neYapmali')}</Eyebrow>
           <Text style={styles.advice}>{out.tavsiye}</Text>
         </View>
       )}
@@ -168,16 +167,14 @@ export default function ReadingScreen() {
           iddiaları görüyor. Ürünün ana farkının kullanıcıya göründüğü yer. */}
       {out.tahminler?.length > 0 && (
         <View style={styles.predBox}>
-          <Eyebrow style={styles.predLabel}>deftere yazıldı</Eyebrow>
+          <Eyebrow style={styles.predLabel}>{t('sonuc.defteryeYazildi')}</Eyebrow>
           {out.tahminler.map((t, i) => (
             <View key={i} style={styles.predRow}>
               <Text style={styles.predWindow}>{t.pencere_gun}g</Text>
               <Text style={styles.predClaim}>{t.iddia}</Text>
             </View>
           ))}
-          <Text style={styles.predNote}>
-            Süre dolunca sana soracağım: tuttu mu? Cevabın Kader Günlüğü'ne işlenecek.
-          </Text>
+          <Text style={styles.predNote}>{t('sonuc.tahminNotu')}</Text>
         </View>
       )}
 
@@ -191,7 +188,7 @@ export default function ReadingScreen() {
       />
 
       <Button
-        label="Kader Günlüğü'ne git"
+        label={t('sonuc.gunlugeGit')}
         variant="ghost"
         style={{ marginTop: space.xl }}
         onPress={() => router.replace('/(tabs)/journal')}

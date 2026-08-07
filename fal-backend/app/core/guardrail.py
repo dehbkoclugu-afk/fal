@@ -15,6 +15,7 @@ from __future__ import annotations
 import re
 from enum import Enum
 
+from . import locales
 from .textutil import fold
 
 
@@ -37,40 +38,15 @@ def _norm(t: str) -> str:
     return fold(t)
 
 
-# Kriz sinyalleri. Liste kasıtlı olarak geniş; yanlış pozitif maliyeti düşük
-# (kullanıcı yine destek mesajı görür), yanlış negatif maliyeti çok yüksek.
-CRISIS_PATTERNS = [
-    r"intihar", r"kendimi oldur", r"olmek istiyorum", r"yasamak istemiyorum",
-    r"canima kiy", r"kendime zarar", r"bitirmek istiyorum hayat",
-    r"hayatima son", r"artik dayanamiyorum", r"yok olmak istiyorum",
-    r"kimse beni sevmiyor.*(olmek|bitmek)", r"her sey bitsin",
-    r"ilaclari icsem", r"asiri doz",
-]
-
-VIOLENCE_PATTERNS = [
-    r"onu oldur", r"zarar verecegim", r"intikam alacagim.*(kan|oldur)",
-    r"bicakla", r"dovecegim",
-]
-
-MEDICAL_PATTERNS = [
-    r"kanser", r"tumor", r"biyopsi", r"kemoterapi", r"hamile miyim",
-    r"hastaligim.*(gecer mi|iyilesir mi)", r"ameliyat", r"kalp krizi",
-    r"olecek mi", r"tesh?is", r"depresyon ilac", r"antidepresan",
-]
-
-LEGAL_FINANCIAL_PATTERNS = [
-    r"davayi kazanir miyim", r"hapse girer miyim", r"icra", r"kredi ceker",
-    r"borsada.*(alsam|satsam)", r"kripto.*(alsam|yukselir mi)",
-    r"hangi hisseyi", r"velayeti alir miyim",
-]
-
-MINOR_SELF_PATTERNS = [
-    r"\b1[0-7] yasindayim\b", r"\b(on ?(bir|iki|uc|dort|bes|alti|yedi)) yasindayim\b",
-    r"ortaokul", r"\b(9|10|11|12)\. ?sinif", r"lise ?(1|2|3|birinci|ikinci)",
-]
+# Desenler artık app/core/locales.py içinde, dile göre tutuluyor.
+#
+# Sebebi güvenlik: desenler Türkçe olduğu sürece Arapça yazılmış bir kriz
+# mesajı filtreden geçiyordu ve kullanıcıya Türkiye'nin 112/183 numaraları
+# gösteriliyordu. Bir dilin kaydedilebilmesi için kriz kaynaklarını taşıması
+# ZORUNLU (bkz. locales.Locale).
 
 
-def _hit(patterns: list[str], text: str) -> str | None:
+def _hit(patterns, text: str) -> str | None:
     for p in patterns:
         if re.search(p, text):
             return p
@@ -99,51 +75,48 @@ SOFT_LIMIT_NOTES = {
 }
 
 
-def check(text: str, user_age: int | None = None) -> dict:
-    """Her fal isteğinde, üretimden ÖNCE çağrılır."""
+def check(text: str, user_age: int | None = None,
+          locale: str | None = None) -> dict:
+    """Her fal isteğinde, üretimden ÖNCE çağrılır.
+
+    locale: kullanıcının dili. Verilmezse varsayılana düşer — bilinmeyen bir
+    dil kodu yüzünden kriz kontrolünün ATLANMASI kabul edilemez.
+    """
+    loc = locales.resolve(locale)
     t = _norm(text or "")
 
-    if hit := _hit(CRISIS_PATTERNS, t):
+    if hit := _hit(loc.crisis_patterns, t):
         return {"action": Action.BLOCK_CRISIS, "category": "crisis",
-                "matched": hit, "reply": CRISIS_REPLY_TR, "note": None}
+                "matched": hit, "reply": loc.crisis_reply, "note": None,
+                "locale": loc.code}
 
     if user_age is not None and user_age < 18:
         return {"action": Action.BLOCK_MINOR, "category": "minor", "matched": "age",
-                "reply": ("Bu içerik 18 yaş ve üzeri kullanıcılar için. "
-                          "Sana uygun günlük burç bölümüne göz atabilirsin."),
-                "note": None}
-    if hit := _hit(MINOR_SELF_PATTERNS, t):
+                "reply": loc.minor_reply, "note": None, "locale": loc.code}
+    if hit := _hit(loc.minor_patterns, t):
         return {"action": Action.BLOCK_MINOR, "category": "minor", "matched": hit,
-                "reply": ("Yaşın nedeniyle ilişki ve kader yorumu üretmiyorum. "
-                          "Günlük burç ve genel içerikler açık."),
-                "note": None}
+                "reply": loc.minor_reply, "note": None, "locale": loc.code}
 
-    for cat, pats in (("violence", VIOLENCE_PATTERNS),
-                      ("medical", MEDICAL_PATTERNS),
-                      ("legal_financial", LEGAL_FINANCIAL_PATTERNS)):
+    for cat, pats in (("violence", loc.violence_patterns),
+                      ("medical", loc.medical_patterns),
+                      ("legal_financial", loc.legal_financial_patterns)):
         if hit := _hit(pats, t):
             return {"action": Action.SOFT_LIMIT, "category": cat, "matched": hit,
-                    "reply": None, "note": SOFT_LIMIT_NOTES[cat]}
+                    "reply": None, "note": loc.soft_limit_notes[cat],
+                    "locale": loc.code}
 
     return {"action": Action.ALLOW, "category": None, "matched": None,
-            "reply": None, "note": None}
+            "reply": None, "note": None, "locale": loc.code}
 
 
 # Üretilen METİN üzerinde son kontrol. LLM kuralları çiğnerse burada yakalanır.
-FORBIDDEN_OUTPUT = [
-    (r"\boleceks?in\b|\bolumun\b|\bolum tarihi\b", "ölüm kehaneti"),
-    (r"\bkanser\b|\btumor\b|\bhastalanacaks?in\b", "hastalık kehaneti"),
-    (r"\bhamilesin\b|\bhamile kalacaks?in\b", "hamilelik iddiası"),
-    (r"\bkesin olarak\b|\b%\s?\d{2,3}\s?(dogru|kesin)\b", "kesinlik iddiası"),
-    (r"\baldatiyor\b|\bseni aldatan\b", "üçüncü kişi suçlaması"),
-    (r"\b\d+\s?(bin|milyon)\s?(tl|lira|dolar)\b", "somut finansal tutar"),
-]
 
 
-def scan_output(text: str) -> list[str]:
+def scan_output(text: str, locale: str | None = None) -> list[str]:
     """Boş liste dönmüyorsa yorum yeniden üretilir (regenerate, kullanıcıya gösterilmez)."""
+    loc = locales.resolve(locale)
     t = _norm(text or "")
-    return [label for pat, label in FORBIDDEN_OUTPUT if re.search(pat, t)]
+    return [label for pat, label in loc.forbidden_output if re.search(pat, t)]
 
 
 if __name__ == "__main__":

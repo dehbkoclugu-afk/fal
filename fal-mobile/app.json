@@ -39,7 +39,8 @@
           "color": "#C87942"
         }
       ],
-      "expo-updates"
+      "expo-updates",
+      "expo-localization"
     ],
     "extra": {
       "apiUrl": "https://api.telve.app",

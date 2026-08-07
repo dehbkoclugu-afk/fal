@@ -20,6 +20,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { color, radius, space, type } from '@/lib/theme';
 import type { CupMarker } from '@/lib/api';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
 type Props = {
   photoUri: string;
@@ -33,18 +34,18 @@ type Props = {
 };
 
 const REGION_TR: Record<string, string> = {
-  rim: 'ağız — çok yakın',
-  upper: 'üst — yakın günler',
-  middle: 'orta — şu an',
-  lower: 'alt — süregelen',
-  bottom: 'dip — kalıcı, geçmiş',
+  rim: t('fincan.rim'),
+  upper: t('fincan.upper'),
+  middle: t('fincan.middle'),
+  lower: t('fincan.lower'),
+  bottom: t('fincan.bottom'),
 };
 
 const SIDE_TR: Record<string, string> = {
-  handle: 'sap tarafı — sen',
-  opposite: 'karşı taraf — başkaları',
-  left: 'sol — geride kalan',
-  right: 'sağ — gelen',
+  handle: t('fincan.handle'),
+  opposite: t('fincan.opposite'),
+  left: t('fincan.left'),
+  right: t('fincan.right'),
 };
 
 export function CupOverlay({
@@ -114,7 +115,7 @@ export function CupOverlay({
           <Text style={styles.captionVal}>{SIDE_TR[active.side] ?? active.side}</Text>
         </Animated.View>
       ) : (
-        <Text style={styles.hint}>İşaretlere dokun, fincanın neresi olduğunu göster</Text>
+        <Text style={styles.hint}>{t('fincan.ipucu')}</Text>
       )}
     </View>
   );

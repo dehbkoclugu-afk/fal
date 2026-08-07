@@ -22,17 +22,18 @@ import { TelveRing } from '@/components/TelveRing';
 import { api } from '@/lib/api';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
 // Backend sabit dağarcığa indirgiyor (core/pricing.TOPICS); buradaki
 // karşılıklar onunla birebir eşleşmeli, yoksa panel ham anahtar gösterir.
 const TOPIC_TR: Record<string, string> = {
-  ask: 'aşk',
-  para: 'para',
-  kariyer: 'iş ve kariyer',
-  aile: 'aile',
-  saglik: 'sağlık',
-  kendim: 'kendim',
-  genel: 'genel',
+  ask: t('konu.ask'),
+  para: t('konu.para'),
+  kariyer: t('konu.kariyer'),
+  aile: t('konu.aile'),
+  saglik: t('konu.saglik'),
+  kendim: t('konu.kendim'),
+  genel: t('konu.genel'),
 };
 
 export default function Journal() {
@@ -74,14 +75,14 @@ export default function Journal() {
         <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={color.bakir} />
       }
     >
-      <Eyebrow style={styles.eyebrow}>kader günlüğü</Eyebrow>
+      <Eyebrow style={styles.eyebrow}>{t('gunluk.eyebrow')}</Eyebrow>
 
       {/* Doğrulama sonrası karşılık */}
       {yorum ? (
         <Pressable onPress={() => setYorum(null)} style={styles.yorumKutu}>
-          <Eyebrow style={styles.yorumLabel}>cevabın için</Eyebrow>
+          <Eyebrow style={styles.yorumLabel}>{t('gunluk.cevabinIcin')}</Eyebrow>
           <Text style={styles.yorumMetin}>{yorum}</Text>
-          <Text style={styles.yorumKapat}>kapat</Text>
+          <Text style={styles.yorumKapat}>{t('ortak.kapat')}</Text>
         </Pressable>
       ) : null}
 
@@ -110,7 +111,7 @@ export default function Journal() {
       {/* Konu kırılımı — hangi alanda isabet yüksek */}
       {!!data?.by_topic?.length && (
         <>
-          <Eyebrow style={styles.sectionLabel}>konuya göre</Eyebrow>
+          <Eyebrow style={styles.sectionLabel}>{t('gunluk.konuyaGore')}</Eyebrow>
           <View style={styles.topics}>
             {data.by_topic.map((t) => {
               const pct = t.total ? Math.round((t.hits / t.total) * 100) : 0;
@@ -132,7 +133,7 @@ export default function Journal() {
       {/* Cevap bekleyenler */}
       {!!data?.awaiting_verdict?.length && (
         <>
-          <Eyebrow style={styles.sectionLabel}>cevabını bekliyorum</Eyebrow>
+          <Eyebrow style={styles.sectionLabel}>{t('gunluk.cevabiniBekliyorum')}</Eyebrow>
           {data.awaiting_verdict.map((p) => (
             <PredictionRow
               key={p.id}
@@ -148,7 +149,7 @@ export default function Journal() {
 
       {answered === 0 && !data?.awaiting_verdict?.length && (
         <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>Defter boş</Text>
+          <Text style={styles.emptyTitle}>{t('gunluk.defterBos')}</Text>
           <Text style={styles.emptyBody}>
             Her fal, süresi belli olan iddialar üretiyor. Süre dolunca sana soruyorum:
             tuttu mu? Cevapların burada birikiyor ve tutmayanlar da silinmiyor.
@@ -156,9 +157,7 @@ export default function Journal() {
         </View>
       )}
 
-      <Text style={styles.foot}>
-        Yorumlar eğlence amaçlıdır. İsabet oranı senin kendi değerlendirmelerine dayanır.
-      </Text>
+      <Text style={styles.foot}>{t('gunluk.aciklama')}</Text>
     </ScrollView>
   );
 }

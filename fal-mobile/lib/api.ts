@@ -3,6 +3,7 @@
  */
 import Constants from 'expo-constants';
 import { getAnonId } from './anon';
+import { hataMetni } from './i18n';
 
 // Öncelik: build zamanı env → app.json extra → Android emülatör varsayılanı.
 // EXPO_PUBLIC_API_URL, dev/staging/prod'u tek app.json ile ayırmayı sağlıyor;
@@ -13,7 +14,16 @@ const BASE =
   'http://10.0.2.2:8000';
 
 export class ApiError extends Error {
-  constructor(public status: number, public code: string, message: string) {
+  /**
+   * `message` seçili dilde — sunucunun Türkçe metni değil. Sunucudan geleni
+   * `sunucuMetni` altında saklıyoruz; log/hata ayıklama için lazım oluyor.
+   */
+  constructor(
+    public status: number,
+    public code: string,
+    message: string,
+    public sunucuMetni?: string,
+  ) {
     super(message);
   }
 }
@@ -31,14 +41,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
   if (!res.ok) {
     let code = 'unknown';
-    let message = 'Bir şeyler ters gitti. Tekrar dene.';
+    let sunucuMetni: string | undefined;
     try {
       const body = await res.json();
       const d = body?.detail ?? body;
       code = d?.code ?? code;
-      message = d?.message ?? (typeof d === 'string' ? d : message);
+      sunucuMetni = d?.message ?? (typeof d === 'string' ? d : undefined);
     } catch {}
-    throw new ApiError(res.status, code, message);
+    throw new ApiError(res.status, code, hataMetni(code, sunucuMetni), sunucuMetni);
   }
   return res.status === 204 ? (undefined as T) : res.json();
 }

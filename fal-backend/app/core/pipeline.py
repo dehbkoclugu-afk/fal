@@ -15,7 +15,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from . import astro, blocks, guardrail, prompts, tarot
+from . import astro, blocks, guardrail, locales, prompts, tarot
 from .pricing import PAID_TIERS, normalize_tier, normalize_topic
 from .cup_vision import SYMBOL_LEXICON_TR, analyze_cup, REJECT_MESSAGES_TR
 from .llm import complete, embed, label_symbols, too_similar
@@ -123,8 +123,11 @@ async def generate_reading(db, user_id: str, reading_id: str, kind: str,
     # okuması, üretim değil — sıra kuralı bozulmuyor.
     user = await build_user_ctx(db, user_id)
     yas = inputs.get("age") or _age_from(user)
+    loc = locales.resolve(user.get("locale"))
 
-    g = guardrail.check(question, user_age=yas)
+    # Dil guardrail'e ZORUNLU geçiyor: desenler ve kriz kaynakları dile özgü.
+    # Geçilmezse Arapça yazan kullanıcıya Türkiye'nin acil numaraları gösterilir.
+    g = guardrail.check(question, user_age=yas, locale=loc.code)
     if g["action"] == guardrail.Action.BLOCK_CRISIS:
         await db.execute(
             "UPDATE readings SET status='blocked', block_reason='crisis' WHERE id=$1",
@@ -188,7 +191,7 @@ async def generate_reading(db, user_id: str, reading_id: str, kind: str,
             # kısıtı (sağlık/hukuk/şiddet) buradan düşerse hiçbir yerde
             # uygulanmamış olur.
             out = await blocks.compose_free(
-                db, user_id, user_ctx, keys, user.get("locale") or "tr",
+                db, user_id, user_ctx, keys, loc.code,
                 day_bucket, transits=trs, extra_note=g.get("note"))
             return await _finalize(db, user_id, reading_id, kind,
                                    _normalize_hybrid(out), {"transits": trs},
@@ -223,7 +226,7 @@ async def generate_reading(db, user_id: str, reading_id: str, kind: str,
         if not res.data:
             continue
         flat = _flatten(res.data)
-        if bad := guardrail.scan_output(flat):
+        if bad := guardrail.scan_output(flat, locale=loc.code):
             user_msg += f"\n\nÖNCEKİ DENEME REDDEDİLDİ ({', '.join(bad)}). Bu ihlali yapmadan yeniden yaz."
             continue
         vec = await embed(flat)
@@ -309,9 +312,11 @@ async def verdict_followup(db, user_id: str, prediction_id: str) -> str | None:
     Ucuz model kullanılıyor: 4 cümle için büyük modele gitmek gereksiz.
     """
     row = await db.fetchrow(
-        """SELECT claim, user_verdict, topic,
-                  GREATEST(1, (now()::date - window_start::date)) AS gun
-           FROM predictions WHERE id=$1 AND user_id=$2""",
+        """SELECT p.claim, p.user_verdict, p.topic,
+                  GREATEST(1, (now()::date - p.window_start::date)) AS gun,
+                  u.locale
+           FROM predictions p JOIN users u ON u.id = p.user_id
+           WHERE p.id=$1 AND p.user_id=$2""",
         prediction_id, user_id)
     if not row or not row["user_verdict"]:
         return None
@@ -324,7 +329,7 @@ async def verdict_followup(db, user_id: str, prediction_id: str) -> str | None:
             days=row["gun"], claim=row["claim"], verdict=verdict_tr),
         tier="small", max_tokens=350, temperature=0.8)
     metin = (res.data or {}).get("metin")
-    if not metin or guardrail.scan_output(metin):
+    if not metin or guardrail.scan_output(metin, locale=row["locale"]):
         return None
     return metin
 

@@ -25,9 +25,10 @@ import { api, ApiError } from '@/lib/api';
 import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
 const STEPS = [
-  { key: 'inside', title: 'Fincanın içi', hint: 'Fincanı ters çevirip beklettikten sonra içini yukarıdan çek. Sapı yukarı bakacak şekilde tut.' },
+  { key: 'inside', title: t('kahve.adimBaslik'), hint: t('kahve.adimIpucu') },
 ] as const;
 
 export default function Coffee() {
@@ -51,13 +52,13 @@ export default function Coffee() {
   if (!perm.granted) {
     return (
       <View style={[styles.root, styles.center, { padding: space.lg }]}>
-        <Text style={styles.permTitle}>Kamera izni gerekiyor</Text>
+        <Text style={styles.permTitle}>{t('kahve.izinBaslik')}</Text>
         <Text style={styles.permBody}>
           Fincanı okuyabilmem için fotoğrafını çekmem gerek. Fotoğraf 24 saat içinde
           siliniyor, kalıcı olarak saklanmıyor.
         </Text>
-        <Button label="İzin ver" onPress={requestPerm} style={{ marginTop: space.xl }} />
-        <Button label="Vazgeç" variant="ghost" onPress={() => router.back()} style={{ marginTop: space.md }} />
+        <Button label={t('kahve.izinVer')} onPress={requestPerm} style={{ marginTop: space.xl }} />
+        <Button label={t('ortak.vazgec')} variant="ghost" onPress={() => router.back()} style={{ marginTop: space.md }} />
       </View>
     );
   }
@@ -104,16 +105,16 @@ export default function Coffee() {
   if (shot) {
     return (
       <View style={[styles.root, { paddingTop: insets.top + space.lg, paddingHorizontal: space.lg }]}>
-        <Eyebrow style={styles.eyebrow}>Fincan hazır</Eyebrow>
+        <Eyebrow style={styles.eyebrow}>{t('kahve.hazir')}</Eyebrow>
         <View style={[styles.preview, { height: guide }]}>
           <Image source={{ uri: shot }} style={StyleSheet.absoluteFill} contentFit="cover" />
         </View>
 
-        <Eyebrow style={styles.label}>Aklında bir soru var mı?</Eyebrow>
+        <Eyebrow style={styles.label}>{t('kahve.soruEtiket')}</Eyebrow>
         <TextInput
           value={question}
           onChangeText={setQuestion}
-          placeholder="istersen boş bırak"
+          placeholder={t('kahve.soruPlaceholder')}
           placeholderTextColor={color.kulKoyu}
           multiline
           maxLength={280}
@@ -124,9 +125,9 @@ export default function Coffee() {
         {jetonYok && <CoinGate kind="coffee" />}
 
         <View style={styles.spacer} />
-        <Button label="Fincanı oku" loading={busy} onPress={submit} />
+        <Button label={t('kahve.oku')} loading={busy} onPress={submit} />
         <Button
-          label="Yeniden çek"
+          label={t('kahve.yenidenCek')}
           variant="ghost"
           style={{ marginTop: space.md }}
           onPress={() => setShot(null)}
@@ -149,7 +150,7 @@ export default function Coffee() {
           ]}
         >
           <View style={styles.handleMark} />
-          <Eyebrow style={styles.handleLabel}>sap</Eyebrow>
+          <Eyebrow style={styles.handleLabel}>{t('kahve.sap')}</Eyebrow>
         </View>
       </View>
 
@@ -160,9 +161,9 @@ export default function Coffee() {
 
       <View style={[styles.bottom, { paddingBottom: insets.bottom + space.xl }]}>
         <Pressable onPress={() => router.back()} style={styles.cancel} accessibilityRole="button">
-          <Text style={styles.cancelText}>vazgeç</Text>
+          <Text style={styles.cancelText}>{t('ortak.vazgecKucuk')}</Text>
         </Pressable>
-        <Pressable onPress={capture} style={styles.shutter} accessibilityRole="button" accessibilityLabel="Fotoğraf çek">
+        <Pressable onPress={capture} style={styles.shutter} accessibilityRole="button" accessibilityLabel={t('kahve.fotografCek')}>
           <View style={styles.shutterInner} />
         </Pressable>
         <View style={styles.cancel} />

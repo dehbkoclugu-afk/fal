@@ -17,11 +17,12 @@ import { Screen } from '@/components/Screen';
 import { api, ApiError } from '@/lib/api';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
 const SPREADS = [
-  { key: 'single', title: 'Günün kartı', count: 1, coins: 1 },
-  { key: 'three_card', title: 'Geçmiş · Şimdi · Gelecek', count: 3, coins: 1 },
-  { key: 'love_five', title: 'Aşk açılımı', count: 5, coins: 2 },
+  { key: 'single', title: t('tarot.gununKarti'), count: 1, coins: 1 },
+  { key: 'three_card', title: t('tarot.ucKart'), count: 3, coins: 1 },
+  { key: 'love_five', title: t('tarot.askAcilimi'), count: 5, coins: 2 },
 ] as const;
 
 const DECK_SIZE = 12; // görsel deste; gerçek çekim sunucuda 78 karttan yapılır
@@ -65,7 +66,7 @@ export default function Tarot() {
 
   return (
     <Screen scroll>
-      <Eyebrow style={styles.eyebrow}>tarot</Eyebrow>
+      <Eyebrow style={styles.eyebrow}>{t('tarot.eyebrow')}</Eyebrow>
 
       <View style={styles.spreads}>
         {SPREADS.map((s) => {
@@ -87,8 +88,8 @@ export default function Tarot() {
 
       <Text style={styles.instruction}>
         {done
-          ? 'Kartlar seçildi.'
-          : `Desteden ${spread.count - picked.length} kart seç. Aklındaki soruyu düşün.`}
+          ? t('tarot.kartlarSecildi')
+          : t('tarot.kartSec', { n: spread.count - picked.length })}
       </Text>
 
       <View style={styles.deck}>
@@ -101,7 +102,7 @@ export default function Tarot() {
       {jetonYok && <CoinGate kind="tarot" />}
 
       <Button
-        label={`Açılımı oku · ${spread.coins} jeton`}
+        label={t('tarot.acilimiOku', { n: spread.coins })}
         disabled={!done}
         loading={busy}
         onPress={submit}
@@ -133,7 +134,7 @@ function TarotCard({
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel={`${index + 1}. kart`}
+        accessibilityLabel={t('tarot.kartNo', { n: index + 1 })}
         style={[
           styles.card,
           { width, height: width * 1.6 },

@@ -235,3 +235,66 @@ def test_katman_tanimi_tek_yerde():
         kaynak = inspect.getsource(mod)
         assert '("star", "fate", "yearly")' not in kaynak, (
             f"{mod.__name__} katman listesini elle taşıyor")
+
+
+# ------------------------------------------------------------ dil kaydı
+
+def test_kayitli_her_dil_kriz_kaynagi_tasiyor():
+    """Bir dilin kaydedilebilmesi için kriz kaynaklarının DOLU olması şart.
+
+    Boş bir crisis_reply, kırılgan andaki kullanıcıya boş ekran göstermek
+    demek. Dataclass alanları zorunlu olduğu için yarım kayıt zaten
+    imkânsız; bu test o değişmezi kilitliyor — biri alana varsayılan
+    eklerse burada kırılsın.
+    """
+    from app.core import locales
+
+    for loc in locales.all_locales():
+        assert loc.crisis_patterns, f"{loc.code}: kriz deseni yok"
+        assert loc.crisis_reply.strip(), f"{loc.code}: kriz mesajı boş"
+        assert loc.minor_reply.strip(), f"{loc.code}: yaş kapısı mesajı boş"
+        assert len(loc.signs) == 12, f"{loc.code}: 12 burç adı olmalı"
+
+
+def test_acik_dillerin_kriz_mesaji_ulasilabilir_bir_yer_gosteriyor():
+    """"Fal üremem" demek yeterli değil; aranabilir bir yer gösterilmeli."""
+    from app.core import locales
+
+    for loc in locales.enabled_locales():
+        assert any(ch.isdigit() for ch in loc.crisis_reply), (
+            f"{loc.code}: kriz mesajında telefon numarası yok")
+
+
+def test_bilinmeyen_dil_kodu_guardraili_atlatmiyor():
+    """resolve() asla None dönmemeli.
+
+    Bilinmeyen bir dil kodu yüzünden kriz kontrolünün atlanması, bu
+    dosyadaki her testi anlamsız kılardı.
+    """
+    from app.core import locales
+
+    for kod in (None, "", "   ", "xx", "klingon", "tr-TR-x-bozuk", "ar"):
+        loc = locales.resolve(kod)
+        assert loc is not None
+        assert loc.crisis_patterns
+
+    # ...ve gerçekten kriz yakalamaya devam ediyor
+    for kod in (None, "xx", "klingon"):
+        r = check("yaşamak istemiyorum", locale=kod)
+        assert r["action"] == Action.BLOCK_CRISIS
+
+
+def test_dil_kodu_normalize_ediliyor():
+    from app.core import locales
+
+    for kod in ("tr", "TR", "tr-TR", "tr_TR", " tr ", "tr-tr"):
+        assert locales.resolve(kod).code == "tr"
+
+
+def test_kriz_mesaji_secilen_dilden_geliyor():
+    """Regresyon zemini: ikinci dil açıldığında Türkiye'nin 112/183'ünü
+    başka ülkedeki kullanıcıya göstermek gerçek bir başarısızlık olur."""
+    from app.core import locales
+
+    r = check("yaşamak istemiyorum", locale="tr")
+    assert r["reply"] == locales.TR.crisis_reply

@@ -9,14 +9,9 @@ import { Screen } from '@/components/Screen';
 import { api } from '@/lib/api';
 import { color, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t, tarih } from '@/lib/i18n';
 
-const AYLAR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
-  'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 
-function tarihTR(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getDate()} ${AYLAR[d.getMonth()]}`;
-}
 
 /**
  * Bildirim izni.
@@ -40,7 +35,7 @@ export default function NotificationsScreen() {
     queryFn: api.nextTransit,
     retry: 1,
   });
-  const t = data?.transit;
+  const transit = data?.transit;
 
   const ask = async () => {
     setBusy(true);
@@ -62,25 +57,21 @@ export default function NotificationsScreen() {
 
   return (
     <Screen>
-      <Eyebrow style={styles.eyebrow}>Yaklaşan</Eyebrow>
-      <Text style={styles.q}>Haritanda bir hareket var</Text>
+      <Eyebrow style={styles.eyebrow}>{t('ob.bildirim.eyebrow')}</Eyebrow>
+      <Text style={styles.q}>{t('ob.bildirim.baslik')}</Text>
 
       <View style={styles.card}>
-        {t ? (
+        {transit ? (
           <>
-            <Eyebrow style={styles.date}>{tarihTR(t.exact_at)}</Eyebrow>
-            <Text style={styles.what}>{t.metin}</Text>
-            <Text style={styles.note}>
-              Bu, senin doğum haritana göre hesaplandı — genel burç yorumu değil.
-            </Text>
+            <Eyebrow style={styles.date}>{tarih(transit.exact_at)}</Eyebrow>
+            <Text style={styles.what}>{transit.metin}</Text>
+            <Text style={styles.note}>{t('ob.bildirim.hesaplandi')}</Text>
           </>
         ) : (
           <>
-            <Eyebrow style={styles.date}>Yaklaşan günler</Eyebrow>
-            <Text style={styles.what}>Haritanda hareketli dönemler var</Text>
-            <Text style={styles.note}>
-              Hesaplama sürüyor; hazır olduğunda sana bildireceğim.
-            </Text>
+            <Eyebrow style={styles.date}>{t('ob.bildirim.yaklasan')}</Eyebrow>
+            <Text style={styles.what}>{t('ob.bildirim.hareketli')}</Text>
+            <Text style={styles.note}>{t('ob.bildirim.hesaplaniyor')}</Text>
           </>
         )}
       </View>
@@ -91,9 +82,9 @@ export default function NotificationsScreen() {
       </Text>
 
       <View style={styles.spacer} />
-      <Button label="Haber ver" loading={busy} onPress={ask} />
+      <Button label={t('ob.bildirim.haberVer')} loading={busy} onPress={ask} />
       <Button
-        label="Şimdi değil"
+        label={t('ob.bildirim.simdiDegil')}
         variant="ghost"
         style={{ marginTop: space.md }}
         onPress={() => router.push('/onboarding/paywall')}

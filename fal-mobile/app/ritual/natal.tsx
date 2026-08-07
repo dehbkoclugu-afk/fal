@@ -22,18 +22,19 @@ import { Screen } from '@/components/Screen';
 import { api, ApiError } from '@/lib/api';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
 const ODAKLAR = [
-  { key: 'genel', title: 'Bütün harita', note: 'Karakter, duygu, ilişki, iş — hepsi' },
-  { key: 'ask', title: 'Aşk ve ilişkiler', note: 'Venüs, 5. ve 7. ev' },
-  { key: 'para', title: 'Para ve güvence', note: '2. ve 8. ev, Jüpiter' },
-  { key: 'kariyer', title: 'İş ve yön', note: 'MC, 6. ve 10. ev, Satürn' },
-  { key: 'kendim', title: 'Kendim', note: 'Yükselen, Ay, Chiron' },
+  { key: t('konu.genel'), title: t('natal.butunHarita'), note: t('natal.butunHaritaNot') },
+  { key: 'ask', title: t('natal.ask'), note: t('natal.askNot') },
+  { key: t('konu.para'), title: t('natal.para'), note: t('natal.paraNot') },
+  { key: 'kariyer', title: t('natal.kariyer'), note: t('natal.kariyerNot') },
+  { key: t('konu.kendim'), title: t('natal.kendim'), note: t('natal.kendimNot') },
 ] as const;
 
 export default function Natal() {
   const router = useRouter();
-  const [odak, setOdak] = useState<string>('genel');
+  const [odak, setOdak] = useState<string>(t('konu.genel'));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,8 +58,8 @@ export default function Natal() {
 
   return (
     <Screen scroll>
-      <Eyebrow style={styles.eyebrow}>doğum haritası</Eyebrow>
-      <Text style={styles.title}>Neye bakalım?</Text>
+      <Eyebrow style={styles.eyebrow}>{t('natal.eyebrow')}</Eyebrow>
+      <Text style={styles.title}>{t('natal.baslik')}</Text>
       <Text style={styles.lead}>
         Haritan doğum anındaki gerçek gökyüzünden hesaplandı. Seçtiğin eksen,
         yorumun hangi gezegen ve evlere ağırlık vereceğini belirler.
@@ -93,7 +94,7 @@ export default function Natal() {
 
       <View style={styles.spacer} />
       <Button
-        label={abone ? 'Haritamı yorumla' : `Haritamı yorumla · ${fiyat} jeton`}
+        label={abone ? t('natal.yorumla') : t('natal.yorumlaJeton', { n: fiyat })}
         loading={busy}
         disabled={yetersiz}
         onPress={submit}

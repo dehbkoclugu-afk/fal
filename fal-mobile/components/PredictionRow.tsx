@@ -11,6 +11,7 @@ import * as Haptics from 'expo-haptics';
 
 import { color, hitStyle, space, type, type Verdict } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
 type Props = {
   claim: string;
@@ -21,8 +22,8 @@ type Props = {
 };
 
 const TOPIC_TR: Record<string, string> = {
-  ask: 'aşk', para: 'para', kariyer: 'kariyer', aile: 'aile',
-  kendim: 'kendim', genel: 'genel',
+  ask: t('konu.ask'), para: t('konu.para'), kariyer: 'kariyer', aile: t('konu.aile'),
+  kendim: t('konu.kendim'), genel: t('konu.genel'),
 };
 
 function shortDate(iso: string) {

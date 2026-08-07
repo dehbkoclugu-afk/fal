@@ -20,6 +20,7 @@ import * as Haptics from 'expo-haptics';
 
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
 type Props = {
   line: string;
@@ -29,10 +30,10 @@ type Props = {
 };
 
 const BASLIK: Record<Props['kind'], string> = {
-  coffee: 'kahve falı',
-  tarot: 'tarot',
-  natal: 'doğum haritası',
-  daily: 'günün yorumu',
+  coffee: t('sonuc.kahveFali'),
+  tarot: t('tarot.eyebrow'),
+  natal: t('natal.eyebrow'),
+  daily: t('paylas.gununYorumu'),
 };
 
 export function ShareCard({ line, symbol, kind, photoUri }: Props) {
@@ -59,7 +60,7 @@ export function ShareCard({ line, symbol, kind, photoUri }: Props) {
           : { message: line, url: uri },
       );
     } catch {
-      setError('Paylaşamadım. Tekrar dener misin?');
+      setError(t('paylas.hata'));
     } finally {
       setBusy(false);
     }
@@ -84,18 +85,19 @@ export function ShareCard({ line, symbol, kind, photoUri }: Props) {
             {line}
           </Text>
           {!!symbol && photoUri ? (
-            <Text style={styles.symbol}>çıkan sembol · {symbol}</Text>
+            <Text style={styles.symbol}>{t('paylas.cikanSembol', { sembol: symbol })}</Text>
           ) : null}
         </View>
 
         <View style={styles.footer}>
+          {/* i18n-ignore: marka adı çevrilmiyor */}
           <Text style={styles.brand}>telve</Text>
-          <Text style={styles.disclaimer}>eğlence amaçlıdır</Text>
+          <Text style={styles.disclaimer}>{t('ortak.eglenceAmacli')}</Text>
         </View>
       </View>
 
       <Pressable onPress={share} disabled={busy} style={styles.btn}>
-        <Text style={styles.btnLabel}>{busy ? 'hazırlanıyor…' : 'paylaş'}</Text>
+        <Text style={styles.btnLabel}>{busy ? t('paylas.hazirlaniyor') : t('paylas.buton')}</Text>
       </Pressable>
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>

@@ -23,15 +23,16 @@ import { api } from '@/lib/api';
 import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
 // Fiyatlar sunucudan (/v1/me → prices) geliyor; buradakiler sadece sunucu
 // yanıtı gelmeden önceki gösterim. Sabit fiyat yazmak, fiyat değiştiğinde
 // kullanıcıya yanlış rakam gösterip 402 ile karşılaştırır.
 const RITUALS = [
-  { key: 'coffee', title: 'Kahve falı', note: 'fincanını çek', route: '/ritual/coffee' },
-  { key: 'tarot', title: 'Tarot', note: 'kartını seç', route: '/ritual/tarot' },
-  { key: 'natal', title: 'Doğum haritası', note: 'karakter çözümü', route: '/ritual/natal' },
-  { key: 'dream', title: 'Rüya yorumu', note: 'yakında', route: null },
+  { key: 'coffee', title: t('ritual.kahve'), note: t('ritual.kahveNot'), route: '/ritual/coffee' },
+  { key: t('tarot.eyebrow'), title: t('ritual.tarot'), note: t('ritual.tarotNot'), route: '/ritual/tarot' },
+  { key: 'natal', title: t('ritual.natal'), note: t('ritual.natalNot'), route: '/ritual/natal' },
+  { key: 'dream', title: t('ritual.ruya'), note: t('ritual.yakinda'), route: null },
 ] as const;
 
 const VARSAYILAN_FIYAT: Record<string, number> = { coffee: 3, tarot: 1, natal: 5 };
@@ -75,9 +76,9 @@ export default function Home() {
   // Kotalı katmanda "sınırsız" yazmak yalan olur ve kullanıcı 402'ye toslar.
   const kotaVar = !!ent && ent.quota_left !== null;
   const bakiyeMetni = !ent
-    ? `${coins} jeton`
+    ? t('ortak.jeton', { n: coins })
     : kotaVar
-      ? `${ent.quota_left} fal · ${ent.tier_tr}`
+      ? t('ana.kalanFal', { n: ent.quota_left!, tier: ent.tier_tr })
       : ent.tier_tr;
   const pending = acc?.awaiting_verdict?.[0];
   const today =
@@ -88,14 +89,14 @@ export default function Home() {
   return (
     <Screen scroll>
       <View style={styles.header}>
-        <Text style={styles.hello}>{name ? `${name}` : 'merhaba'}</Text>
+        <Text style={styles.hello}>{name ? `${name}` : t('ana.merhaba')}</Text>
         <Text style={styles.coins}>{bakiyeMetni}</Text>
       </View>
 
       {/* 1. Bekleyen doğrulama */}
       {pending && (
         <View style={styles.verifyBox}>
-          <Eyebrow style={styles.verifyLabel}>hesabı sorulacak</Eyebrow>
+          <Eyebrow style={styles.verifyLabel}>{t('ana.hesabiSorulacak')}</Eyebrow>
           <Text style={styles.verifyClaim}>{pending.claim}</Text>
           <View style={styles.verifyActions}>
             {(['hit', 'partial', 'miss'] as const).map((v) => (
@@ -105,7 +106,7 @@ export default function Home() {
                 style={styles.verifyBtn}
               >
                 <Text style={styles.verifyBtnText}>
-                  {v === 'hit' ? 'tuttu' : v === 'partial' ? 'kısmen' : 'tutmadı'}
+                  {v === 'hit' ? t('ana.tuttu') : v === 'partial' ? t('ana.kismen') : t('ana.tutmadi')}
                 </Text>
               </Pressable>
             ))}
@@ -121,15 +122,15 @@ export default function Home() {
       >
         <TelveRing size={250} value={today ? 1 : 0.25} mode="ritual" breathing={!today} />
         <View style={styles.cupInner} pointerEvents="none">
-          <Eyebrow style={styles.cupLabel}>bugün</Eyebrow>
+          <Eyebrow style={styles.cupLabel}>{t('ana.bugun')}</Eyebrow>
           <Text style={styles.cupText} numberOfLines={4}>
-            {today?.ozet ?? 'Günün yorumu hazırlanıyor. Birazdan burada olacak.'}
+            {today?.ozet ?? t('ana.gunlukHazirlaniyor')}
           </Text>
         </View>
       </Pressable>
 
       {/* 3. Ritüeller */}
-      <Eyebrow style={styles.sectionLabel}>ritüeller</Eyebrow>
+      <Eyebrow style={styles.sectionLabel}>{t('ana.ritueller')}</Eyebrow>
       <View style={styles.grid}>
         {RITUALS.map((r) => {
           const off = !r.route;
@@ -146,8 +147,8 @@ export default function Home() {
               {!off && (
                 <Text style={styles.tileCoins}>
                   {abone && (!kotaVar || (ent!.quota_left ?? 0) > 0)
-                    ? 'dahil'
-                    : `${fiyat} jeton`}
+                    ? t('ana.dahil')
+                    : t('ortak.jeton', { n: fiyat })}
                 </Text>
               )}
             </Pressable>
@@ -160,12 +161,12 @@ export default function Home() {
         <Pressable style={styles.scoreRow} onPress={() => router.push('/(tabs)/journal')}>
           <TelveRing size={44} value={(acc.overall.score ?? 0) / 100} mode="ledger" breathing={false} />
           <View style={{ flex: 1 }}>
-            <Eyebrow style={styles.scoreLabel}>isabet oranın</Eyebrow>
+            <Eyebrow style={styles.scoreLabel}>{t('ana.isabetOranin')}</Eyebrow>
             <Text style={styles.scoreValue}>
               %{acc.overall.score} · {acc.overall.total} tahmin
             </Text>
           </View>
-          <Text style={styles.scoreArrow}>defter →</Text>
+          <Text style={styles.scoreArrow}>{t('ana.defterOk')}</Text>
         </Pressable>
       )}
 
@@ -174,7 +175,7 @@ export default function Home() {
       {(me?.streak?.count ?? 0) > 1 && (
         <Text style={styles.streak}>
           {me!.streak.count} gündür buradasın
-          {[7, 30, 100].includes(me!.streak.count) ? ' · jeton kazandın' : ''}
+          {[7, 30, 100].includes(me!.streak.count) ? t('ana.seriOdul') : ''}
         </Text>
       )}
     </Screen>

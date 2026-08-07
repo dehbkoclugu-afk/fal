@@ -25,6 +25,7 @@ from redis import asyncio as aioredis
 from rq import Queue
 
 from .core import db as dbmod
+from .core import locales
 
 DB_URL = dbmod.DB_URL
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -182,6 +183,18 @@ async def _charge(db, user_id: str, kind: str) -> None:
 @app.put("/v1/profile")
 async def upsert_profile(p: ProfileIn, user=Depends(get_user)):
     db = state["db"]
+
+    # Dili sınırda doğrula. Desteklenmeyen bir kod kaydedilirse guardrail
+    # varsayılana düşer ve kullanıcı YANLIŞ DİLDE kriz kaynağı görür —
+    # sessizce kabul etmek yerine 422 dönmek doğrusu.
+    if p.locale is not None:
+        loc = locales.get(p.locale)
+        if not loc or not loc.enabled:
+            raise HTTPException(422, {
+                "code": "unsupported_locale",
+                "message": "Bu dil henüz desteklenmiyor.",
+                "supported": [l.code for l in locales.enabled_locales()]})
+
     # birth_year ayrıca users'a yazılıyor: yaş kapısı (guardrail.BLOCK_MINOR)
     # bu sütuna bakıyor. Yazılmazsa kapı yalnızca kullanıcının metinde
     # "16 yaşındayım" demesiyle çalışır — yani hiç çalışmaz.
@@ -515,10 +528,16 @@ async def me(user=Depends(get_user)):
         }
     birth = await db.fetchval(
         "SELECT 1 FROM birth_profiles WHERE user_id=$1 AND is_primary", user["id"])
+    loc = locales.resolve(user["locale"])
     return {
         "first_name": user["first_name"],
         "tone": user["tone"],
-        "locale": user["locale"],
+        "locale": loc.code,
+        "rtl": loc.rtl,
+        "supported_locales": [
+            {"code": l.code, "name": l.name_native, "rtl": l.rtl}
+            for l in locales.enabled_locales()
+        ],
         "has_birth_data": bool(birth),
         "coins": int(bal),
         "daily_spend_left": max(0, DAILY_SPEND_CAP - int(spent)),
