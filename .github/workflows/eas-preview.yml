@@ -17,6 +17,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Farklı repolarda kullanılan yaygın EAS/Expo secret adlarını destekle.
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN || secrets.EAS_TOKEN || secrets.EAS_ACCESS_TOKEN || secrets.EXPO_ACCESS_TOKEN }}
     defaults:
       run:
         working-directory: fal-mobile
@@ -32,22 +35,16 @@ jobs:
       - run: npm ci
 
       - name: EAS token kontrolü
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           if [ -z "$EXPO_TOKEN" ]; then
-            echo "::error::GitHub Actions secret EXPO_TOKEN bulunamadı."
+            echo "::error::EAS/Expo GitHub Actions secret bulunamadı (EXPO_TOKEN, EAS_TOKEN, EAS_ACCESS_TOKEN veya EXPO_ACCESS_TOKEN)."
             exit 1
           fi
 
       - name: EAS projesini bağla
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx --yes eas-cli@21.6.0 init --force --non-interactive
 
       - name: Android preview APK oluştur
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -o pipefail
           log="$RUNNER_TEMP/eas-build.log"
