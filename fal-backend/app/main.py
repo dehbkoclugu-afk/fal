@@ -193,7 +193,7 @@ async def coffee(photo: UploadFile = File(...), question: str = Form(""),
     await db.execute(
         """INSERT INTO readings (id, user_id, kind, input_json, eta_seconds)
            VALUES ($1,$2,'coffee',$3,$4)""",
-        rid, user["id"], json.dumps({"question": question}), 150)
+        rid, user["id"], {"question": question}, 150)
     # Görüntü Redis'te geçici tutulur (24 saat TTL) — kalıcı depoya yazmıyoruz
     await state["redis"].setex(f"cupimg:{rid}", 86400, raw)
     state["queue"].enqueue("app.workers.tasks.run_reading", rid, "coffee",
@@ -209,7 +209,7 @@ async def tarot_reading(body: TarotIn, user=Depends(get_user)):
     await db.execute(
         """INSERT INTO readings (id, user_id, kind, input_json, eta_seconds)
            VALUES ($1,$2,'tarot',$3,90)""",
-        rid, user["id"], json.dumps(body.model_dump()))
+        rid, user["id"], body.model_dump())
     state["queue"].enqueue("app.workers.tasks.run_reading", rid, "tarot",
                            body.model_dump())
     return {"reading_id": rid, "eta_seconds": 90, "status": "queued"}
@@ -232,7 +232,7 @@ async def natal_reading(body: NatalIn, user=Depends(get_user)):
     await db.execute(
         """INSERT INTO readings (id, user_id, kind, input_json, eta_seconds)
            VALUES ($1,$2,'natal',$3,120)""",
-        rid, user["id"], json.dumps(body.model_dump()))
+        rid, user["id"], body.model_dump())
     state["queue"].enqueue("app.workers.tasks.run_reading", rid, "natal",
                            body.model_dump())
     return {"reading_id": rid, "eta_seconds": 120, "status": "queued"}

@@ -70,7 +70,7 @@ async def _run_reading(reading_id: str, kind: str, inputs: dict):
         # Push GÖNDERİLMEZ. Kullanıcı uygulamayı açtığında destek mesajını görür.
         await db.execute(
             "UPDATE readings SET status='blocked', block_reason='crisis', output_json=$2 WHERE id=$1",
-            reading_id, json.dumps({"ozet": e.reply}, ensure_ascii=False))
+            reading_id, {"ozet": e.reply})
     except ReadingRejected as e:
         await db.execute(
             "UPDATE readings SET status='failed', block_reason=$2 WHERE id=$1",
@@ -250,8 +250,8 @@ async def push(db, user_id: str, title: str, body: str, data: dict):
     ok = await _send_push(row["push_token"], title, body, data)
     await db.execute(
         """INSERT INTO push_log (user_id, title, body, data)
-           VALUES ($1,$2,$3,$4::jsonb)""",
-        user_id, title, body, json.dumps(data, ensure_ascii=False))
+           VALUES ($1,$2,$3,$4)""",
+        user_id, title, body, data)
     return ok
 
 

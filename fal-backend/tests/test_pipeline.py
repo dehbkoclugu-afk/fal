@@ -108,12 +108,14 @@ async def test_natal_fal_ucdan_uca(db, user_with_chart, fake_llm, fake_embed):
         "SELECT status, output_json, extra_json, cost_usd, embedding "
         "FROM readings WHERE id=$1", rid)
     assert row["status"] == "done"
-    assert json.loads(row["output_json"])["ozet"] == out["ozet"]
+    # jsonb codec'i sayesinde dict olarak geri geliyor (bkz. core/db.py).
+    assert isinstance(row["output_json"], dict)
+    assert row["output_json"]["ozet"] == out["ozet"]
     assert row["embedding"] is not None, "anti-tekrar için embedding yazılmalı"
     assert float(row["cost_usd"]) > 0, "maliyet muhasebesi tutulmuyor"
 
     # Gerçekten hesaplanmış harita gitmiş mi (halüsinasyon değil)
-    extra = json.loads(row["extra_json"])
+    extra = row["extra_json"]
     assert extra["chart"]["ascendant"]
     assert extra["chart"]["bodies"]["sun"]["sign_tr"]
 

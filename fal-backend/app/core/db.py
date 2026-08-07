@@ -12,6 +12,7 @@ Bu yüzden DB'ye giden her yol (API pool'u ve worker bağlantısı) buradan geç
 
 from __future__ import annotations
 
+import json
 import os
 
 import asyncpg
@@ -20,8 +21,24 @@ from pgvector.asyncpg import register_vector
 DB_URL = os.getenv("DATABASE_URL", "postgresql://localhost/fal")
 
 
+def _dumps(v) -> str:
+    # default=str: tarih/UUID gibi tipler sessizce patlamasın. Sayısal
+    # değerlerin string'e dönmemesi için kaynakta temizlik yapılıyor
+    # (bkz. cup_vision — numpy tipleri int()/float() ile sarılıyor).
+    return json.dumps(v, ensure_ascii=False, default=str)
+
+
 async def init_connection(conn: asyncpg.Connection) -> None:
     await register_vector(conn)
+
+    # jsonb/json codec'i. Kaydedilmezse asyncpg bu sütunları düz METİN olarak
+    # döndürür: /v1/readings/{id} yanıtında output_json bir JSON string'i olur,
+    # istemcideki `reading.output_json.ozet` undefined döner ve fal ekranı boş
+    # görünür — sunucu doğru içeriği üretmiş olsa bile. Yazarken de dict
+    # geçilebilsin diye encoder aynı yerde tanımlı.
+    for tip in ("jsonb", "json"):
+        await conn.set_type_codec(
+            tip, encoder=_dumps, decoder=json.loads, schema="pg_catalog")
 
 
 async def create_pool(min_size: int = 2, max_size: int = 10) -> asyncpg.Pool:

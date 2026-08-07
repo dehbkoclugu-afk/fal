@@ -33,12 +33,16 @@ requires_db = pytest.mark.skipif(
 async def db():
     """Her test için temiz şema. Testler birbirinin verisini görmez."""
     import asyncpg
-    from pgvector.asyncpg import register_vector
+
+    from app.core.db import init_connection
 
     conn = await asyncpg.connect(TEST_DB_URL)
     await conn.execute("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;")
     await conn.execute(SCHEMA.read_text())
-    await register_vector(conn)
+    # Üretimdeki bağlantı kurulumunun aynısı (pgvector + jsonb codec'leri).
+    # Testler bunu atlarsa gerçek sürücü davranışını doğrulamamış olur —
+    # zaten bulunan hataların çoğu tam olarak burada ortaya çıktı.
+    await init_connection(conn)
     try:
         yield conn
     finally:

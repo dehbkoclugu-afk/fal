@@ -282,7 +282,11 @@ async def test_biten_fal_metni_donuyor(client, db, anon):
            VALUES ($1,$2,'coffee','done','{"ozet":"gorunur"}', now())""", rid, uid)
     d = (await client.get(f"/v1/readings/{rid}", headers=H(anon))).json()
     assert d["status"] == "done"
-    assert "gorunur" in d["output_json"]
+    # NESNE dönmek zorunda, JSON string'i değil: istemci doğrudan
+    # reading.output_json.ozet okuyor. String dönerse fal ekranı boş görünür
+    # (sunucu doğru içeriği üretmiş olsa bile).
+    assert isinstance(d["output_json"], dict), "output_json string olarak dönüyor"
+    assert d["output_json"]["ozet"] == "gorunur"
 
 
 async def test_kriz_mesaji_kullaniciya_ulasiyor(client, db, anon):

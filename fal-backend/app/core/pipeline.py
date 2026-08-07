@@ -231,8 +231,9 @@ async def _finalize(db, user_id: str, reading_id: str, kind: str, data: dict,
            SET status='done', output_json=$2, extra_json=$3, cost_usd=$4,
                tier=$5, embedding=$6, delivered_at=now()
            WHERE id=$1""",
-        reading_id, json.dumps(data, ensure_ascii=False),
-        json.dumps(extra, ensure_ascii=False, default=str), cost, tier, vec)
+        # dict olarak geçiliyor: jsonb codec'i db.init_connection'da kayıtlı
+        # (elle json.dumps edilirse çift kodlanır ve sütunda JSON string'i oluşur).
+        reading_id, data, extra, cost, tier, vec)
 
     # TAHMİN AYIKLAMA — doğrulama döngüsünün yakıtı
     now = datetime.now(timezone.utc)
