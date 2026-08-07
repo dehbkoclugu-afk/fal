@@ -153,3 +153,43 @@ def test_turkce_buyuk_harf_katlamasi():
     assert fold("İstanbul") == "istanbul"
     assert fold("  ÇOK   ÖNEMLİ  ") == "cok onemli"
     assert "̇" not in fold("İİİ"), "birleşen nokta temizlenmemiş"
+
+
+def test_bos_embed_anahtari_gecersiz_baslik_uretmiyor():
+    """Regresyon: EMBED_KEY boşken "Bearer " başlığı üretiliyordu ve httpx
+    bunu LocalProtocolError ile reddediyordu — scripts/dev.sh tam olarak bu
+    durumu yaratıyor, yani ilk kurulumda her fal düşüyordu."""
+    import asyncio
+    import os
+    from unittest.mock import patch
+
+    import httpx
+
+    from app.core import llm
+
+    yakalanan = {}
+
+    class SahteYanit:
+        status_code = 200
+        def raise_for_status(self): pass
+        def json(self): return {"data": [{"embedding": [0.0] * 384}]}
+
+    class SahteIstemci:
+        def __init__(self, **kw): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def post(self, url, json=None, headers=None):
+            yakalanan["headers"] = headers
+            # Gerçek httpx doğrulamasını uygula: geçersiz başlık burada patlar
+            httpx.Headers(headers or {})
+            return SahteYanit()
+
+    with patch.dict(os.environ, {"EMBED_URL": "http://yerel/embed", "EMBED_KEY": ""}):
+        with patch.object(httpx, "AsyncClient", SahteIstemci):
+            asyncio.run(llm.embed("deneme"))
+    assert "authorization" not in (yakalanan["headers"] or {})
+
+    with patch.dict(os.environ, {"EMBED_URL": "http://yerel/embed", "EMBED_KEY": "gizli"}):
+        with patch.object(httpx, "AsyncClient", SahteIstemci):
+            asyncio.run(llm.embed("deneme"))
+    assert yakalanan["headers"]["authorization"] == "Bearer gizli"

@@ -234,9 +234,16 @@ async def embed(text: str) -> list[float]:
             )
         return _model().encode(text[:2000]).tolist()
 
+    # Anahtar yoksa Authorization başlığını HİÇ gönderme. Boş anahtarla
+    # "Bearer " üretilir ve httpx bunu geçersiz başlık sayıp
+    # LocalProtocolError atar — kimliksiz yerel bir embedding servisiyle
+    # (veya scripts/fake_llm.py ile) çalışırken her fal bu yüzden düşer.
+    headers = {}
+    if key := os.getenv("EMBED_KEY"):
+        headers["authorization"] = f"Bearer {key}"
+
     async with httpx.AsyncClient(timeout=30) as c:
-        r = await c.post(url, json={"input": text[:2000]},
-                         headers={"authorization": f"Bearer {os.getenv('EMBED_KEY','')}"})
+        r = await c.post(url, json={"input": text[:2000]}, headers=headers)
         r.raise_for_status()
         return r.json()["data"][0]["embedding"]
 
