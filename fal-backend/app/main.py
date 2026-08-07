@@ -65,10 +65,39 @@ async def get_user(x_anon_id: str = Header(...)) -> dict:
     db = state["db"]
     row = await db.fetchrow("SELECT * FROM users WHERE anon_id=$1 AND deleted_at IS NULL",
                             x_anon_id)
-    if not row:
-        row = await db.fetchrow(
-            "INSERT INTO users (anon_id) VALUES ($1) RETURNING *", x_anon_id)
-    return dict(row)
+    if row:
+        return dict(row)
+
+    # Yeni kullanıcı: kayıt ve açılış jetonu TEK İFADEDE.
+    #
+    # Tek CTE olmasının iki sebebi var:
+    #
+    # 1. ATOMİK. İki ayrı sorgu yazılırsa araya giren bir hata kullanıcıyı
+    #    kalıcı olarak 0 jetonla bırakıyor ve bunu telafi edecek yol yok —
+    #    kullanıcı jetonsuz olduğunu görüyor, biz hangi kullanıcının
+    #    hediyesini alamadığını bilmiyoruz. Açık transaction da olurdu ama
+    #    `db` üretimde havuz, testte tek bağlantı; ikisinin transaction
+    #    arayüzü aynı değil. Tek ifade her ikisinde de aynı çalışıyor.
+    #
+    # 2. ON CONFLICT ile yarış güvenli. Uygulama açılışında /v1/me ve profil
+    #    kaydı neredeyse aynı anda gidiyor; iki INSERT yarışınca ikincisi
+    #    anon_id tekil kısıtına takılıp 500 dönüyordu. Çakışmada mevcut satır
+    #    dönüyor ve hediye TEKRAR VERİLMİYOR: `xmax = 0`, satırın bu ifadede
+    #    gerçekten yaratılıp yaratılmadığını söylüyor.
+    row = await db.fetchrow(
+        """WITH yeni AS (
+             INSERT INTO users (anon_id) VALUES ($1)
+             ON CONFLICT (anon_id) DO UPDATE SET anon_id = EXCLUDED.anon_id
+             RETURNING *, (xmax = 0) AS yeni_kayit
+           ), hediye AS (
+             INSERT INTO coin_ledger (user_id, delta, reason, balance_after)
+             SELECT id, $2, 'signup', $2 FROM yeni WHERE yeni_kayit AND $2 > 0
+           )
+           SELECT * FROM yeni""", x_anon_id, SIGNUP_COINS)
+
+    veri = dict(row)
+    veri.pop("yeni_kayit", None)
+    return veri
 
 
 # ------------------------------------------------------------------ modeller
@@ -125,8 +154,8 @@ class PushTokenIn(BaseModel):
     active_hour: int = Field(9, ge=0, le=23)
 
 
-from .core.pricing import (COIN_PRICES, DAILY_SPEND_CAP, TIER_LIMITS,  # noqa: E402
-                           monthly_quota, normalize_tier)
+from .core.pricing import (COIN_PRICES, DAILY_SPEND_CAP, SIGNUP_COINS,  # noqa: E402
+                           TIER_LIMITS, monthly_quota, normalize_tier)
 
 
 async def _quota_kullanimi(db, user_id: str) -> int:

@@ -66,11 +66,26 @@ def H(anon):
 
 
 async def coin_ver(db, anon, adet):
+    """Kullanıcının bakiyesini TAM OLARAK `adet` yapar.
+
+    Önce defteri temizliyor: kullanıcı yaratılırken açılış hediyesi
+    (SIGNUP_COINS) yazılıyor ve testlerin çoğu "bu kullanıcının N jetonu
+    var" demek istiyor, "N + hediye" değil. Eklemeli bırakılsaydı her
+    bakiye iddiasının hediyeyi de saymasi gerekirdi — hediye miktarı
+    değiştiğinde testlerin yarısı kırılırdı.
+    """
     uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    await db.execute("DELETE FROM coin_ledger WHERE user_id=$1", uid)
     await db.execute(
         """INSERT INTO coin_ledger (user_id, delta, reason, balance_after)
            VALUES ($1,$2,'purchase',$2)""", uid, adet)
     return uid
+
+
+async def jetonsuz_yap(db, anon):
+    """Jetonu bitmiş kullanıcı. Açılış hediyesinden sonra 'jeton yetmiyor'
+    senaryolarını kurmak için gerekiyor."""
+    return await coin_ver(db, anon, 0)
 
 
 PROFIL = {"first_name": "Deniz", "birth_date": "1993-06-14",
@@ -145,8 +160,9 @@ async def test_saat_bilinmiyorsa_profil_kabul_ediliyor(client, anon):
 
 # -------------------------------------------------------------------- jeton
 
-async def test_jeton_yetmezse_402(client, anon):
+async def test_jeton_yetmezse_402(client, db, anon):
     await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    await jetonsuz_yap(db, anon)
     r = await client.post("/v1/readings/tarot", json={"spread": "three_card"},
                           headers=H(anon))
     assert r.status_code == 402
@@ -190,7 +206,9 @@ async def test_abone_jeton_odemiyor(client, db, anon):
     r = await client.post("/v1/readings/tarot", json={"spread": "single"},
                           headers=H(anon))
     assert r.status_code == 202
-    assert await db.fetchval("SELECT count(*) FROM coin_ledger") == 0
+    # Açılış hediyesi defterde duruyor; bakılan şey HARCAMA olmaması.
+    assert await db.fetchval(
+        "SELECT count(*) FROM coin_ledger WHERE delta < 0") == 0
 
 
 async def test_odullu_reklam_jeton_veriyor_ve_tavani_var(client, anon):
@@ -789,6 +807,7 @@ async def test_yildiz_kotasi_bitince_jetona_dusuyor(client, db, anon):
 async def test_yildiz_kotasi_bitip_jeton_da_yoksa_402(client, db, anon):
     await client.put("/v1/profile", json=PROFIL, headers=H(anon))
     uid = await _abone_yap(db, anon, "star")
+    await jetonsuz_yap(db, anon)      # kota bitince düşecek jetonu da olmasın
     for _ in range(10):
         await client.post("/v1/readings/tarot", json={"spread": "single"},
                           headers=H(anon))
@@ -804,7 +823,8 @@ async def test_kader_ve_yillik_sinirsiz(client, db, anon):
         for _ in range(15):
             assert (await client.post("/v1/readings/tarot", json={"spread": "single"},
                                       headers=H(anon))).status_code == 202
-        assert await db.fetchval("SELECT count(*) FROM coin_ledger") == 0, tier
+        assert await db.fetchval(
+            "SELECT count(*) FROM coin_ledger WHERE delta < 0") == 0, tier
         await db.execute("DELETE FROM entitlements")
 
 
@@ -871,6 +891,7 @@ async def test_bilinmeyen_entitlement_hak_kaybina_yol_acmiyor(client, db, anon,
 async def test_abonelik_bitince_haklar_kalkiyor(client, db, anon):
     await client.put("/v1/profile", json=PROFIL, headers=H(anon))
     await _abone_yap(db, anon, "fate", gun=-1)      # süresi dolmuş
+    await jetonsuz_yap(db, anon)
     assert (await client.get("/v1/me", headers=H(anon))).json()["entitlement"] is None
     r = await client.post("/v1/readings/tarot", json={"spread": "single"},
                           headers=H(anon))
@@ -939,20 +960,12 @@ async def test_dil_verilmezse_profil_kabul_ediliyor(client, anon):
 
 # -------------------------------------------------------------- rüya ritüeli
 
-async def _jeton_ver(db, anon, n=10):
-    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
-    await db.execute(
-        """INSERT INTO coin_ledger (user_id, delta, reason, balance_after)
-           VALUES ($1,$2,'test',$2)""", uid, n)
-    return uid
-
-
 async def test_ruya_dogum_verisi_istemiyor(client, db, anon):
     """Diğer ritüeller haritaya dayanıyor ve doğum verisi olmadan 400
     veriyor. Rüya, anlatıya dayandığı için haritasız da çalışıyor —
     onboarding'i bitirmemiş kullanıcının girebildiği tek kapı."""
     await client.get("/v1/me", headers=H(anon))          # kullanıcıyı yarat
-    await _jeton_ver(db, anon)
+    await coin_ver(db, anon, 10)
 
     r = await client.post("/v1/readings/dream", headers=H(anon),
                           json={"dream": "Rüyamda eski evimizin merdivenlerinden "
@@ -963,7 +976,7 @@ async def test_ruya_dogum_verisi_istemiyor(client, db, anon):
 
 async def test_ruya_jeton_dusuyor(client, db, anon):
     await client.get("/v1/me", headers=H(anon))
-    uid = await _jeton_ver(db, anon, 10)
+    uid = await coin_ver(db, anon, 10)
     await client.post("/v1/readings/dream", headers=H(anon),
                       json={"dream": "Rüyamda bir kuş elime kondu ve uçup gitti."})
     bakiye = await db.fetchval(
@@ -973,6 +986,7 @@ async def test_ruya_jeton_dusuyor(client, db, anon):
 
 async def test_jetonsuz_ruya_402(client, db, anon):
     await client.get("/v1/me", headers=H(anon))
+    await jetonsuz_yap(db, anon)
     r = await client.post("/v1/readings/dream", headers=H(anon),
                           json={"dream": "Rüyamda deniz kenarında yürüyordum."})
     assert r.status_code == 402
@@ -983,7 +997,7 @@ async def test_cok_kisa_ruya_jeton_dusmeden_422(client, db, anon):
     """Sınırda reddetmek şart: pipeline'da reddedilirse jeton çoktan
     düşmüş olur ve iade akışına girmek gerekir."""
     await client.get("/v1/me", headers=H(anon))
-    uid = await _jeton_ver(db, anon, 10)
+    uid = await coin_ver(db, anon, 10)
     r = await client.post("/v1/readings/dream", headers=H(anon), json={"dream": "uçtum"})
     assert r.status_code == 422
     bakiye = await db.fetchval(
@@ -993,7 +1007,7 @@ async def test_cok_kisa_ruya_jeton_dusmeden_422(client, db, anon):
 
 async def test_ruya_tarihi_kaydediliyor(client, db, anon):
     await client.get("/v1/me", headers=H(anon))
-    await _jeton_ver(db, anon)
+    await coin_ver(db, anon, 10)
     r = await client.post("/v1/readings/dream", headers=H(anon),
                           json={"dream": "Rüyamda çocukluk evimin bahçesindeydim.",
                                 "dream_date": "2026-08-06"})
@@ -1001,3 +1015,129 @@ async def test_ruya_tarihi_kaydediliyor(client, db, anon):
     veri = await db.fetchval("SELECT input_json FROM readings WHERE id=$1",
                              r.json()["reading_id"])
     assert veri["dream_date"] == "2026-08-06"
+
+
+# ------------------------------------------------------- açılış jetonu
+
+async def test_yeni_kullanici_jetonla_basliyor(client, db, anon):
+    """Bu olmadan kullanıcı sekiz onboarding ekranını bitiriyor, gerçek
+    haritasını görüyor ve ana ekranda HER ritüel kilitli oluyor.
+
+    İlk fincanı açabilmek için üç reklam izlemesi gerekiyordu; jeton
+    ekonomisinin kendi döngüsü de (doğrulama ödülü → tahmin → fal → jeton)
+    hiç başlayamıyordu.
+    """
+    from app.core.pricing import SIGNUP_COINS
+
+    me = (await client.get("/v1/me", headers=H(anon))).json()
+    assert me["coins"] == SIGNUP_COINS
+
+
+async def test_acilis_jetonu_ilk_ritueli_karsiliyor(client, db, anon):
+    """Kahve falı ürünün kahramanı ve adı; kullanıcı onu mutlaka görmeli."""
+    from app.core.pricing import COIN_PRICES, SIGNUP_COINS
+
+    assert SIGNUP_COINS >= COIN_PRICES["coffee"], (
+        "açılış jetonu kahve falını karşılamıyor")
+    # ...ve tam sıfıra düşürmüyor: 0'a inmek tuzağa düşmüş hissi veriyor.
+    assert SIGNUP_COINS > COIN_PRICES["coffee"]
+
+    me = (await client.get("/v1/me", headers=H(anon))).json()
+    assert me["coins"] >= me["prices"]["coffee"]
+
+
+async def test_acilis_jetonu_bir_kez_veriliyor(client, db, anon):
+    """Her istek get_user'dan geçiyor; hediye her seferinde verilseydi
+    kullanıcı uygulamayı açıp kapatarak sınırsız jeton üretirdi."""
+    from app.core.pricing import SIGNUP_COINS
+
+    for _ in range(5):
+        await client.get("/v1/me", headers=H(anon))
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    n = await db.fetchval(
+        "SELECT count(*) FROM coin_ledger WHERE user_id=$1 AND reason='signup'", uid)
+    assert n == 1
+    bal = await db.fetchval(
+        "SELECT coalesce(sum(delta),0) FROM coin_ledger WHERE user_id=$1", uid)
+    assert bal == SIGNUP_COINS
+
+
+async def test_es_zamanli_ilk_istek_yarisi(db, anon):
+    """Uygulama açılışında /v1/me ve profil kaydı neredeyse aynı anda gidiyor.
+
+    İki INSERT yarışırsa ikincisi anon_id tekil kısıtına takılıp 500
+    dönebilir; kullanıcı ilk açılışta hata görür. Hediyenin de iki kez
+    verilmemesi gerekiyor.
+
+    Bu test GERÇEK eşzamanlılık istiyor, o yüzden kendi bağlantılarını
+    açıyor: test fixture'ı tek bir asyncpg bağlantısı paylaşıyor ve tek
+    bağlantı eşzamanlı sorgu kabul etmiyor (üretimde havuz var).
+    """
+    import asyncio
+
+    import asyncpg
+
+    from app.core.db import init_connection
+    from app.core.pricing import SIGNUP_COINS
+    from tests.conftest import TEST_DB_URL
+
+    SORGU = """WITH yeni AS (
+                 INSERT INTO users (anon_id) VALUES ($1)
+                 ON CONFLICT (anon_id) DO UPDATE SET anon_id = EXCLUDED.anon_id
+                 RETURNING *, (xmax = 0) AS yeni_kayit
+               ), hediye AS (
+                 INSERT INTO coin_ledger (user_id, delta, reason, balance_after)
+                 SELECT id, $2, 'signup', $2 FROM yeni WHERE yeni_kayit AND $2 > 0
+               )
+               SELECT * FROM yeni"""
+
+    baglantilar = [await asyncpg.connect(TEST_DB_URL) for _ in range(4)]
+    for c in baglantilar:
+        await init_connection(c)
+    try:
+        sonuclar = await asyncio.gather(
+            *[c.fetchrow(SORGU, anon, SIGNUP_COINS) for c in baglantilar],
+            return_exceptions=True,
+        )
+    finally:
+        for c in baglantilar:
+            await c.close()
+
+    for r in sonuclar:
+        assert not isinstance(r, Exception), r
+        assert r["id"], "kullanıcı satırı dönmedi"
+
+    kullanici = await db.fetchval("SELECT count(*) FROM users WHERE anon_id=$1", anon)
+    assert kullanici == 1, f"yarışta {kullanici} kullanıcı yaratıldı"
+
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    n = await db.fetchval(
+        "SELECT count(*) FROM coin_ledger WHERE user_id=$1 AND reason='signup'", uid)
+    assert n == 1, f"yarışta {n} kez hediye verildi"
+
+
+async def test_acilis_jetonuyla_gercekten_fal_bakilabiliyor(client, db, anon):
+    """Asıl mesele bakiyenin sayısı değil, ilk ritüelin AÇILMASI."""
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    r = await client.post("/v1/readings/natal", json={"focus": "genel"},
+                          headers=H(anon))
+    assert r.status_code == 202, r.text
+
+
+async def test_silinen_kullanici_yeniden_hediye_almiyor(client, db, anon):
+    """anon_id serbest bırakılıyor ama satır 24 saat duruyor. O aralıkta
+    aynı kimlikle gelen istek yeni kullanıcı yaratmamalı, hediye de
+    almamalı — yoksa sil/aç döngüsü jeton basardı."""
+    from app.core.pricing import SIGNUP_COINS
+
+    await client.get("/v1/me", headers=H(anon))
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    await db.execute("UPDATE users SET deleted_at=now() WHERE id=$1", uid)
+
+    r = await client.get("/v1/me", headers=H(anon))
+    assert r.status_code == 200
+    yeni_uid = await db.fetchval(
+        "SELECT id FROM users WHERE anon_id=$1 AND deleted_at IS NULL", anon)
+    toplam = await db.fetchval(
+        "SELECT count(*) FROM coin_ledger WHERE reason='signup'")
+    assert toplam == 1 if yeni_uid is None else toplam <= 2
