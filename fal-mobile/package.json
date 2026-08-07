@@ -13,7 +13,8 @@
     "build:web:local": "EXPO_PUBLIC_API_URL=http://127.0.0.1:8000 expo export --platform web --output-dir dist-web --clear && node scripts/postexport.mjs dist-web",
     "i18n:check": "node scripts/i18n-check.mjs",
     "yasal:check": "node scripts/yasal-check.mjs",
-    "release:check": "npm run typecheck && npm run i18n:check && npm run yasal:check"
+    "release:check": "npm run typecheck && npm run i18n:check && npm run yasal:check && npm run bildirim:check",
+    "bildirim:check": "node scripts/bildirim-check.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/jetbrains-mono": "^0.2.3",

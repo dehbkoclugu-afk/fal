@@ -17,6 +17,8 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useLocalSearchParams } from 'expo-router';
+
 import { PredictionRow } from '@/components/PredictionRow';
 import { TelveRing } from '@/components/TelveRing';
 import { api } from '@/lib/api';
@@ -26,19 +28,35 @@ import { t } from '@/lib/i18n';
 
 // Backend sabit dağarcığa indirgiyor (core/pricing.TOPICS); buradaki
 // karşılıklar onunla birebir eşleşmeli, yoksa panel ham anahtar gösterir.
-const TOPIC_TR: Record<string, string> = {
-  ask: t('konu.ask'),
-  para: t('konu.para'),
-  kariyer: t('konu.kariyer'),
-  aile: t('konu.aile'),
-  saglik: t('konu.saglik'),
-  kendim: t('konu.kendim'),
-  genel: t('konu.genel'),
-};
+//
+// Değerler ANAHTAR, metin değil: modül gövdesinde t() çağırmak dili içe
+// aktarma anında donduruyor (dil seçimi açılışta bir effect'te yapılıyor).
+const KONU_ANAHTAR = {
+  ask: 'konu.ask',
+  para: 'konu.para',
+  kariyer: 'konu.kariyer',
+  aile: 'konu.aile',
+  saglik: 'konu.saglik',
+  kendim: 'konu.kendim',
+  genel: 'konu.genel',
+} as const;
+
+const konuAdi = (k: string) =>
+  k in KONU_ANAHTAR ? t(KONU_ANAHTAR[k as keyof typeof KONU_ANAHTAR]) : k;
 
 export default function Journal() {
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
+
+  /**
+   * Doğrulama bildiriminden gelen tahmin.
+   *
+   * Bildirim "geçen hafta şunu söylemiştim — tuttu mu?" diyor; kullanıcı
+   * tam olarak o tahmine cevap vermeye geliyor. Defteri açıp onu listede
+   * aratmak, gelen kullanıcının yarısını kaybetmek demek. Vurgulanan satır
+   * listenin başına alınıyor.
+   */
+  const { vurgu } = useLocalSearchParams<{ vurgu?: string }>();
 
   const { data, isRefetching, refetch } = useQuery({
     queryKey: ['accuracy'],
@@ -115,7 +133,7 @@ export default function Journal() {
               const pct = t.total ? Math.round((t.hits / t.total) * 100) : 0;
               return (
                 <View key={t.topic} style={styles.topicRow}>
-                  <Text style={styles.topicName}>{TOPIC_TR[t.topic] ?? t.topic}</Text>
+                  <Text style={styles.topicName}>{konuAdi(t.topic)}</Text>
                   <View style={styles.barTrack}>
                     <View style={[styles.barFill, { width: `${pct}%` }]} />
                   </View>
@@ -132,16 +150,19 @@ export default function Journal() {
       {!!data?.awaiting_verdict?.length && (
         <>
           <Eyebrow style={styles.sectionLabel}>{t('gunluk.cevabiniBekliyorum')}</Eyebrow>
-          {data.awaiting_verdict.map((p) => (
-            <PredictionRow
-              key={p.id}
-              claim={p.claim}
-              topic={p.topic}
-              dueAt={p.window_end}
-              verdict="pending"
-              onVerdict={(v) => verdict.mutate({ id: p.id, v })}
-            />
-          ))}
+          {[...data.awaiting_verdict]
+            .sort((a, b) => (b.id === vurgu ? 1 : 0) - (a.id === vurgu ? 1 : 0))
+            .map((p) => (
+              <PredictionRow
+                key={p.id}
+                claim={p.claim}
+                topic={p.topic}
+                dueAt={p.window_end}
+                verdict="pending"
+                vurgulu={p.id === vurgu}
+                onVerdict={(v) => verdict.mutate({ id: p.id, v })}
+              />
+            ))}
         </>
       )}
 

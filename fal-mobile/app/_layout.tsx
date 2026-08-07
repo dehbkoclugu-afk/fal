@@ -16,6 +16,7 @@ import { Karla_400Regular, Karla_500Medium, Karla_700Bold } from '@expo-google-f
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { dilSec, uygulaYon } from '@/lib/i18n';
+import { bildirimleriKur, useBildirimYonlendirme } from '@/lib/notifications';
 import { hydrateDraft, useDraft } from '@/lib/store';
 import {
   JetBrainsMono_400Regular,
@@ -25,6 +26,7 @@ import {
 import { color } from '@/lib/theme';
 
 SplashScreen.preventAutoHideAsync();
+bildirimleriKur();
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 60_000 } },
@@ -67,7 +69,12 @@ export default function RootLayout() {
     if (ready && hydrated) SplashScreen.hideAsync();
   }, [ready, hydrated]);
 
-  if (!ready || !hydrated || !dilHazir) return null;
+  // Bildirim yönlendirmesi ancak ağaç kurulduktan sonra çalışabiliyor;
+  // erken çağrılan router.push sessizce kayboluyor.
+  const acilisTamam = ready && hydrated && dilHazir;
+  useBildirimYonlendirme(acilisTamam);
+
+  if (!acilisTamam) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: color.telve }}>
