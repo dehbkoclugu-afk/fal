@@ -106,6 +106,15 @@ class NatalIn(BaseModel):
     question: str = Field("", max_length=1000)
 
 
+class DreamIn(BaseModel):
+    # Alt sınır pipeline'da da var (orada 20 karakter). Burada 10: sınırda
+    # reddetmek jeton düşmeden 422 vermek demek, kullanıcı boşuna ödemez.
+    dream: str = Field(min_length=10, max_length=4000)
+    # Rüyanın görüldüğü gece. Boşsa dün geceye düşüyor — kullanıcı rüyayı
+    # sabah anlatıyor ve o anın Ay'ı rüyanın Ay'ı değil.
+    dream_date: date | None = None
+
+
 class VerdictIn(BaseModel):
     verdict: str = Field(pattern="^(hit|miss|partial)$")
 
@@ -316,6 +325,29 @@ async def natal_reading(body: NatalIn, user=Depends(get_user)):
     state["queue"].enqueue("app.workers.tasks.run_reading", rid, "natal",
                            body.model_dump())
     return {"reading_id": rid, "eta_seconds": 120, "status": "queued"}
+
+
+@app.post("/v1/readings/dream", status_code=202)
+async def dream_reading(body: DreamIn, user=Depends(get_user)):
+    """Rüya yorumu.
+
+    Doğum verisi ZORUNLU DEĞİL — bilerek. Diğer ritüellerin hepsi haritaya
+    dayanıyor ve doğum bilgisi olmadan anlamsız; rüya, kullanıcının kendi
+    anlatısına dayandığı için haritasız da çalışıyor. Bu onu onboarding'i
+    yarıda bırakmış kullanıcı için ilk değer anı yapıyor.
+
+    Harita varsa yorum o gecenin transitlerine de bağlanıyor.
+    """
+    db = state["db"]
+    await _charge(db, user["id"], "dream")
+    rid = str(uuid.uuid4())
+    veri = body.model_dump(mode="json")
+    await db.execute(
+        """INSERT INTO readings (id, user_id, kind, input_json, eta_seconds)
+           VALUES ($1,$2,'dream',$3,90)""",
+        rid, user["id"], veri)
+    state["queue"].enqueue("app.workers.tasks.run_reading", rid, "dream", veri)
+    return {"reading_id": rid, "eta_seconds": 90, "status": "queued"}
 
 
 @app.post("/v1/readings/daily", status_code=202)

@@ -25,12 +25,24 @@ import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
 import { t } from '@/lib/i18n';
 
-const WAITING_LINES = [
-  t('sonuc.bekleme1'),
-  t('sonuc.bekleme2'),
-  t('sonuc.bekleme3'),
-  t('sonuc.bekleme4'),
-];
+// Anahtarlar modül düzeyinde, METİN render anında.
+//
+// `t()`'yi modül gövdesinde çağırmak dili İÇE AKTARMA anında donduruyor:
+// dil seçimi açılışta bir effect'te yapılıyor ve o ana kadar bu diziler
+// çoktan Türkçe olarak kurulmuş oluyor. Tek dilli kurulumda görünmüyor,
+// ikinci dil açıldığı gün bu ekranlar Türkçe kalıyor.
+// Sonuç başlığı ritüele göre: hepsine "yorum" demek, kullanıcının hangi
+// ritüelin sonucuna baktığını gizliyor.
+const SONUC_ETIKET: Record<string, 'sonuc.kahveFali' | 'sonuc.tarot' | 'sonuc.natal' | 'sonuc.ruya' | 'sonuc.yorum'> = {
+  coffee: 'sonuc.kahveFali',
+  tarot: 'sonuc.tarot',
+  natal: 'sonuc.natal',
+  dream: 'sonuc.ruya',
+};
+
+const BEKLEME_ANAHTARLARI = [
+  'sonuc.bekleme1', 'sonuc.bekleme2', 'sonuc.bekleme3', 'sonuc.bekleme4',
+] as const;
 
 export default function ReadingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -61,7 +73,9 @@ export default function ReadingScreen() {
   // --- 1. Bekleme ritüeli
   if (!data || data.status === 'queued' || data.status === 'running') {
     const p = data?.progress ?? 0.05;
-    const line = WAITING_LINES[Math.min(WAITING_LINES.length - 1, Math.floor(p * WAITING_LINES.length))];
+    const line = t(BEKLEME_ANAHTARLARI[Math.min(
+      BEKLEME_ANAHTARLARI.length - 1,
+      Math.floor(p * BEKLEME_ANAHTARLARI.length))]);
     return (
       <Screen style={styles.waitRoot}>
         <TelveRing size={280} value={Math.max(0.06, p)} mode="ritual" />
@@ -128,7 +142,7 @@ export default function ReadingScreen() {
   return (
     <Screen scroll>
       <Eyebrow style={styles.eyebrow}>
-        {data.kind === 'coffee' ? t('sonuc.kahveFali') : data.kind === 'tarot' ? t('sonuc.tarot') : t('sonuc.yorum')}
+        {t(SONUC_ETIKET[data.kind] ?? 'sonuc.yorum')}
       </Eyebrow>
 
       {data.kind === 'coffee' && cupPhoto && markers.length > 0 && q && (

@@ -54,6 +54,45 @@ for (const kod of kayitli) {
   }
 }
 
+// --- 1b. Kullanılmayan anahtar
+//
+// Ölü anahtar bedava değil: eklenen HER dil onu da çevirmek zorunda ve
+// katalog bütünlük kontrolü eksikse derlemeyi kırıyor. Yani kimsenin
+// görmediği bir metin için her dilde emek harcanıyor.
+//
+// Anahtarlar her zaman `t('...')` içinde geçmiyor — veri tablolarında çıplak
+// dize olarak durup sonra t()'ye veriliyorlar (ODAKLAR, SPREADS gibi). Bu
+// yüzden arama, tırnak içindeki geçişe bakıyor.
+async function* kaynakDosyalari(dizin) {
+  for (const g of await readdir(dizin, { withFileTypes: true })) {
+    const yol = join(dizin, g.name);
+    if (g.isDirectory()) yield* kaynakDosyalari(yol);
+    else if (/\.(tsx?|jsx?)$/.test(g.name)) yield yol;
+  }
+}
+
+let tumKaynak = '';
+for (const dizin of ['app', 'components', 'lib']) {
+  for await (const dosya of kaynakDosyalari(join(KOK, dizin))) {
+    if (dosya.includes('/lib/i18n/')) continue;   // kataloğun kendisi sayılmaz
+    tumKaynak += await readFile(dosya, 'utf8');
+  }
+}
+
+// `hata.*` anahtarları sunucudan gelen kodla çalışma anında kuruluyor
+// (`hata.${code}`), kaynakta düz metin olarak geçmiyorlar.
+const DINAMIK = /^hata\./;
+
+const olu = [...trAnahtarlar].filter(
+  (k) => !DINAMIK.test(k) && !tumKaynak.includes(`'${k}'`));
+if (olu.length) {
+  console.error(`\n✗ ${olu.length} anahtar hiçbir yerde kullanılmıyor:`);
+  olu.slice(0, 20).forEach((k) => console.error(`   ${k}`));
+  hata++;
+} else {
+  console.log('✓ ölü anahtar yok');
+}
+
 // --- 2. Ekranlarda kalan gömülü Türkçe
 async function* tsxDosyalari(dizin) {
   for (const g of await readdir(dizin, { withFileTypes: true })) {
@@ -97,10 +136,13 @@ const JSX_IFADE = /\{[^{}]*\}/g;
  *
  * Dosya genelinde `>` ile `<` arasına bakınca, iki JSX etiketi ARASINDAKİ
  * kod da yakalanıyor (`{pending && (` gibi). Gerçek bir metin düğümünde bu
- * karakterler bulunmuyor; düzyazıda `(` `)` `=` `;` `&` `{` `}` geçmiyor.
- * Kalanında bunlardan biri varsa metin değil, koddur.
+ * karakterler bulunmuyor. Kalanında bunlardan biri varsa metin değil, koddur.
+ *
+ * `;` ve `:` bu listede DEĞİL: Türkçe düzyazı ikisini de kullanıyor ve
+ * listeye koymak abonelik şartları metnini (mağaza zorunluluğu) taramanın
+ * dışına atmıştı — tam olarak kaçmaması gereken metin.
  */
-const KOD_IZI = /[{}()=;&|[\]$`"<>]/;
+const KOD_IZI = /[{}()=&|[\]$`"<>]/;
 
 /** İç içe süslü parantezleri (`${...}` gibi) bitene kadar söker. */
 function ifadeleriSok(metin) {

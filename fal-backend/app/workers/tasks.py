@@ -39,6 +39,25 @@ def _run(coro):
 
 # --------------------------------------------------------------- fal üretimi
 
+# Bildirim metni ritüele göre. Tek metin ("Fincanını okudum") tarot, doğum
+# haritası ve rüya için de gönderiliyordu — kullanıcı hiç çekmediği bir
+# fincandan haber alıyordu.
+_HAZIR_PUSH = {
+    "coffee": ("Falın hazır 🔮", "Fincanını okudum. Bakmaya hazır mısın?"),
+    "tarot":  ("Kartların hazır 🔮", "Açılımını yorumladım. Bakmaya hazır mısın?"),
+    "natal":  ("Haritan hazır ✨", "Doğum haritanı çözdüm. Seni bekliyor."),
+    "dream":  ("Rüyan yorumlandı 🌙", "Anlattığın rüyaya baktım. Hazır olduğunda seni bekliyor."),
+    "daily":  ("Günün yorumu hazır ✨", "Bugün için haritanda ne var, bakalım mı?"),
+    "_":      ("Falın hazır 🔮", "Yorumun hazır. Bakmaya hazır mısın?"),
+}
+
+_HATA_PUSH = {
+    "coffee": "Fotoğrafı tekrar çekelim",
+    "dream":  "Rüyanı tekrar anlatalım",
+    "_":      "Bu sefer olmadı",
+}
+
+
 def run_reading(reading_id: str, kind: str, inputs: dict):
     """RQ giriş noktası."""
     return _run(_run_reading(reading_id, kind, inputs))
@@ -65,11 +84,13 @@ async def _run_reading(reading_id: str, kind: str, inputs: dict):
 
         await generate_reading(db, user_id, reading_id, kind, inputs)
 
-        if q := inputs.get("question"):
+        # Hafıza: rüya ritüelinde serbest metin `dream` alanında. Sadece
+        # `question`'a bakmak, rüyaları hafızanın tamamen dışında bırakırdı
+        # — oysa tekrar eden rüya motifi, hatırlanmaya en değer şey.
+        if q := (inputs.get("question") or inputs.get("dream")):
             await extract_memory(db, user_id, q)          # hafıza asenkron zenginleşir
-        await push(db, user_id, "Falın hazır 🔮",
-                   "Fincanını okudum. Bakmaya hazır mısın?",
-                   {"reading_id": reading_id})
+        baslik, metin = _HAZIR_PUSH.get(kind, _HAZIR_PUSH["_"])
+        await push(db, user_id, baslik, metin, {"reading_id": reading_id})
 
     except CrisisIntercept as e:
         # Push GÖNDERİLMEZ. Kullanıcı uygulamayı açtığında destek mesajını görür.
@@ -81,7 +102,10 @@ async def _run_reading(reading_id: str, kind: str, inputs: dict):
             "UPDATE readings SET status='failed', block_reason=$2 WHERE id=$1",
             reading_id, e.code)
         await refund(db, str(row["user_id"]), kind)
-        await push(db, str(row["user_id"]), "Fotoğrafı tekrar çekelim", e.message, {})
+        # Hata başlığı da ritüele göre: rüyası reddedilen kullanıcıya
+        # "fotoğrafı tekrar çekelim" demek anlamsız bir mesaj.
+        await push(db, str(row["user_id"]),
+                   _HATA_PUSH.get(kind, _HATA_PUSH["_"]), e.message, {})
     finally:
         r.delete(f"cupimg:{reading_id}")
         await db.close()

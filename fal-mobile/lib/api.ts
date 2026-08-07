@@ -218,6 +218,19 @@ export const api = {
       body: JSON.stringify({ focus }),
     }),
 
+  /**
+   * Rüya yorumu.
+   *
+   * `dreamDate` rüyanın GÖRÜLDÜĞÜ gece (YYYY-AA-GG). Kullanıcı rüyayı
+   * sabah anlatıyor ama gökyüzü bağlamı o gecenin Ay'ına ait olmalı —
+   * Ay iki buçuk günde burç değiştiriyor.
+   */
+  dream: (dream: string, dreamDate?: string) =>
+    request<{ reading_id: string; eta_seconds: number }>('/readings/dream', {
+      method: 'POST',
+      body: JSON.stringify({ dream, dream_date: dreamDate ?? null }),
+    }),
+
   daily: () =>
     request<{ reading_id: string; eta_seconds: number; cached?: boolean }>(
       '/readings/daily',

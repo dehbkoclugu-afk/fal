@@ -27,8 +27,8 @@ import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
 import { t } from '@/lib/i18n';
 
-const STEPS = [
-  { key: 'inside', title: t('kahve.adimBaslik'), hint: t('kahve.adimIpucu') },
+const ADIMLAR = [
+  { key: 'inside', baslik: 'kahve.adimBaslik', ipucu: 'kahve.adimIpucu' },
 ] as const;
 
 export default function Coffee() {
@@ -152,8 +152,8 @@ export default function Coffee() {
       </View>
 
       <View style={[styles.top, { paddingTop: insets.top + space.md }]}>
-        <Eyebrow style={styles.stepTitle}>{STEPS[0].title}</Eyebrow>
-        <Text style={styles.stepHint}>{STEPS[0].hint}</Text>
+        <Eyebrow style={styles.stepTitle}>{t(ADIMLAR[0].baslik)}</Eyebrow>
+        <Text style={styles.stepHint}>{t(ADIMLAR[0].ipucu)}</Text>
       </View>
 
       <View style={[styles.bottom, { paddingBottom: insets.bottom + space.xl }]}>

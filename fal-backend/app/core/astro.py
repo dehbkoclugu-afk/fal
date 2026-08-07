@@ -353,6 +353,39 @@ TRANSIT_BODIES = ["mars", "jupiter", "saturn", "uranus", "neptune", "pluto"]
 FAST_TRANSIT_BODIES = ["sun", "mercury", "venus"]
 
 
+def moon_at(when: datetime) -> dict[str, Any]:
+    """Verilen andaki Ay'ın burcu ve fazı.
+
+    Rüya yorumu bunu kullanıyor: rüyanın GÖRÜLDÜĞÜ gecenin Ay'ı, yorumun
+    tek gerçek hesaplanmış çıpası. Doğum haritası gerektirmiyor — rüya,
+    doğum verisi olmadan da yorumlanabilen tek ritüel.
+
+    Hata durumunda boş sözlük dönüyor; çağıran taraf gökyüzü bağını hiç
+    kurmuyor. Rüya yorumunun tamamen çökmesindense gökyüzü bağı olmayan
+    bir yorum üretmek daha iyi.
+    """
+    try:
+        jd = swe.julday(when.year, when.month, when.day,
+                        when.hour + when.minute / 60)
+        sun, _ = swe.calc_ut(jd, swe.SUN, FLAGS)
+        moon, _ = swe.calc_ut(jd, swe.MOON, FLAGS)
+    except Exception:
+        return {}
+
+    lon = _norm360(moon[0])
+    idx = int(lon // 30)
+    faz = _moon_phase(sun[0], moon[0])
+    return {
+        "burc": SIGNS_TR[idx],
+        "burc_key": SIGN_KEYS[idx],
+        "derece": round(lon - idx * 30, 2),
+        "faz": faz["name_tr"],
+        "faz_key": faz["key"],
+        "aydinlanma": faz["illumination"],
+        "ozet": f"{SIGNS_TR[idx]} burcunda {faz['name_tr']}",
+    }
+
+
 def transits_for(chart: Chart, when: datetime, tight_orb: float = 1.0,
                  include_fast: bool = True) -> list[dict]:
     """Verilen anda natal haritaya gelen sıkı açılar.

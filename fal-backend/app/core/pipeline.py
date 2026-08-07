@@ -12,7 +12,7 @@ sadece atmosfer değil; kuyruk mimarisine ve maliyet düzleştirmeye izin veriyo
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from . import astro, blocks, guardrail, locales, prompts, tarot
@@ -73,6 +73,27 @@ async def build_memory_ctx(db, user_id: str, limit: int = 6) -> str:
     return "\n".join(f"- {r['kind']}: {r['key']} → {r['summary']}" for r in rows)
 
 
+def _dream_night(raw: str | None) -> datetime:
+    """Rüyanın görüldüğü gecenin gökyüzü anı.
+
+    Kullanıcı rüyayı sabah anlatıyor ama rüya DÜN GECE görüldü; o anın Ay'ı
+    farklı olabilir (Ay iki buçuk günde burç değiştiriyor). Tarih
+    verilmezse dün gece 03:00'e düşüyoruz — rüyanın en yoğun görüldüğü
+    saat ve "bu sabah anlattım" en sık durum.
+
+    Bozuk tarih sessizce varsayılana düşüyor: rüya yorumunu tarih formatı
+    yüzünden reddetmek kullanıcı açısından anlamsız.
+    """
+    if raw:
+        try:
+            g = date.fromisoformat(str(raw)[:10])
+            return datetime(g.year, g.month, g.day, 3, 0, tzinfo=timezone.utc)
+        except ValueError:
+            pass
+    dun = datetime.now(timezone.utc) - timedelta(days=1)
+    return dun.replace(hour=3, minute=0, second=0, microsecond=0)
+
+
 def _chart_from_row(row: dict) -> astro.Chart | None:
     if not row.get("birth_date"):
         return None
@@ -112,8 +133,15 @@ async def cache_chart(db, birth_profile_id, chart: astro.Chart) -> None:
 
 async def generate_reading(db, user_id: str, reading_id: str, kind: str,
                            inputs: dict) -> dict:
-    """kind: coffee | tarot | natal | daily"""
+    """kind: coffee | tarot | natal | dream | daily"""
     question = (inputs.get("question") or "").strip()
+
+    # Rüya ritüelinde kullanıcının serbest metni `dream` alanında duruyor.
+    # Guardrail `question` üzerinden çalıştığı için metin buraya alınıyor;
+    # alınmazsa kriz taraması rüya anlatısını HİÇ görmez ve ritüel,
+    # guardrail'in tamamen atlandığı tek giriş noktası olur.
+    if kind == "dream":
+        question = (inputs.get("dream") or "").strip()
 
     # 1) GUARDRAIL — üretimden önce, istisnasız.
     #
@@ -175,6 +203,41 @@ async def generate_reading(db, user_id: str, reading_id: str, kind: str,
         user_msg = prompts.natal_prompt(chart.llm_context(), user_ctx,
                                         inputs.get("focus", "genel"), memory)
         extra = {"chart": chart.to_dict()}
+
+    elif kind == "dream":
+        # Rüya metni guardrail'den GEÇTİ: `question` alanına yazılıyor ve
+        # yukarıdaki check() onu da tarıyor.
+        #
+        # Bu kasıtlı. Rüya anlatısı doğal olarak ölüm ve şiddet imgesi
+        # taşıyor, yani yanlış pozitif çıkacak ("rüyamda kendime zarar
+        # veriyordum" kriz kabul edilip destek mesajına düşer). Guardrail'i
+        # bu ritüel için gevşetmek yanlış yön olurdu: bu dosyanın baştan
+        # beri koruduğu asimetri yanlış pozitifin ucuz, yanlış negatifin
+        # pahalı olması. Kâbusunu anlatan kullanıcının destek mesajı
+        # görmesi, gerçekten kriz içindeki kullanıcının görmemesinden
+        # kıyaslanamayacak kadar iyi.
+        ruya = (inputs.get("dream") or "").strip()
+        if len(ruya) < 20:
+            raise ReadingRejected(
+                "dream_too_short",
+                "Rüyanı biraz daha anlatır mısın? Gördüğün sahneyi yazman yeterli.")
+
+        # Gökyüzü bağlamı rüyanın GÖRÜLDÜĞÜ geceye ait olmalı; kullanıcı
+        # sabah anlatıyor ama rüya dünün Ay'ı altında görüldü. Tarih
+        # verilmezse dün geceye düşüyoruz — "bu sabah anlattım" en sık hâl.
+        gece = _dream_night(inputs.get("dream_date"))
+        if chart:
+            trs = astro.transits_for(chart, gece)[:3]
+            ay = astro.moon_at(gece)
+            chart_brief = chart.llm_context()["gezegenler"][:4]
+        else:
+            # Doğum verisi yoksa ritüel yine çalışıyor, sadece gökyüzü bağı
+            # kurulmuyor. Rüya yorumu, doğum haritası zorunluluğu olmadan
+            # anlamlı olabilen tek ritüel — kapıyı kapatmak gereksiz.
+            trs, ay, chart_brief = [], astro.moon_at(gece), []
+        user_msg = prompts.dream_prompt(ruya, ay.get("ozet", ""), trs,
+                                        chart_brief, user_ctx, memory)
+        extra = {"transits": trs, "moon": ay, "dream_night": gece.date().isoformat()}
 
     elif kind == "daily":
         if not chart:

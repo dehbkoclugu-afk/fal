@@ -25,10 +25,10 @@ import { t } from '@/lib/i18n';
 
 type Props = {
   /** Ritüel türü — fiyat ve bakiye sunucudan okunuyor. */
-  kind: 'coffee' | 'tarot' | 'natal';
+  kind: 'coffee' | 'tarot' | 'natal' | 'dream';
 };
 
-const VARSAYILAN: Record<string, number> = { coffee: 3, tarot: 1, natal: 5 };
+const VARSAYILAN: Record<string, number> = { coffee: 3, tarot: 1, natal: 5, dream: 2 };
 
 export function CoinGate({ kind }: Props) {
   const router = useRouter();
@@ -50,7 +50,7 @@ export function CoinGate({ kind }: Props) {
     setBusy(false);
     if (r.ok) {
       qc.invalidateQueries({ queryKey: ['me'] });
-      setNot(`+1 jeton · toplam ${r.coins}`);
+      setNot(t('kapi.odulKazandin', { n: r.coins }));
       return;
     }
     setNot(

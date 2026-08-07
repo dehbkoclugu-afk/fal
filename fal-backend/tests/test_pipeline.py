@@ -313,3 +313,67 @@ async def test_hafiza_kaydediliyor_ve_sonraki_fala_giriyor(db, user_with_chart,
 async def test_kisa_soru_hafizaya_yazilmiyor(db, user_with_chart, fake_llm):
     assert await pipeline.extract_memory(db, user_with_chart, "ne olacak") == 0
     assert fake_llm.calls == []
+
+
+# ---------------------------------------------------------------- rüya ritüeli
+
+RUYA = ("Rüyamda çocukluğumun evindeydim, merdivenlerden inerken alt katın "
+        "su ile dolduğunu gördüm ama korkmadım.")
+
+
+async def test_ruya_dogum_verisi_olmadan_calisiyor(db, user_id, fake_llm, fake_embed):
+    """Rüya, haritasız çalışan TEK ritüel — bu kasıtlı bir ürün kararı.
+
+    Onboarding'i yarıda bırakmış kullanıcının ilk değer anı burası. Doğum
+    verisi zorunlu kılınırsa o kullanıcı hiçbir ritüele giremiyor.
+    """
+    rid = await _reading(db, user_id, "dream")
+    await pipeline.generate_reading(db, user_id, rid, "dream", {"dream": RUYA})
+
+    row = await db.fetchrow("SELECT status, output_json FROM readings WHERE id=$1", rid)
+    assert row["status"] == "done"
+    assert row["output_json"]["ozet"]
+
+
+async def test_ruya_metni_guardraildan_geciyor(db, user_id, fake_llm, fake_embed):
+    """Rüya metni `dream` alanında geliyor; guardrail `question` üzerinden
+    çalışıyor. Bağlanmazsa bu uç, guardrail'in tamamen atlandığı tek giriş
+    noktası olurdu."""
+    rid = await _reading(db, user_id, "dream")
+    with pytest.raises(pipeline.CrisisIntercept):
+        await pipeline.generate_reading(
+            db, user_id, rid, "dream",
+            {"dream": "Rüyamdan uyandım ve artık dayanamıyorum yaşamak istemiyorum."})
+    assert fake_llm.calls == [], "kriz vakasında LLM çağrıldı"
+
+
+async def test_ruya_haritayla_gokyuzu_baglami_tasiyor(db, user_with_chart,
+                                                      fake_llm, fake_embed):
+    """Harita varsa yorum o gecenin Ay'ına ve transitlerine dayanmalı —
+    ürünün 'uydurmuyoruz, hesaplıyoruz' tezi rüyada da geçerli."""
+    rid = await _reading(db, user_with_chart, "dream")
+    await pipeline.generate_reading(db, user_with_chart, rid, "dream",
+                                    {"dream": RUYA, "dream_date": "2026-08-06"})
+
+    prompt = fake_llm.calls[0]["user"]
+    assert "Boğa burcunda Son Dördün" in prompt, prompt[:400]
+
+    extra = await db.fetchval("SELECT extra_json FROM readings WHERE id=$1", rid)
+    assert extra["moon"]["burc"] == "Boğa"
+    assert extra["dream_night"] == "2026-08-06"
+
+
+async def test_ruya_metni_prompta_birebir_giriyor(db, user_id, fake_llm, fake_embed):
+    """Rüya sözlüğü yerine kullanıcının kendi sahnesine bağlanması,
+    anlatının prompta girmesine bağlı."""
+    rid = await _reading(db, user_id, "dream")
+    await pipeline.generate_reading(db, user_id, rid, "dream", {"dream": RUYA})
+    assert RUYA in fake_llm.calls[0]["user"]
+
+
+async def test_cok_kisa_ruya_reddediliyor(db, user_id, fake_llm, fake_embed):
+    rid = await _reading(db, user_id, "dream")
+    with pytest.raises(pipeline.ReadingRejected) as exc:
+        await pipeline.generate_reading(db, user_id, rid, "dream", {"dream": "uçtum"})
+    assert exc.value.code == "dream_too_short"
+    assert fake_llm.calls == []

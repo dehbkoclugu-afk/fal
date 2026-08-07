@@ -66,7 +66,7 @@ export default function Reveal() {
     ? [
         { key: t('ob.reveal.yukselen'), value: teaser.yukselen, note: t('ob.reveal.yukselenNot') },
         { key: t('ob.reveal.gunes'), value: teaser.gunes, note: t('ob.reveal.gunesNot') },
-        { key: 'Ay', value: teaser.ay, note: t('ob.reveal.ayNot') },
+        { key: t('ob.reveal.ay'), value: teaser.ay, note: t('ob.reveal.ayNot') },
       ]
     : [];
 

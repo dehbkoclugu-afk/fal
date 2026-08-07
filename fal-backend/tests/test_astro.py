@@ -321,3 +321,92 @@ def test_element_dagilimi_on_gezegeni_sayiyor():
     chart = compute_chart(BirthInput(1993, 6, 14, 4, 30))
     assert sum(chart.element_balance.values()) == 10
     assert sum(chart.modality_balance.values()) == 10
+
+
+# ------------------------------------------------------- rüya gecesinin Ay'ı
+
+def test_moon_at_bagimsiz_formulle_dogrulaniyor():
+    """Rüya yorumunun tek hesaplanmış çıpası Ay; yanlışsa yorum uydurma
+    olur ve ürünün 'hesaplıyoruz' tezi çöker.
+
+    Bu dosyanın yöntemi burada da geçerli: değeri ezberden yazmıyoruz,
+    astro.py'den bağımsız bir formülle (Meeus'un ana periyodik terimleri)
+    yeniden hesaplayıp karşılaştırıyoruz.
+    """
+    from datetime import datetime, timezone
+
+    from app.core import astro
+
+    an = datetime(2026, 8, 6, 3, 0, tzinfo=timezone.utc)
+
+    jd = 2451545.0 + (an - datetime(2000, 1, 1, 12, 0, tzinfo=timezone.utc)
+                      ).total_seconds() / 86400
+    T = (jd - 2451545.0) / 36525
+    r = math.radians
+    Lp = 218.3164477 + 481267.88123421 * T
+    D = 297.8501921 + 445267.1114034 * T
+    M = 357.5291092 + 35999.0502909 * T
+    Mp = 134.9633964 + 477198.8675055 * T
+    F = 93.2720950 + 483202.0175233 * T
+    lon = (Lp + 6.289 * math.sin(r(Mp)) - 1.274 * math.sin(r(2 * D - Mp))
+           + 0.658 * math.sin(r(2 * D)) + 0.214 * math.sin(r(2 * Mp))
+           - 0.186 * math.sin(r(M)) - 0.114 * math.sin(r(2 * F))) % 360
+
+    got = astro.moon_at(an)
+    # Ana terimlerle sınırlı formülün hatası ~2°; burç sınırına yakın
+    # olmadığı sürece burç aynı çıkmalı.
+    beklenen_burc = astro.SIGNS_TR[int(lon // 30)]
+    assert got["burc"] == beklenen_burc, f"{got} vs bağımsız {lon:.2f}°"
+    assert abs(((got["derece"] + int(lon // 30) * 30) - lon + 180) % 360 - 180) < 3
+
+
+def test_moon_at_faz_ilerliyor():
+    """Ay fazı ~29.5 günde bir tur atıyor; iki hafta arayla iki ölçüm
+    aynı fazı vermemeli."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.core import astro
+
+    a = datetime(2026, 3, 1, 3, 0, tzinfo=timezone.utc)
+    assert astro.moon_at(a)["faz_key"] != astro.moon_at(a + timedelta(days=14))["faz_key"]
+
+
+def test_moon_at_hata_durumunda_bos_donuyor():
+    """Gökyüzü hesabı çökerse rüya yorumu tamamen düşmemeli; gökyüzü bağı
+    olmadan üretilmeli."""
+    from app.core import astro
+
+    assert astro.moon_at(None) == {}
+
+
+# ------------------------------------------------------ rüyanın görüldüğü gece
+
+def test_ruya_gecesi_varsayilan_dun():
+    """Kullanıcı rüyayı SABAH anlatıyor; rüya dün gece görüldü. Bugünün
+    Ay'ını kullanmak yanlış gökyüzüne bağlamak demek (Ay ~2.5 günde burç
+    değiştiriyor)."""
+    from datetime import datetime, timezone
+
+    from app.core import pipeline
+
+    gece = pipeline._dream_night(None)
+    fark = datetime.now(timezone.utc) - gece
+    assert 0.5 < fark.total_seconds() / 86400 < 2.0
+
+
+def test_ruya_gecesi_verilen_tarihi_kullaniyor():
+    from app.core import pipeline
+
+    g = pipeline._dream_night("2026-08-06")
+    assert (g.year, g.month, g.day) == (2026, 8, 6)
+
+
+def test_bozuk_tarih_ruyayi_reddetmiyor():
+    """Tarih biçimi yüzünden rüya yorumunu reddetmek kullanıcı açısından
+    anlamsız; sessizce varsayılana düşüyor."""
+    from datetime import datetime, timezone
+
+    from app.core import pipeline
+
+    g = pipeline._dream_night("dün gece")
+    assert (datetime.now(timezone.utc) - g).total_seconds() > 0

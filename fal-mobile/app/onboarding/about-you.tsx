@@ -9,8 +9,22 @@ import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
 import { t } from '@/lib/i18n';
 
-const STATUSES = [t('ob.tani.iliskiYok'), t('ob.tani.iliskiVar'), t('ob.tani.evli'), t('ob.tani.karisik')];
-const FOCUS = [t('konu.ask'), t('konu.para'), 'kariyer', t('konu.aile'), t('konu.kendim')];
+// Saklanan değer SABİT, gösterilen etiket dile göre. Kullanıcı dilini
+// sonradan değiştirdiğinde profilindeki seçim bozulmasın diye: etiketi
+// saklamak, eski dildeki kelimeyi kalıcı hâle getiriyordu.
+const DURUMLAR = [
+  { key: 'yalniz', label: 'ob.tani.iliskiYok' },
+  { key: 'iliskide', label: 'ob.tani.iliskiVar' },
+  { key: 'evli', label: 'ob.tani.evli' },
+  { key: 'karisik', label: 'ob.tani.karisik' },
+] as const;
+const ODAKLAR = [
+  { key: 'ask', label: 'konu.ask' },
+  { key: 'para', label: 'konu.para' },
+  { key: 'kariyer', label: 'konu.kariyer' },
+  { key: 'aile', label: 'konu.aile' },
+  { key: 'kendim', label: 'konu.kendim' },
+] as const;
 
 export default function AboutYou() {
   const router = useRouter();
@@ -25,15 +39,17 @@ export default function AboutYou() {
 
       <Eyebrow style={styles.label}>{t('ob.tani.iliskiDurumu')}</Eyebrow>
       <View style={styles.chips}>
-        {STATUSES.map((s) => (
-          <Chip key={s} label={s} on={status === s} onPress={() => setStatus(s)} />
+        {DURUMLAR.map((d) => (
+          <Chip key={d.key} label={t(d.label)} on={status === d.key}
+                onPress={() => setStatus(d.key)} />
         ))}
       </View>
 
       <Eyebrow style={styles.label}>{t('ob.tani.merak')}</Eyebrow>
       <View style={styles.chips}>
-        {FOCUS.map((f) => (
-          <Chip key={f} label={f} on={focus === f} onPress={() => setFocus(f)} />
+        {ODAKLAR.map((o) => (
+          <Chip key={o.key} label={t(o.label)} on={focus === o.key}
+                onPress={() => setFocus(o.key)} />
         ))}
       </View>
 

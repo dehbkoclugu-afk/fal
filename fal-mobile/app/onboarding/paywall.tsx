@@ -29,7 +29,9 @@ import { t } from '@/lib/i18n';
 // gerektiren A/B test pratikte ölü A/B testtir (bkz. fal-mobile/README).
 const VARYANT = 'soft_yillik_one_v1';
 
-const YEDEK_PLANLAR = [
+// Fonksiyon, sabit değil: modül düzeyinde t() çağırmak dili içe aktarma
+// anında dondurur (bkz. reading/[id].tsx'teki not).
+const yedekPlanlar = () => [
   { key: 'yearly', title: t('ob.paywall.yillik'), price: '—', per: t('ob.paywall.yildaBir'), badge: t('ob.paywall.enAvantajli') },
   { key: 'monthly', title: t('ob.paywall.aylik'), price: '—', per: t('ob.paywall.aydaBir'), badge: null },
 ];
@@ -45,7 +47,7 @@ function planBasligi(period: string | null): { title: string; per: string } {
 // "sınırsız" demek Yıldız'da YANLIŞ olur: o katman ayda 10 fal veriyor.
 // Yanlış vaat bu kategoride iade dalgası ve 1 yıldız yorum demek — mağaza
 // kuralı da abonelik kapsamının açıkça yazılmasını istiyor.
-const ORTAK = [
+const ortakKapsam = () => [
   t('ob.paywall.natal'),
   t('ob.paywall.transit'),
   t('ob.paywall.reklamsiz'),
@@ -56,14 +58,14 @@ function kapsam(key: string): string[] {
   const yillik = /year|yil|yıl|annual/i.test(key);
   const ust = yillik || /fate|kader|unlimited/i.test(key);
   return [ust ? t('ob.paywall.sinirsizFal') : t('ob.paywall.aylik10'),
-          ...ORTAK];
+          ...ortakKapsam()];
 }
 
 export default function Paywall() {
   const router = useRouter();
   const qc = useQueryClient();
   const finish = useDraft((s) => s.finish);
-  const [plans, setPlans] = useState(YEDEK_PLANLAR);
+  const [plans, setPlans] = useState(yedekPlanlar);
   const [plan, setPlan] = useState<string>('yearly');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -170,11 +172,7 @@ export default function Paywall() {
       <Button label={t('ob.paywall.aboneOl')} loading={busy} onPress={go} style={{ marginTop: space.lg }} />
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Text style={styles.terms}>
-        Abonelik otomatik yenilenir. Yenilemeden en az 24 saat önce Google Play hesabından
-        iptal edebilirsin. Ücret onayladığın anda tahsil edilir. Fal içeriği eğlence
-        amaçlıdır; tıbbi, hukuki veya finansal tavsiye yerine geçmez.
-      </Text>
+      <Text style={styles.terms}>{t('ob.paywall.sartlar')}</Text>
 
       <View style={styles.footerLinks}>
         <Pressable onPress={skip}>

@@ -8,7 +8,7 @@ sürecinde tüm FastAPI uygulamasını ayağa kaldırır.
 
 from __future__ import annotations
 
-COIN_PRICES = {"coffee": 3, "tarot": 1, "natal": 5, "daily": 0}
+COIN_PRICES = {"coffee": 3, "tarot": 1, "natal": 5, "dream": 2, "daily": 0}
 
 # Kumar döngüsü önlemi ve aynı zamanda iade/chargeback önlemi.
 # Kaldırma: günde sınırsız harcama, bu kategoride iade dalgası demek.

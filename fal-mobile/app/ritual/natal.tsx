@@ -24,17 +24,21 @@ import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
 import { t } from '@/lib/i18n';
 
+// `key` sunucuya `focus` olarak gidiyor ve orada Literal ile doğrulanıyor:
+// SABİT kalmak zorunda. Çeviri çıkarımı bunları da t() ile sarmıştı;
+// Türkçe katalog değerleri anahtarlarla aynı olduğu için hata görünmüyordu,
+// ikinci dilde her doğum haritası isteği 422 dönecekti.
 const ODAKLAR = [
-  { key: t('konu.genel'), title: t('natal.butunHarita'), note: t('natal.butunHaritaNot') },
-  { key: 'ask', title: t('natal.ask'), note: t('natal.askNot') },
-  { key: t('konu.para'), title: t('natal.para'), note: t('natal.paraNot') },
-  { key: 'kariyer', title: t('natal.kariyer'), note: t('natal.kariyerNot') },
-  { key: t('konu.kendim'), title: t('natal.kendim'), note: t('natal.kendimNot') },
+  { key: 'genel', title: 'natal.butunHarita', note: 'natal.butunHaritaNot' },
+  { key: 'ask', title: 'natal.ask', note: 'natal.askNot' },
+  { key: 'para', title: 'natal.para', note: 'natal.paraNot' },
+  { key: 'kariyer', title: 'natal.kariyer', note: 'natal.kariyerNot' },
+  { key: 'kendim', title: 'natal.kendim', note: 'natal.kendimNot' },
 ] as const;
 
 export default function Natal() {
   const router = useRouter();
-  const [odak, setOdak] = useState<string>(t('konu.genel'));
+  const [odak, setOdak] = useState<string>('genel');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,9 +80,9 @@ export default function Natal() {
               >
                 <View style={styles.rowText}>
                   <Text style={[styles.rowTitle, on && { color: color.porselen }]}>
-                    {o.title}
+                    {t(o.title)}
                   </Text>
-                  <Text style={styles.rowNote}>{o.note}</Text>
+                  <Text style={styles.rowNote}>{t(o.note)}</Text>
                 </View>
                 <View style={[styles.dot, on && styles.dotOn]} />
               </Pressable>

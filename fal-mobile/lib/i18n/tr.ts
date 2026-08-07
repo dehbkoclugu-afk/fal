@@ -33,7 +33,6 @@ export const tr = {
   'hata.unsupported_locale': 'Bu dil henüz desteklenmiyor.',
   'hata.unknown': 'Bir şeyler ters gitti. Tekrar dene.',
   'ortak.jeton': '{n} jeton',
-  'ortak.tekrarDene': 'Bir şeyler ters gitti. Tekrar dene.',
   'ortak.baglantiHatasi': 'Bağlantını kontrol edip tekrar dener misin?',
   'ortak.eglenceAmacli': 'eğlence amaçlıdır',
 
@@ -48,7 +47,6 @@ export const tr = {
   'ob.dogum.soru': 'Ne zaman doğdun?',
   'ob.dogum.tarih': 'Tarih',
   'ob.dogum.saat': 'Saat',
-  'ob.dogum.saatBilinmiyor': 'saati bilmiyorum',
   'ob.dogum.saatimiBilmiyorum': 'Doğum saatimi bilmiyorum',
   // Tarih/saat yer tutucuları da dile bağlı: gg.aa.yyyy Türkiye'nin biçimi,
   // ABD'de aa/gg/yyyy olmalı.
@@ -56,8 +54,6 @@ export const tr = {
   'ob.dogum.saatOrnek': '04:30',
   'ob.dogum.neden':
     'Gezegen konumlarını gerçek gökyüzü verisinden hesaplıyorum, o yüzden tarih ve saat gerekiyor.',
-  'ob.dogum.saatNeden':
-    'Doğum saati yükselen burcunu belirliyor. Bilmiyorsan da devam edebilirsin.',
 
   'ob.yer.eyebrow': '2 / 3 · doğum verisi',
   'ob.yer.soru': 'Nerede doğdun?',
@@ -158,7 +154,22 @@ export const tr = {
   'ritual.natal': 'Doğum haritası',
   'ritual.natalNot': 'karakter çözümü',
   'ritual.ruya': 'Rüya yorumu',
-  'ritual.yakinda': 'yakında',
+  'ritual.ruyaNot': 'gördüğünü anlat',
+
+  // --- rüya ritüeli
+  'ruya.eyebrow': 'rüya yorumu',
+  'ruya.baslik': 'Ne gördün?',
+  'ruya.aciklama':
+    'Gördüğün sahneyi kendi cümlelerinle anlat. Rüya sözlüğüne bakmıyorum; anlattığın sahneyi haritanla ve rüyanı gördüğün gecenin gökyüzüyle birlikte okuyorum.',
+  'ruya.placeholder': 'rüyanda ne oldu?',
+  'ruya.neZaman': 'Ne zaman gördün?',
+  'ruya.dunGece': 'dün gece',
+  'ruya.oncekiGece': 'önceki gece',
+  'ruya.cokKisa': 'Biraz daha anlatır mısın? Gördüğün sahneyi yazman yeterli.',
+  'ruya.yorumla': 'Rüyamı yorumla',
+  'ruya.yorumlaJeton': 'Rüyamı yorumla · {n} jeton',
+  'ruya.haritasizNot':
+    'Doğum bilgin olmadan da yorumluyorum; haritanı eklersen rüyanı o gecenin gökyüzüne de bağlarım.',
 
   // --- kahve ritüeli
   'kahve.izinBaslik': 'Kamera izni gerekiyor',
@@ -207,6 +218,8 @@ export const tr = {
   // --- sonuç ekranı
   'sonuc.kahveFali': 'kahve falı',
   'sonuc.tarot': 'tarot',
+  'sonuc.natal': 'doğum haritası',
+  'sonuc.ruya': 'rüya yorumu',
   'sonuc.yorum': 'yorum',
   'sonuc.neYapmali': 'ne yapmalı',
   'sonuc.defteryeYazildi': 'deftere yazıldı',
@@ -280,8 +293,6 @@ export const tr = {
   'kapi.reklamHazirDegil': 'Reklam henüz hazır değil, birazdan tekrar dene.',
   'kapi.videoTamamlanmadi': 'Video tamamlanmadı.',
   'kapi.reklamGosterilemiyor': 'Şu an reklam gösteremiyorum.',
-  'kapi.jetonYetmiyor':
-    'Jetonun yetmiyor. Reklam izleyip jeton kazanabilir veya abone olabilirsin.',
 
   // --- paylaşım
   'paylas.buton': 'paylaş',

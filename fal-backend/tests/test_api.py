@@ -12,6 +12,7 @@ import uuid
 import httpx
 import pytest
 
+from app.core.pricing import COIN_PRICES
 from tests.conftest import requires_db
 
 pytestmark = [pytest.mark.asyncio, requires_db]
@@ -934,3 +935,69 @@ async def test_dil_verilmezse_profil_kabul_ediliyor(client, anon):
     r = await client.put("/v1/profile", json=PROFIL, headers=H(anon))
     assert r.status_code == 200
     assert (await client.get("/v1/me", headers=H(anon))).json()["locale"] == "tr"
+
+
+# -------------------------------------------------------------- rüya ritüeli
+
+async def _jeton_ver(db, anon, n=10):
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    await db.execute(
+        """INSERT INTO coin_ledger (user_id, delta, reason, balance_after)
+           VALUES ($1,$2,'test',$2)""", uid, n)
+    return uid
+
+
+async def test_ruya_dogum_verisi_istemiyor(client, db, anon):
+    """Diğer ritüeller haritaya dayanıyor ve doğum verisi olmadan 400
+    veriyor. Rüya, anlatıya dayandığı için haritasız da çalışıyor —
+    onboarding'i bitirmemiş kullanıcının girebildiği tek kapı."""
+    await client.get("/v1/me", headers=H(anon))          # kullanıcıyı yarat
+    await _jeton_ver(db, anon)
+
+    r = await client.post("/v1/readings/dream", headers=H(anon),
+                          json={"dream": "Rüyamda eski evimizin merdivenlerinden "
+                                         "iniyordum, alt kat su doluydu."})
+    assert r.status_code == 202, r.text
+    assert r.json()["reading_id"]
+
+
+async def test_ruya_jeton_dusuyor(client, db, anon):
+    await client.get("/v1/me", headers=H(anon))
+    uid = await _jeton_ver(db, anon, 10)
+    await client.post("/v1/readings/dream", headers=H(anon),
+                      json={"dream": "Rüyamda bir kuş elime kondu ve uçup gitti."})
+    bakiye = await db.fetchval(
+        "SELECT coalesce(sum(delta),0) FROM coin_ledger WHERE user_id=$1", uid)
+    assert bakiye == 10 - COIN_PRICES["dream"]
+
+
+async def test_jetonsuz_ruya_402(client, db, anon):
+    await client.get("/v1/me", headers=H(anon))
+    r = await client.post("/v1/readings/dream", headers=H(anon),
+                          json={"dream": "Rüyamda deniz kenarında yürüyordum."})
+    assert r.status_code == 402
+    assert r.json()["detail"]["code"] == "insufficient_coins"
+
+
+async def test_cok_kisa_ruya_jeton_dusmeden_422(client, db, anon):
+    """Sınırda reddetmek şart: pipeline'da reddedilirse jeton çoktan
+    düşmüş olur ve iade akışına girmek gerekir."""
+    await client.get("/v1/me", headers=H(anon))
+    uid = await _jeton_ver(db, anon, 10)
+    r = await client.post("/v1/readings/dream", headers=H(anon), json={"dream": "uçtum"})
+    assert r.status_code == 422
+    bakiye = await db.fetchval(
+        "SELECT coalesce(sum(delta),0) FROM coin_ledger WHERE user_id=$1", uid)
+    assert bakiye == 10, "reddedilen istekte jeton düştü"
+
+
+async def test_ruya_tarihi_kaydediliyor(client, db, anon):
+    await client.get("/v1/me", headers=H(anon))
+    await _jeton_ver(db, anon)
+    r = await client.post("/v1/readings/dream", headers=H(anon),
+                          json={"dream": "Rüyamda çocukluk evimin bahçesindeydim.",
+                                "dream_date": "2026-08-06"})
+    assert r.status_code == 202
+    veri = await db.fetchval("SELECT input_json FROM readings WHERE id=$1",
+                             r.json()["reading_id"])
+    assert veri["dream_date"] == "2026-08-06"

@@ -29,13 +29,13 @@ import { t } from '@/lib/i18n';
 // yanıtı gelmeden önceki gösterim. Sabit fiyat yazmak, fiyat değiştiğinde
 // kullanıcıya yanlış rakam gösterip 402 ile karşılaştırır.
 const RITUALS = [
-  { key: 'coffee', title: t('ritual.kahve'), note: t('ritual.kahveNot'), route: '/ritual/coffee' },
-  { key: t('tarot.eyebrow'), title: t('ritual.tarot'), note: t('ritual.tarotNot'), route: '/ritual/tarot' },
-  { key: 'natal', title: t('ritual.natal'), note: t('ritual.natalNot'), route: '/ritual/natal' },
-  { key: 'dream', title: t('ritual.ruya'), note: t('ritual.yakinda'), route: null },
+  { key: 'coffee', title: 'ritual.kahve', note: 'ritual.kahveNot', route: '/ritual/coffee' },
+  { key: 'tarot', title: 'ritual.tarot', note: 'ritual.tarotNot', route: '/ritual/tarot' },
+  { key: 'natal', title: 'ritual.natal', note: 'ritual.natalNot', route: '/ritual/natal' },
+  { key: 'dream', title: 'ritual.ruya', note: 'ritual.ruyaNot', route: '/ritual/dream' },
 ] as const;
 
-const VARSAYILAN_FIYAT: Record<string, number> = { coffee: 3, tarot: 1, natal: 5 };
+const VARSAYILAN_FIYAT: Record<string, number> = { coffee: 3, tarot: 1, natal: 5, dream: 2 };
 
 export default function Home() {
   const router = useRouter();
@@ -142,8 +142,8 @@ export default function Home() {
               onPress={() => r.route && router.push(r.route as any)}
               style={({ pressed }) => [styles.tile, pressed && styles.tilePressed, off && styles.tileOff]}
             >
-              <Text style={styles.tileTitle}>{r.title}</Text>
-              <Text style={styles.tileNote}>{r.note}</Text>
+              <Text style={styles.tileTitle}>{t(r.title)}</Text>
+              <Text style={styles.tileNote}>{t(r.note)}</Text>
               {!off && (
                 <Text style={styles.tileCoins}>
                   {abone && (!kotaVar || (ent!.quota_left ?? 0) > 0)
