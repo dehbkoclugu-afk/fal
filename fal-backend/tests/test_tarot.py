@@ -87,3 +87,56 @@ def test_seed_cikti_icinde_kayitli():
 
 def test_new_seed_benzersiz():
     assert len({tarot.new_seed() for _ in range(50)}) == 50
+
+
+# ------------------------------------------------------------- kart korpusu
+
+def test_korpus_tum_minorleri_kapsiyor():
+    """Eksik kart şablona düşer ve geleneksel anlamı ıskalayabilir."""
+    from app.core.tarot import MINOR_CORPUS, RANKS_TR, SUITS_TR
+
+    assert len(MINOR_CORPUS) == 56
+    for suit in SUITS_TR:
+        for rank in RANKS_TR:
+            k = f"{suit}_{rank}"
+            assert k in MINOR_CORPUS, k
+            assert MINOR_CORPUS[k]["duz"] and MINOR_CORPUS[k]["ters"], k
+
+
+def test_minor_kartlar_karta_ozel_anlam_tasiyor():
+    """Regresyon: anlamlar suit × rank şablonundan üretiliyordu. Kılıçlar On
+    şablonda "doyum veya yük" çıkıyordu; geleneksel anlamı "dip nokta,
+    ihanet". Aynı rank'in farklı suit'lerde aynı metni taşımaması gerekiyor."""
+    from app.core.tarot import DECK
+
+    kartlar = {c.key: c for c in DECK}
+    assert "dip nokta" in kartlar["swords_10"].keywords
+    assert "çıraklık" in kartlar["pentacles_8"].keywords
+
+    # Aynı rank, farklı suit → farklı anlam
+    for rank in (1, 5, 10, 14):
+        metinler = {kartlar[f"{s}_{rank}"].keywords.split(" / ")[0]
+                    for s in ("wands", "cups", "swords", "pentacles")}
+        assert len(metinler) == 4, f"rank {rank} şablondan geliyor: {metinler}"
+
+
+def test_ters_minor_karta_ozel_anlam_veriyor():
+    from app.core.tarot import MINOR_CORPUS, draw
+
+    bulundu = False
+    for i in range(60):
+        for c in draw("celtic_cross", seed=f"s{i}")["cards"]:
+            if c["reversed"] and c["arcana"] == "minor":
+                assert c["keywords"] == MINOR_CORPUS[c["key"]]["ters"], c["name_tr"]
+                bulundu = True
+    assert bulundu, "60 çekimde tek ters minör kart çıkmadı"
+
+
+def test_korpus_yoksa_akis_kirilmiyor(monkeypatch):
+    """Korpus dosyası silinse bile deste kurulmalı — şablona düşer."""
+    import app.core.tarot as t
+
+    monkeypatch.setattr(t, "MINOR_CORPUS", {})
+    deck = t.build_deck()
+    assert len(deck) == 78
+    assert all(c.keywords for c in deck)

@@ -10,6 +10,8 @@ Tarot motoru.
 
 from __future__ import annotations
 
+import json
+import pathlib
 import secrets
 from dataclasses import dataclass, asdict
 
@@ -76,6 +78,23 @@ class Card:
     element: str | None
 
 
+# Minör arkana için karta özel anlamlar. Yoksa suit × rank şablonuna düşülür;
+# şablon çoğu kartta makul ama bazılarında geleneksel anlamı ıskalıyor
+# (Kılıçlar On şablonda "doyum veya yük" çıkıyordu, geleneksel anlamı
+# "dip nokta, ihanet"). Ayrı dosyada: başka dile çevirmek kod değiştirmesin.
+_CORPUS_PATH = pathlib.Path(__file__).resolve().parents[2] / "data" / "tarot_corpus.json"
+
+
+def _load_minors() -> dict[str, dict[str, str]]:
+    try:
+        return json.loads(_CORPUS_PATH.read_text(encoding="utf-8"))["minors"]
+    except Exception:      # noqa: BLE001 — korpus yoksa şablona düş, akış kırılmasın
+        return {}
+
+
+MINOR_CORPUS = _load_minors()
+
+
 def build_deck() -> list[Card]:
     deck: list[Card] = []
     for no, name, up, _down in MAJORS_TR:
@@ -83,11 +102,13 @@ def build_deck() -> list[Card]:
     for suit, (suit_tr, suit_desc) in SUITS_TR.items():
         element = suit_desc.split(",")[0]
         for rank, (rank_tr, rank_desc) in RANKS_TR.items():
+            key = f"{suit}_{rank}"
+            ozel = MINOR_CORPUS.get(key, {}).get("duz")
             deck.append(Card(
-                key=f"{suit}_{rank}",
+                key=key,
                 name_tr=f"{suit_tr} {rank_tr}",
                 arcana="minor", suit=suit, rank=rank, reversed=False,
-                keywords=f"{rank_desc} / {suit_desc}",
+                keywords=f"{ozel or rank_desc} / {suit_desc}",
                 element=element,
             ))
     return deck  # 22 + 56 = 78
@@ -131,6 +152,8 @@ def draw(spread: str = "three_card", seed: str | None = None,
         rev_kw = ""
         if c.arcana == "major":
             rev_kw = MAJORS_TR[c.rank][3]
+        else:
+            rev_kw = MINOR_CORPUS.get(c.key, {}).get("ters", "")
         cards.append({
             "position": pos,
             "key": c.key,

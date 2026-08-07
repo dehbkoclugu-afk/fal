@@ -99,7 +99,8 @@ değer kazanması, LLM yükünün düzleşmesi.
 | `app/main.py` | Endpointler, jeton düşümü, RevenueCat webhook | |
 | `app/workers/tasks.py` | Fal üretimi, gece transitleri, doğrulama push'ları, KVKK silme | |
 | `sql/001_init.sql` | Şema | |
-| `scripts/seed_blocks.py` | Blok kütüphanesini doldur (tek seferlik) | |
+| `scripts/seed_blocks.py` | Blok kütüphanesini doldur (tek seferlik, eşzamanlı) | |
+| `data/tarot_corpus.json` | 56 minör kartın karta özel düz/ters anlamları | |
 
 ---
 
@@ -295,7 +296,6 @@ zeminini ve KVKK yükümlülüklerini bir avukatla netleştir — ürünü kurma
   (`ONESIGNAL_APP_ID` / `ONESIGNAL_API_KEY` boşsa sessizce atlanıyor).
 - Geocoding (şehir → lat/lon) client tarafında, 81 il gömülü; uluslararası
   pazarda Nominatim + `timezonefinder` gerekecek.
-- `data/tarot_corpus.json` (uzun kart anlamları) henüz yok — RAG için doldurulacak
 - Web2app hunisi (Next.js + Stripe) ayrı repo
 - Semantic cache (`pgvector` üzerinden) kurulu değil; trafik artınca ekle
 - `reading_assets` tablosuna hiç yazılmıyor: fincan fotoğrafı Redis'te 24 saat

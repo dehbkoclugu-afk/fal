@@ -1,0 +1,230 @@
+{
+ "locale": "tr",
+ "not": "Minör arkana için karta özel anlamlar. Bunlar olmadan anlamlar suit × rank şablonundan üretiliyordu ve bazı kartlarda geleneksel anlamı ıskalıyordu (ör. Kılıçlar On şablonda 'doyum veya yük' çıkıyordu; geleneksel anlamı 'dip nokta, ihanet').",
+ "minors": {
+  "wands_1": {
+   "duz": "ilham kıvılcımı, yeni girişim",
+   "ters": "ertelenen başlangıç, sönen istek"
+  },
+  "wands_2": {
+   "duz": "plan yapma, ufka bakma",
+   "ters": "kararsızlık, dar görüş"
+  },
+  "wands_3": {
+   "duz": "genişleme, ilk meyveler, bekleyiş",
+   "ters": "gecikme, dar kapsam"
+  },
+  "wands_4": {
+   "duz": "kutlama, yuva, eşik",
+   "ters": "istikrarsız zemin, ertelenen kutlama"
+  },
+  "wands_5": {
+   "duz": "rekabet, dağınık çekişme",
+   "ters": "gereksiz kavga, çözülen gerilim"
+  },
+  "wands_6": {
+   "duz": "takdir, zafer, görünürlük",
+   "ters": "tanınmama, kibir"
+  },
+  "wands_7": {
+   "duz": "savunma, pozisyonu koruma",
+   "ters": "yılgınlık, yorulma"
+  },
+  "wands_8": {
+   "duz": "hızlanma, gelen haber, akış",
+   "ters": "gecikme, dağılan hız"
+  },
+  "wands_9": {
+   "duz": "yorgun direnç, son eşik",
+   "ters": "tükenmişlik, aşırı tetikte olma"
+  },
+  "wands_10": {
+   "duz": "aşırı yük, tek başına taşıma",
+   "ters": "yükü bırakma, devretme"
+  },
+  "wands_11": {
+   "duz": "keşif, heyecanlı haber",
+   "ters": "dağılan heves, hazırsızlık"
+  },
+  "wands_12": {
+   "duz": "atılganlık, macera",
+   "ters": "aceleci hareket, savrukluk"
+  },
+  "wands_13": {
+   "duz": "sıcak özgüven, çekim",
+   "ters": "güvensizlik, kıskançlık"
+  },
+  "wands_14": {
+   "duz": "vizyon, liderlik",
+   "ters": "baskıcı ego, sabırsızlık"
+  },
+  "cups_1": {
+   "duz": "duygusal başlangıç, açılan kalp",
+   "ters": "bastırılmış duygu, içsel boşluk"
+  },
+  "cups_2": {
+   "duz": "karşılıklılık, bağ kurma",
+   "ters": "dengesiz ilişki, kopuş"
+  },
+  "cups_3": {
+   "duz": "dostluk, kutlama, çevre",
+   "ters": "dedikodu, kalabalıkta yalnızlık"
+  },
+  "cups_4": {
+   "duz": "tatminsizlik, içe kapanma",
+   "ters": "yeniden ilgi, teklifi fark etme"
+  },
+  "cups_5": {
+   "duz": "kayıp, yas, dökülen",
+   "ters": "kabullenme, kalanı görme"
+  },
+  "cups_6": {
+   "duz": "nostalji, geçmişten gelen",
+   "ters": "geçmişe takılma, geri dönen kişi"
+  },
+  "cups_7": {
+   "duz": "seçenek bolluğu, hayal",
+   "ters": "netleşme, gerçekçi seçim"
+  },
+  "cups_8": {
+   "duz": "bırakıp gitme, anlam arayışı",
+   "ters": "dönememe, bırakamama"
+  },
+  "cups_9": {
+   "duz": "dilek, kişisel doyum",
+   "ters": "yüzeysel tatmin, doyumsuzluk"
+  },
+  "cups_10": {
+   "duz": "duygusal bütünlük, aile",
+   "ters": "dağılan uyum, görüntüde mutluluk"
+  },
+  "cups_11": {
+   "duz": "duygusal haber, yaratıcı sezgi",
+   "ters": "duygusal olgunlaşmamışlık"
+  },
+  "cups_12": {
+   "duz": "romantik teklif, davet",
+   "ters": "boş vaat, hayalcilik"
+  },
+  "cups_13": {
+   "duz": "şefkat, sezgi, kucaklama",
+   "ters": "duygusal taşma, sınır kaybı"
+  },
+  "cups_14": {
+   "duz": "duygusal denge, olgunluk",
+   "ters": "soğukluk, duyguyu bastırma"
+  },
+  "swords_1": {
+   "duz": "netlik, gerçeğin görülmesi",
+   "ters": "kafa karışıklığı, kırıcı söz"
+  },
+  "swords_2": {
+   "duz": "kararsızlık, gözü kapalı denge",
+   "ters": "tıkanmanın çözülmesi, yüzleşme"
+  },
+  "swords_3": {
+   "duz": "kırgınlık, acı gerçek",
+   "ters": "iyileşme, affetme"
+  },
+  "swords_4": {
+   "duz": "dinlenme, ara verme",
+   "ters": "huzursuz dönüş, tükenmişlik"
+  },
+  "swords_5": {
+   "duz": "kırıcı kazanç, pirus zaferi",
+   "ters": "barışma, geri çekilme"
+  },
+  "swords_6": {
+   "duz": "geçiş, sakin sulara gitme",
+   "ters": "bırakamama, ertelenmiş ayrılış"
+  },
+  "swords_7": {
+   "duz": "gizlilik, strateji, sıyrılma",
+   "ters": "açığa çıkma, itiraf"
+  },
+  "swords_8": {
+   "duz": "sıkışmışlık hissi, kendi zinciri",
+   "ters": "çıkışı görme, özgürleşme"
+  },
+  "swords_9": {
+   "duz": "kaygı, uykusuz gece",
+   "ters": "kaygının hafiflemesi, yardım isteme"
+  },
+  "swords_10": {
+   "duz": "dip nokta, ihanet, kesin bitiş",
+   "ters": "toparlanma, en kötüsü geride"
+  },
+  "swords_11": {
+   "duz": "merak, gözlem, gelen haber",
+   "ters": "dedikodu, aceleci yargı"
+  },
+  "swords_12": {
+   "duz": "keskin hamle, hız",
+   "ters": "saldırganlık, düşünmeden konuşma"
+  },
+  "swords_13": {
+   "duz": "berrak akıl, dürüstlük",
+   "ters": "soğuk eleştiri, acı dil"
+  },
+  "swords_14": {
+   "duz": "yargı, ilke, otorite",
+   "ters": "katılık, duygusuz karar"
+  },
+  "pentacles_1": {
+   "duz": "somut fırsat, tohum",
+   "ters": "kaçan fırsat, maddi endişe"
+  },
+  "pentacles_2": {
+   "duz": "dengeleme, çoklu iş",
+   "ters": "savrulma, öncelik kaybı"
+  },
+  "pentacles_3": {
+   "duz": "işbirliği, ustalığın başlangıcı",
+   "ters": "uyumsuz ekip, özensizlik"
+  },
+  "pentacles_4": {
+   "duz": "tutma, güvence, biriktirme",
+   "ters": "sıkı tutma, kaybetme korkusu"
+  },
+  "pentacles_5": {
+   "duz": "yokluk, dışarıda kalma",
+   "ters": "toparlanma, yardımın gelmesi"
+  },
+  "pentacles_6": {
+   "duz": "paylaşım, verme ve alma",
+   "ters": "dengesiz alışveriş, bağımlılık"
+  },
+  "pentacles_7": {
+   "duz": "sabır, yatırımın olgunlaşması",
+   "ters": "verimsiz emek, sabırsızlık"
+  },
+  "pentacles_8": {
+   "duz": "çıraklık, titiz emek",
+   "ters": "özensizlik, tekrarın sıkıcılığı"
+  },
+  "pentacles_9": {
+   "duz": "kendi ayakları üzerinde bolluk",
+   "ters": "bağımlılık, gösteriş"
+  },
+  "pentacles_10": {
+   "duz": "kalıcı miras, aile bolluğu",
+   "ters": "maddi anlaşmazlık, geçici zenginlik"
+  },
+  "pentacles_11": {
+   "duz": "öğrenme, somut teklif",
+   "ters": "dağınık plan, erteleme"
+  },
+  "pentacles_12": {
+   "duz": "istikrar, yavaş ama emin",
+   "ters": "durağanlık, sıkıcılık"
+  },
+  "pentacles_13": {
+   "duz": "pratik şefkat, besleyicilik",
+   "ters": "aşırı yük, kendini ihmal"
+  },
+  "pentacles_14": {
+   "duz": "maddi ustalık, sağlamlık",
+   "ters": "maddiyata saplanma, cimrilik"
+  }
+ }
+}
