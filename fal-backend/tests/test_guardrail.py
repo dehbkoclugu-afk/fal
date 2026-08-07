@@ -115,3 +115,41 @@ def test_temiz_cikti_geciyor():
 
 def test_cikti_taramasi_diakritiksiz_yazimda_da_calisiyor():
     assert scan_output("Bu yil kesin olarak oleceksin.") != []
+
+
+# ------------------------------------------------------------ konu dağarcığı
+
+def test_konu_normalizasyonu():
+    """Konu bazlı isabet paneli ürünün ana farkının görünür kısmı. Model
+    serbest metin üretirse aynı konu birden fazla kovaya bölünür ve panel
+    birkaç ay içinde okunamaz hale gelir."""
+    from app.core.pricing import TOPICS, normalize_topic
+
+    esitler = [
+        (["ask", "Aşk", " AŞK ", "love", "ilişki", "sevgili"], "ask"),
+        (["kariyer", "is", "iş", "İŞ", "İş", "work", "okul"], "kariyer"),
+        (["para", "money", "finans", "bütçe", "BÜTÇE"], "para"),
+        (["saglik", "sağlık", "SAĞLIK", "health"], "saglik"),
+    ]
+    for girdiler, beklenen in esitler:
+        for g in girdiler:
+            assert normalize_topic(g) == beklenen, f"{g!r} → {normalize_topic(g)}"
+
+    # Tanınmayan her şey tek kovaya
+    for g in ("uydurma", "", None, "xyz", "🙂"):
+        assert normalize_topic(g) == "genel"
+
+    # Çıktı her zaman dağarcık içinde
+    for g in ("ask", "İŞ", "bilinmeyen", None):
+        assert normalize_topic(g) in TOPICS
+
+
+def test_turkce_buyuk_harf_katlamasi():
+    """textutil.fold, "İ".lower()'ın ürettiği birleşen noktayı temizlemeli."""
+    from app.core.textutil import fold
+
+    assert fold("İNTİHAR") == "intihar"
+    assert fold("YAŞAMAK İSTEMİYORUM") == "yasamak istemiyorum"
+    assert fold("İstanbul") == "istanbul"
+    assert fold("  ÇOK   ÖNEMLİ  ") == "cok onemli"
+    assert "̇" not in fold("İİİ"), "birleşen nokta temizlenmemiş"

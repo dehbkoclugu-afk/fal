@@ -21,7 +21,7 @@ OUTPUT_SCHEMA = {
          "metin": "3-6 cümle. Somut, kişiye ait detaya bağlı."}
     ],
     "tahminler": [
-        {"konu": "ask|para|kariyer|aile|kendim",
+        {"konu": "ask|para|kariyer|aile|saglik|kendim|genel (SADECE bu değerlerden biri)",
          "iddia": "Tek cümle, doğrulanabilir olmalı. 'Beklenmedik bir mesaj alacaksın' gibi.",
          "pencere_gun": 10,
          "guven": "dusuk|orta|yuksek"}

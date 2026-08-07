@@ -23,8 +23,16 @@ import { api } from '@/lib/api';
 import { color, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
 
+// Backend sabit dağarcığa indirgiyor (core/pricing.TOPICS); buradaki
+// karşılıklar onunla birebir eşleşmeli, yoksa panel ham anahtar gösterir.
 const TOPIC_TR: Record<string, string> = {
-  ask: 'aşk', para: 'para', kariyer: 'kariyer', aile: 'aile', kendim: 'kendim', genel: 'genel',
+  ask: 'aşk',
+  para: 'para',
+  kariyer: 'iş ve kariyer',
+  aile: 'aile',
+  saglik: 'sağlık',
+  kendim: 'kendim',
+  genel: 'genel',
 };
 
 export default function Journal() {

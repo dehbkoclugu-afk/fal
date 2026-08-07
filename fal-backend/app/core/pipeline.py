@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from . import astro, blocks, guardrail, prompts, tarot
+from .pricing import normalize_topic
 from .cup_vision import SYMBOL_LEXICON_TR, analyze_cup, REJECT_MESSAGES_TR
 from .llm import complete, embed, label_symbols, too_similar
 
@@ -247,7 +248,7 @@ async def _finalize(db, user_id: str, reading_id: str, kind: str, data: dict,
             """INSERT INTO predictions
                (reading_id, user_id, topic, claim, window_start, window_end, confidence)
                VALUES ($1,$2,$3,$4,$5,$6,$7)""",
-            reading_id, user_id, t.get("konu", "genel"), t.get("iddia", ""),
+            reading_id, user_id, normalize_topic(t.get("konu")), t.get("iddia", ""),
             now, now + timedelta(days=days), t.get("guven", "orta"))
 
     return data
