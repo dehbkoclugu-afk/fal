@@ -12,7 +12,18 @@ import { color, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
 import { DILLER, aktifDil, dilSec, t, uygulaYon } from '@/lib/i18n';
 
-const GIZLILIK_URL = 'https://telve.app/gizlilik';
+/**
+ * Yasal sayfalar.
+ *
+ * `public/` altında düz HTML olarak duruyorlar ve web derlemesiyle birlikte
+ * yayınlanıyorlar. Uygulama paketine gömülü değiller çünkü Google Play
+ * incelemesi gizlilik politikasını TARAYICIDA açıyor: erişilemeyen bir
+ * politika bağlantısı doğrudan ret sebebi. Aynı sayfalar mağaza listesinde
+ * de bu adreslerle veriliyor.
+ */
+const YASAL_KOK = 'https://telve.app';
+const GIZLILIK_URL = `${YASAL_KOK}/gizlilik.html`;
+const KOSULLAR_URL = `${YASAL_KOK}/kosullar.html`;
 
 export default function Profile() {
   const router = useRouter();
@@ -151,6 +162,9 @@ export default function Profile() {
         </Pressable>
         <Pressable onPress={() => Linking.openURL(GIZLILIK_URL)}>
           <Text style={styles.legalLink}>{t('profil.gizlilik')}</Text>
+        </Pressable>
+        <Pressable onPress={() => Linking.openURL(KOSULLAR_URL)}>
+          <Text style={styles.legalLink}>{t('profil.kosullar')}</Text>
         </Pressable>
       </View>
     </Screen>

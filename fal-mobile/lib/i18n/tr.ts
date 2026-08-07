@@ -275,6 +275,7 @@ export const tr = {
   'profil.verileriSil': 'Verilerimi sil',
   'profil.siliniyor': 'siliniyor…',
   'profil.gizlilik': 'Gizlilik politikası',
+  'profil.kosullar': 'Kullanım koşulları',
   'profil.silOnayBaslik': 'Verilerin silinsin mi?',
   'profil.silOnayMetin':
     'Doğum bilgilerin, fal geçmişin ve tahmin defterin kalıcı olarak silinir. Bu işlem geri alınamaz.',

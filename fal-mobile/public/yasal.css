@@ -1,0 +1,109 @@
+/*
+ * Yasal sayfaların ortak stili.
+ *
+ * Bu sayfalar Google Play incelemesi ve KVKK için TARAYICIDA çalışmak
+ * zorunda: uygulama paketi, JavaScript veya oturum olmadan. Bu yüzden düz
+ * HTML + tek CSS dosyası; hiçbir şey React'e veya servis çalışanına bağlı
+ * değil. İnceleme sırasında açılmayan bir gizlilik politikası, uygulamanın
+ * reddedilme sebebi.
+ *
+ * Okunabilirlik markadan önce geliyor: uzun metin, yüksek kontrast, geniş
+ * satır aralığı. Renkler uygulamanın telve paletinden ama metin kontrastı
+ * WCAG AA'yı geçecek şekilde açıldı.
+ */
+:root {
+  --zemin: #16100E;
+  --kart: #241A16;
+  --cizgi: #3C2C24;
+  --metin: #EFE7DA;
+  --ikincil: #B5A497;
+  --bakir: #D98B4E;
+  color-scheme: dark light;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --zemin: #FBF7F1;
+    --kart: #FFFFFF;
+    --cizgi: #E2D6C8;
+    --metin: #241A16;
+    --ikincil: #5C4B40;
+    --bakir: #9C5522;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 20px 80px;
+  background: var(--zemin);
+  color: var(--metin);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.7;
+  -webkit-text-size-adjust: 100%;
+}
+
+main { max-width: 720px; margin: 0 auto; }
+
+header {
+  padding: 40px 0 24px;
+  border-bottom: 1px solid var(--cizgi);
+  margin-bottom: 32px;
+}
+
+.marka {
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--bakir);
+  margin: 0 0 12px;
+}
+
+h1 { font-size: 28px; line-height: 1.25; margin: 0 0 8px; }
+h2 { font-size: 20px; margin: 40px 0 12px; }
+h3 { font-size: 16px; margin: 28px 0 8px; }
+
+.tarih { color: var(--ikincil); font-size: 14px; margin: 0; }
+
+p, li { color: var(--metin); }
+ul, ol { padding-left: 22px; }
+li { margin-bottom: 8px; }
+
+a { color: var(--bakir); }
+
+/* Uzun tablolar dar ekranda sayfayı yatay kaydırmamalı. */
+.tablo-sarmal { overflow-x: auto; margin: 16px 0; }
+
+table { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 14px; }
+th, td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--cizgi);
+  vertical-align: top;
+}
+th { color: var(--ikincil); font-weight: 600; white-space: nowrap; }
+
+.kutu {
+  background: var(--kart);
+  border: 1px solid var(--cizgi);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin: 20px 0;
+}
+
+.kutu p:first-child { margin-top: 0; }
+.kutu p:last-child { margin-bottom: 0; }
+
+.vurgu { border-color: var(--bakir); }
+
+footer {
+  margin-top: 56px;
+  padding-top: 24px;
+  border-top: 1px solid var(--cizgi);
+  color: var(--ikincil);
+  font-size: 14px;
+}
+
+footer a { margin-right: 18px; }
