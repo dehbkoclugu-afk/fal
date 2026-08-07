@@ -16,7 +16,7 @@ Düşük bütçeli (3-6 aylık toplam ~3.000-5.000 $) senaryoya göre kesilmiş 
 | Blok kütüphanesi (tek seferlik) | 15-40 $ | Bir kez ödenir |
 | Play Console (tek seferlik) | 25 $ | |
 | RevenueCat | 0 $ | Aylık 2.500 $ gelire kadar ücretsiz |
-| PostHog / OneSignal / Sentry | 0 $ | Ücretsiz katmanlar yeterli |
+| PostHog / Expo Push / Sentry | 0 $ | Ücretsiz katmanlar yeterli |
 | EAS Build | 0 $ | Ücretsiz kotayla haftada birkaç build |
 | **Altyapı toplamı** | **~45-135 $** | |
 | Kreatif + reklam testi | 300-500 $ | **Burası pazarlık edilemez** |
@@ -78,7 +78,7 @@ FastAPI ──202──► Redis Queue ──► RQ Worker
    ▼                                 │
 Postgres + pgvector ◄────────────────┘
         │
-   push (OneSignal) → "Falın hazır"
+   push (Expo Push Service) → "Falın hazır"
 ```
 
 Ritüel gecikmesi (90 sn - 15 dk) üç işi birden yapar: mistik his, push izninin
@@ -146,6 +146,7 @@ kurmana gerek yok**; zamanlama uygulamanın parçası.
 | `queue_daily` | 06:30 | Günlük yorumları önceden üretir |
 | `ask_verdicts` | 12:00 | Penceresi kapanan tahminler için doğrulama sorusu |
 | `send_daily_push` | her saat | Kullanıcının aktif saatine göre bildirim |
+| `check_push_receipts` | her saat :10 | Expo teslim makbuzlarını kontrol eder; geçersiz tokenı kapatır |
 
 `send_daily_push` SAATTE BİR çalışır, günde bir değil: her kullanıcıya kendi
 `active_hour`'unda gönderiliyor ve kullanıcılar farklı saat dilimlerinde.
@@ -333,10 +334,11 @@ zeminini ve KVKK yükümlülüklerini bir avukatla netleştir — ürünü kurma
 
 - **Blok kütüphanesi boş.** `scripts/seed_blocks.py` çalıştırılmadan ücretsiz
   kullanıcının günlük yorumu boş çıkar. 302 anahtar × 4 varyant, tek seferlik
-  ~15-40 $. Şu an tek tek çağrı yapıyor; batch API'ye geçirilmeli.
+  ~15-40 $. Betik 8 eşzamanlı kanalla çalışır, kaldığı yerden devam eder ve
+  bütçe sınırında otomatik durur; sağlayıcıya özgü batch API zorunlu değildir.
 - **`cup_vision.py` eşikleri gerçek fotoğrafla kalibre edilmedi** (bkz. bölüm 7).
-- OneSignal gönderimi yazıldı ama gerçek anahtarla denenmedi
-  (`ONESIGNAL_APP_ID` / `ONESIGNAL_API_KEY` boşsa sessizce atlanıyor).
+- Expo Push gönderimi ve receipt doğrulaması bağlı; gerçek EAS projesinin FCM
+  kimlik bilgileri ve fiziksel cihaz olmadan son teslim halkası doğrulanamaz.
 - Geocoding (şehir → lat/lon) client tarafında, 81 il gömülü; uluslararası
   pazarda Nominatim + `timezonefinder` gerekecek.
 - Web2app hunisi (Next.js + Stripe) ayrı repo

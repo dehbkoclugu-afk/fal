@@ -20,8 +20,9 @@ değişmeli — özellikle Veri Güvenliği (Data Safety) formu.
 | 3 | Bir avukata gizlilik politikası ve kullanım koşullarını inceletin | ⬜ |
 | 4 | `app.json` içindeki `extra` anahtarlarını doldur (RevenueCat, PostHog, MAX) | ⬜ |
 | 5 | `npm run yetenek:check` — hangi özelliğin kapalı olduğunu gör, bilerek karar ver | ⬜ |
-| 6 | `versionCode`'u artır | ⬜ |
-| 7 | `npm run release:check` | ⬜ |
+| 6 | EAS projesini bağla; production profili `autoIncrement` ile sürümü yönetsin | ⬜ |
+| 7 | EAS/FCM v1 push kimlik bilgilerini oluştur ve gerçek cihazda test et | ⬜ |
+| 8 | `npm run release:check` | ⬜ |
 
 **`yetenek:check` neyi yakalıyor:** bu projede birkaç özellik iki yere birden
 bağlı — `app.json`'daki anahtar ve `package.json`'daki paket. Biri eksikse
@@ -75,8 +76,9 @@ Play'in kendi kategori adlarıyla. **Toplanan** = sunucumuza gidiyor,
 kahve falı ritüelini kullanırsan · ⁴ AppLovin MAX · ⁵ PostHog · ⁶ RevenueCat,
 Google Play
 
-> **Son üç satır YAPILANDIRMAYA BAĞLI ve şu anda üçü de KAPALI.** Reklam SDK'sı
-> bağımlılıklarda yok; PostHog ve RevenueCat anahtarları boş. Bu hâliyle
+> **Son üç satır YAPILANDIRMAYA BAĞLI ve şu anda üçü de KAPALI.** AppLovin SDK
+> paketi kurulu ancak reklam birimi/SDK anahtarları boş; PostHog ve RevenueCat
+> anahtarları da boş. Bu hâliyle
 > yayına çıkarsan üçünü de **"Hayır"** olarak beyan etmelisin — toplanmayan
 > veriyi beyan etmek de yanlış beyan.
 >
@@ -246,14 +248,15 @@ ekranından kullanım koşullarına bağlantı var.
 
 ## 6. Reklamlar
 
-> **Şu anda reklam YOK.** `react-native-applovin-max` bağımlılıklarda değil
-> ve `maxSdkKey` boş; sarmalayıcı SDK'yı bulamayınca jeton kapısındaki
+> **Şu anda reklam YOK.** `react-native-applovin-max` bağımlılıklarda ve güncel
+> API'yle bağlı, ancak `maxSdkKey` ve rewarded unit kimliği boş; sarmalayıcı
+> anahtarlar yokken jeton kapısındaki
 > "reklam izle" butonu hiç görünmüyor. Bu hâliyle Play Console'da
 > **"Hayır, reklam içermiyor"** işaretlenmeli — olmayan reklamı beyan etmek
 > de yanlış beyan.
 >
-> Reklamı açmak istediğinde: `npx expo install react-native-applovin-max`,
-> `app.json` → `extra.maxSdkKey` ve rewarded unit kimliklerini doldur,
+> Reklamı açmak istediğinde: `app.json` → `extra.maxSdkKey` ve rewarded unit
+> kimliklerini doldur,
 > `npm run yetenek:check` yeşile dönsün, sonra bu bölümü ve Play Console
 > ayarını güncelle. `yetenek:check` anahtar dolu / paket eksik durumunu
 > hata olarak yakalıyor.

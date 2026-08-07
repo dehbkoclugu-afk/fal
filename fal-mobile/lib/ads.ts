@@ -19,9 +19,9 @@ import { Platform } from 'react-native';
 
 import { api } from './api';
 
-// `any`: paket bağımlılıklarda YOK ve olması da gerekmiyor. Reklam SDK'sı
-// yalnızca üretim derlemesine eklenecek; tip olarak import etmek, paketi
-// kurmayan herkeste tip kontrolünü kırardı.
+// Native modül Expo Go ve web'de bulunmayabilir. Dinamik yükleme bu iki
+// ortamın uygulamayı reklamsız çalıştırabilmesini sağlar; production native
+// build'de paket autolink edilir.
 let mod: any = undefined;
 let hazir = false;
 
@@ -71,7 +71,7 @@ export async function showRewarded(): Promise<RewardResult> {
 
   try {
     await init();
-    const yuklu = await M.RewardedAd.isAdReadyAsync(unit);
+    const yuklu = await M.RewardedAd.isAdReady(unit);
     if (!yuklu) {
       M.RewardedAd.loadAd(unit);
       return { ok: false, reason: 'not_loaded' };
@@ -79,11 +79,30 @@ export async function showRewarded(): Promise<RewardResult> {
 
     const kazandi = await new Promise<boolean>((resolve) => {
       let verildi = false;
+      let bitti = false;
+      let zamanlayici: ReturnType<typeof setTimeout>;
+
+      const temizle = () => {
+        clearTimeout(zamanlayici);
+        M.RewardedAd.removeAdReceivedRewardEventListener();
+        M.RewardedAd.removeAdHiddenEventListener();
+        M.RewardedAd.removeAdFailedToDisplayEventListener();
+      };
+      const bitir = (sonuc: boolean) => {
+        if (bitti) return;
+        bitti = true;
+        temizle();
+        resolve(sonuc);
+      };
+
       M.RewardedAd.addAdReceivedRewardEventListener(() => {
         verildi = true;
       });
-      M.RewardedAd.addAdHiddenEventListener(() => resolve(verildi));
-      M.RewardedAd.addAdDisplayFailedEventListener(() => resolve(false));
+      M.RewardedAd.addAdHiddenEventListener(() => bitir(verildi));
+      M.RewardedAd.addAdFailedToDisplayEventListener(() => bitir(false));
+      // Native SDK beklenmedik biçimde hiçbir kapanış olayı göndermezse
+      // kullanıcı akışını sonsuza kadar askıda bırakma.
+      zamanlayici = setTimeout(() => bitir(false), 120_000);
       M.RewardedAd.showAd(unit);
     });
 

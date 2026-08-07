@@ -120,10 +120,10 @@ eas build -p android --profile preview    # paylaşılabilir APK
 
 Backend ayrı terminalde: `scripts/dev.sh` (bkz. kök README).
 
-**Sürüm notu:** Sürümler Expo SDK 53 (React 19 / RN 0.79) ile hizalandı ve
-`npx expo-doctor` 18/18 geçiyor. Paket eklerken `npx expo install <paket>`
-kullan — düz `npm install` SDK matrisini bozuyor. React 18'e düşülürse
-expo-router "React.use is not a function" ile beyaz ekrana düşer.
+**Sürüm notu:** Sürümler Expo SDK 57 (React 19.2 / RN 0.86) ile hizalandı ve
+`expo-doctor` 20/20 geçiyor. Paket eklerken Expo'nun SDK matrisindeki native
+paket sürümlerini koru; `npm run security:check` üretim bağımlılıklarını ayrıca
+tarıyor.
 
 **Font notu:** Türkçe diakritikleri (ğ ş ı İ ç ö ü) tarayıcıda doğrulandı,
 Newsreader ve JetBrains Mono'da sorunsuz. Cihazda bir kez daha gözle bak.
@@ -144,11 +144,9 @@ Newsreader ve JetBrains Mono'da sorunsuz. Cihazda bir kez daha gözle bak.
 | Eksik | Nerede | Not |
 |---|---|---|
 | Gerçek cihazda çalıştırma | — | Tarayıcıda doğrulandı; kamera, Skia, RevenueCat, reklam ve push yalnızca cihazda denenebilir |
-| Reklam SDK paketi | `lib/ads.ts` | Kod hazır ve `app.json > extra`'da anahtar yerleri var. `npx expo install react-native-applovin-max` + anahtarlar girilince devreye giriyor; yokken jeton kapısında reklam seçeneği hiç gösterilmiyor |
-| Rüya yorumu | ana ekranda "yakında" | Backend tarafı da yok |
-| Google ile hesap bağlama | `(tabs)/profile.tsx` | Buton var, akış yok |
+| Reklam servisi | `lib/ads.ts` | Kod ve SDK hazır; `app.json > extra` anahtarları girilince devreye giriyor, anahtar yokken seçenek gösterilmiyor |
 | İlçe hassasiyeti | `data/cities.json` | 81 il merkezi var; büyük illerde ilçe farkı yükseleni ~1° kaydırabilir |
-| Gizlilik politikası sayfası | `(tabs)/profile.tsx` | `telve.app/gizlilik` henüz yayında değil |
+| Yasal sayfaların alan adına yayını | `public/` | Dosyalar hazır; gerçek `telve.app` yayını ve sahip bilgileri dış ortam gerektiriyor |
 
 ### Anahtar girilecek yerler (`app.json > extra`)
 
@@ -156,7 +154,7 @@ Hepsi `null` iken uygulama çalışıyor; ilgili özellik sessizce kapalı kalı
 
 | Anahtar | Ne açar |
 |---|---|
-| `eas.projectId` | EAS build ve OTA update (`eas init` dolduruyor) |
+| `eas.projectId` | EAS build, OTA update ve ExpoPushToken (`eas init` dolduruyor) |
 | `rcAndroidKey` / `rcIosKey` | RevenueCat — abonelik satın alma |
 | `posthogKey` | Onboarding hunisi ve retention ölçümü |
 | `maxSdkKey`, `maxAndroidRewardedUnit` | Ödüllü reklam — jeton kazanma yolu |

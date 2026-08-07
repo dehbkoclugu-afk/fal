@@ -147,12 +147,6 @@ export default function Profile() {
         </View>
       )}
 
-      {/* Hesap bağlama: değer gösterildikten SONRA öneriliyor, onboarding'de değil */}
-      <Pressable style={styles.link}>
-        <Text style={styles.linkText}>{t('profil.googleBagla')}</Text>
-        <Text style={styles.linkNote}>{t('profil.googleBaglaNot')}</Text>
-      </Pressable>
-
       <View style={styles.legal}>
         <Text style={styles.legalText}>{t('profil.yasalMetin')}</Text>
         <Pressable onPress={sil} disabled={busy}>
@@ -195,9 +189,6 @@ const styles = StyleSheet.create({
   },
   dilRozetOn: { borderColor: color.bakir, backgroundColor: color.cezveUst },
   dilAd: { ...type.data, color: color.kul },
-  link: { marginTop: space.xl, paddingVertical: space.md },
-  linkText: { ...type.bodyStrong, color: color.bakir },
-  linkNote: { ...type.data, color: color.kulKoyu, fontSize: 11, marginTop: 2 },
   legal: { marginTop: space.xxl, gap: space.md },
   legalText: { ...type.data, color: color.kulKoyu, fontSize: 11, lineHeight: 17 },
   legalLink: { ...type.data, color: color.kul, fontSize: 12 },

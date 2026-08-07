@@ -201,6 +201,12 @@ def test_kvkk_isleri_zamanlanmis():
     assert "purge_assets" in adlar
 
 
+def test_push_receipt_kontrolu_zamanlanmis():
+    """Expo kabul bileti teslim kanıtı değildir; receipt işi düşmemeli."""
+    adlar = {i.ad for i in scheduler.ISLER}
+    assert "check_push_receipts" in adlar
+
+
 def test_is_saatleri_gecerli():
     for is_ in scheduler.ISLER:
         if is_.saat is not None:

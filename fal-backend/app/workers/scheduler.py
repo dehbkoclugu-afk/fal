@@ -79,6 +79,8 @@ ISLER: list[Is] = [
     # az rahatsız edici hem açılma oranı yüksek.
     Is("send_daily_push", tasks.send_daily_push, None, 0,
        "kullanıcının aktif saatine göre günlük bildirim"),
+    Is("check_push_receipts", tasks.check_push_receipts, None, 10,
+       "Expo push teslim makbuzlarını doğrula"),
 ]
 
 

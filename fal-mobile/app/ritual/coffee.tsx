@@ -176,7 +176,10 @@ const styles = StyleSheet.create({
   permTitle: { ...type.title, color: color.porselen, textAlign: 'center' },
   permBody: { ...type.body, color: color.kul, textAlign: 'center', marginTop: space.md },
 
-  overlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  overlay: {
+    position: 'absolute', top: 0, right: 0, bottom: 0, left: 0,
+    alignItems: 'center', justifyContent: 'center',
+  },
   guide: {
     borderWidth: 2,
     borderColor: 'rgba(200,121,66,0.9)',

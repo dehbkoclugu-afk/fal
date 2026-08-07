@@ -4,6 +4,9 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
+# Yarım kalan pip indirmeleri cwd altında geçici dizin bırakabilir.
+pip-metadata-*/
+pip-unpack-*/
 
 # Ortam
 .env

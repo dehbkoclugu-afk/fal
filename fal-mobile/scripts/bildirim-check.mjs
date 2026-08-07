@@ -92,4 +92,18 @@ const journal = await readFile(join(KOK, 'app/(tabs)/journal.tsx'), 'utf8');
 k('defter vurgu parametresini okuyor', journal.includes("useLocalSearchParams"));
 k('vurgulanan tahmin başa alınıyor', journal.includes('.sort('));
 
+console.log('\n\x1b[1mTaşıma katmanı\x1b[0m');
+
+const izin = await readFile(join(KOK, 'app/onboarding/notifications.tsx'), 'utf8');
+const sunucu = await readFile(join(KOK, '../fal-backend/app/workers/tasks.py'), 'utf8');
+const zamanlayici = await readFile(join(KOK, '../fal-backend/app/workers/scheduler.py'), 'utf8');
+k('Expo token EAS projectId ile alınıyor',
+  izin.includes('getExpoPushTokenAsync({ projectId })') && izin.includes('Constants.easConfig?.projectId'));
+k('Expo token Expo Push Service\'e gönderiliyor',
+  sunucu.includes('https://exp.host/--/api/v2/push/send'));
+k('başka sağlayıcının token alanına Expo token verilmiyor',
+  !sunucu.includes('api.onesignal.com'));
+k('teslim receipt\'leri zamanlanmış',
+  sunucu.includes('EXPO_RECEIPTS_URL') && zamanlayici.includes('check_push_receipts'));
+
 process.exit(hata ? 1 : 0);

@@ -79,6 +79,14 @@ for (const y of YETENEKLER) {
   console.log(`      Sonuç: ${y.kapaliysa}`);
 }
 
+const pushProjectId = extra.eas?.projectId;
+if (pushProjectId) {
+  console.log(`  ${OK} Push bildirimleri (Expo/EAS)`);
+} else {
+  console.log(`  ${KAPALI} Push bildirimleri (Expo/EAS) — kapalı: EAS projectId eksik`);
+  console.log('      Sonuç: cihaz ExpoPushToken alamaz; push gönderilmez');
+}
+
 // API adresi yayına uygun mu — yerel adresle çıkılan build hiçbir şey yapmaz.
 console.log('\n\x1b[1mAPI adresi\x1b[0m\n');
 const api = extra.apiUrl ?? '';

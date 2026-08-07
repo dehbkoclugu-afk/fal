@@ -278,8 +278,6 @@ export const tr = {
   'profil.dil': 'dil',
   'profil.dilYenidenBaslat':
     'Yazı yönü değişti. Düzenin tam oturması için uygulamayı kapatıp açman gerekiyor.',
-  'profil.googleBagla': 'Google ile hesabımı bağla',
-  'profil.googleBaglaNot': 'Telefonunu değiştirdiğinde geçmişin kaybolmaz.',
   'profil.yasalMetin':
     'Uygulamadaki tüm yorumlar eğlence amaçlıdır. Tıbbi, hukuki veya finansal tavsiye yerine geçmez.',
   'profil.verileriSil': 'Verilerimi sil',

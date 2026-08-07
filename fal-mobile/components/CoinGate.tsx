@@ -9,7 +9,7 @@
  * Sıra kasıtlı: önce ücretsiz yol (reklam), sonra abonelik. Tersi, ödemeye
  * zorlanmış hissi veriyor ve bu üründe rating'i düşürüyor.
  *
- * Reklam SDK'sı yoksa (Expo Go, web, henüz eklenmemiş üretim derlemesi)
+ * Reklam native modülü yoksa (Expo Go veya web)
  * reklam seçeneği HİÇ gösterilmiyor — çalışmayan buton göstermek daha kötü.
  */
 import React, { useState } from 'react';

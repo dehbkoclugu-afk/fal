@@ -6,12 +6,6 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
-    "splash": {
-      "backgroundColor": "#16100E",
-      "resizeMode": "contain",
-      "image": "./assets/splash.png"
-    },
     "android": {
       "package": "com.telve.app",
       "adaptiveIcon": {
@@ -37,6 +31,14 @@
         "expo-notifications",
         {
           "color": "#C87942"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#16100E",
+          "resizeMode": "contain",
+          "image": "./assets/splash.png"
         }
       ],
       "expo-updates",

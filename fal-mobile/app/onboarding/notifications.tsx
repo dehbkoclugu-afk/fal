@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
@@ -44,7 +45,12 @@ export default function NotificationsScreen() {
       if (status === 'granted') {
         // Token olmadan izin tek başına işe yaramaz; backend kime
         // göndereceğini bilemez.
-        const token = (await Notifications.getExpoPushTokenAsync()).data;
+        // projectId tokenı EAS projesine sabitler; hesap adı/proje taşıması
+        // tokenı değiştirmez. EAS bağlanmadan push yolu doğal olarak kapalıdır.
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId
+          ?? Constants.easConfig?.projectId;
+        if (!projectId) throw new Error('EAS projectId yok');
+        const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
         await api.registerPush(token, new Date().getHours());
       }
     } catch {
