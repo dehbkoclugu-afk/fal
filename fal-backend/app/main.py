@@ -29,6 +29,10 @@ DB_URL = dbmod.DB_URL
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 MAX_UPLOAD_MB = 8
 
+# Bu süreyi aşmış 'queued'/'running' günlük kayıt takılmış sayılır ve yeniden
+# kuyruğa verilir. Ritüel gecikmesinin (en fazla ~150 sn) rahatça üstünde.
+STUCK_AFTER_SECONDS = 600
+
 state: dict = {}
 
 
@@ -140,17 +144,22 @@ async def _charge(db, user_id: str, kind: str) -> None:
 @app.put("/v1/profile")
 async def upsert_profile(p: ProfileIn, user=Depends(get_user)):
     db = state["db"]
+    # birth_year ayrıca users'a yazılıyor: yaş kapısı (guardrail.BLOCK_MINOR)
+    # bu sütuna bakıyor. Yazılmazsa kapı yalnızca kullanıcının metinde
+    # "16 yaşındayım" demesiyle çalışır — yani hiç çalışmaz.
     await db.execute(
         """UPDATE users SET first_name=coalesce($2,first_name),
              tone=coalesce($3,tone), relationship_status=coalesce($4,relationship_status),
              focus_topic=coalesce($5,focus_topic), locale=coalesce($6,locale),
-             tz_name=coalesce($7,tz_name)
+             tz_name=coalesce($7,tz_name), birth_year=coalesce($8,birth_year)
            WHERE id=$1""",
         user["id"], p.first_name, p.tone, p.relationship_status,
-        p.focus_topic, p.locale, p.tz_name)
+        p.focus_topic, p.locale, p.tz_name,
+        p.birth_date.year if p.birth_date else None)
 
+    profile_id = None
     if p.birth_date:
-        await db.execute(
+        profile_id = await db.fetchval(
             """INSERT INTO birth_profiles
                  (user_id, label, is_primary, birth_date, birth_time, time_known,
                   place_name, lat, lon, tz_name)
@@ -158,7 +167,8 @@ async def upsert_profile(p: ProfileIn, user=Depends(get_user)):
                ON CONFLICT (user_id) WHERE is_primary DO UPDATE SET
                  birth_date=EXCLUDED.birth_date, birth_time=EXCLUDED.birth_time,
                  time_known=EXCLUDED.time_known, place_name=EXCLUDED.place_name,
-                 lat=EXCLUDED.lat, lon=EXCLUDED.lon, tz_name=EXCLUDED.tz_name""",
+                 lat=EXCLUDED.lat, lon=EXCLUDED.lon, tz_name=EXCLUDED.tz_name
+               RETURNING id""",
             user["id"], p.birth_date, p.birth_time, p.time_known,
             p.place_name, p.lat, p.lon, p.tz_name or "Europe/Istanbul")
 
@@ -178,7 +188,26 @@ async def upsert_profile(p: ProfileIn, user=Depends(get_user)):
             "ay": chart.bodies["moon"].sign_tr,
             "ay_fazi": chart.moon_phase["name_tr"],
         }
+        from .core.pipeline import cache_chart
+        await cache_chart(db, profile_id, chart)
     return {"ok": True, "teaser": teaser}
+
+
+class PaywallEventIn(BaseModel):
+    placement: Literal["onboarding", "reading_gate", "home_banner", "profile"]
+    variant: str = Field(max_length=40)
+    action: Literal["view", "dismiss", "start_trial", "purchase"]
+    price_shown: str | None = Field(None, max_length=40)
+
+
+@app.post("/v1/events/paywall", status_code=204)
+async def paywall_event(body: PaywallEventIn, user=Depends(get_user)):
+    """Paywall hunisi. Ölçülmeden fiyat testi yapılamaz — bu uç olmadan
+    "paywall → deneme → ödeme" oranları hiçbir yerde görünmüyordu."""
+    await state["db"].execute(
+        """INSERT INTO paywall_events (user_id, placement, variant, action, price_shown)
+           VALUES ($1,$2,$3,$4,$5)""",
+        user["id"], body.placement, body.variant, body.action, body.price_shown)
 
 
 @app.post("/v1/readings/coffee", status_code=202)
@@ -247,15 +276,45 @@ async def daily_reading(user=Depends(get_user)):
     """
     db = state["db"]
     await _require_birth(db, user["id"])
+    # Bugünün kaydını ararken TAMAMLANMIŞ olan önceliklidir.
+    #
+    # Sadece "bugün oluşturulmuş ve failed değil" demek yetmiyor: worker
+    # çökerse veya iş kuyrukta kaybolursa kayıt gün boyu 'queued' kalır ve
+    # kullanıcı o gün hiç yorum göremez — ekranda sonsuza kadar "hazırlanıyor"
+    # yazar. Takılı kalmış kayıt yeniden kuyruğa veriliyor.
+    #
+    # Gün sınırı KULLANICININ saat dilimine göre. date_trunc('day', now())
+    # sunucunun (UTC) gününü kullanır; İstanbul'da gece 02:00'de uygulamayı
+    # açan kullanıcı UTC'de hâlâ dündedir ve dünün yorumunu görür. "Günün
+    # yorumu" ürününde bu doğrudan yanlış içerik demek.
     mevcut = await db.fetchrow(
-        """SELECT id, eta_seconds, status FROM readings
+        """SELECT id, eta_seconds, status, created_at FROM readings
            WHERE user_id=$1 AND kind='daily' AND status <> 'failed'
-             AND created_at > date_trunc('day', now())
-           ORDER BY created_at DESC LIMIT 1""", user["id"])
-    if mevcut:
+             AND created_at >= date_trunc('day', now() AT TIME ZONE $2)
+                               AT TIME ZONE $2
+           ORDER BY (status = 'done') DESC, created_at DESC
+           LIMIT 1""", user["id"], user["tz_name"] or "Europe/Istanbul")
+
+    if mevcut and mevcut["status"] == "done":
         return {"reading_id": str(mevcut["id"]),
                 "eta_seconds": mevcut["eta_seconds"],
-                "status": mevcut["status"], "cached": True}
+                "status": "done", "cached": True}
+
+    if mevcut:
+        yas = (datetime.now(timezone.utc) - mevcut["created_at"]).total_seconds()
+        if yas < STUCK_AFTER_SECONDS:
+            return {"reading_id": str(mevcut["id"]),
+                    "eta_seconds": mevcut["eta_seconds"],
+                    "status": mevcut["status"], "cached": True}
+        # Takılmış: aynı kaydı yeniden kuyruğa ver, yenisini oluşturma.
+        await db.execute(
+            "UPDATE readings SET status='queued', created_at=now() WHERE id=$1",
+            mevcut["id"])
+        state["queue"].enqueue("app.workers.tasks.run_reading",
+                               str(mevcut["id"]), "daily", {})
+        return {"reading_id": str(mevcut["id"]),
+                "eta_seconds": mevcut["eta_seconds"],
+                "status": "queued", "cached": False, "requeued": True}
 
     rid = str(uuid.uuid4())
     await db.execute(
@@ -309,7 +368,17 @@ async def verdict(pid: str, body: VerdictIn, user=Depends(get_user)):
         """INSERT INTO coin_ledger (user_id, delta, reason, ref_id, balance_after)
            VALUES ($1,1,'verify',$2,$3)""", user["id"], pid, bal + 1)
     acc = await db.fetchrow("SELECT * FROM user_accuracy WHERE user_id=$1", user["id"])
-    return {"ok": True, "coins_earned": 1, "accuracy": dict(acc) if acc else None}
+
+    # Takip yorumu: döngünün kapandığı yer. Üretilemezse akış durmaz —
+    # jeton ve isabet paneli zaten güncellendi.
+    from .core.pipeline import verdict_followup
+    try:
+        yorum = await verdict_followup(db, user["id"], pid)
+    except Exception:      # noqa: BLE001 — LLM hatası doğrulamayı geçersiz kılmasın
+        yorum = None
+
+    return {"ok": True, "coins_earned": 1, "yorum": yorum,
+            "accuracy": dict(acc) if acc else None}
 
 
 @app.get("/v1/me/accuracy")
@@ -331,6 +400,45 @@ async def accuracy(user=Depends(get_user)):
             "awaiting_verdict": [dict(r) for r in pending]}
 
 
+async def _touch_streak(db, user: dict) -> dict:
+    """Günlük seriyi ilerletir ve gerekirse ödül jetonu verir.
+
+    Bu fonksiyon olmadan streak_count hiç yazılmıyordu. Görünür etkisi ana
+    ekrandaki "0 gün" idi; asıl etkisi ise queue_daily'nin
+    `streak_last_day > current_date - 14` filtresiydi: sütun hep NULL kaldığı
+    için gece işi HİÇBİR kullanıcı seçmiyor, günlük yorum ön üretimi hiç
+    çalışmıyordu.
+    """
+    bugun = await db.fetchval("SELECT current_date")
+    son = user.get("streak_last_day")
+    if son == bugun:
+        return user
+
+    if son and (bugun - son).days == 1:
+        yeni = (user.get("streak_count") or 0) + 1
+    else:
+        yeni = 1
+
+    await db.execute(
+        "UPDATE users SET streak_count=$2, streak_last_day=$3 WHERE id=$1",
+        user["id"], yeni, bugun)
+
+    # 7/30/100. günde jeton — küçük ve öngörülebilir tutuluyor; sürpriz ödül
+    # kumar döngüsüne yaklaşıyor (bkz. README bölüm 8).
+    odul = {7: 3, 30: 10, 100: 25}.get(yeni)
+    if odul:
+        bal = await db.fetchval(
+            "SELECT coalesce(sum(delta),0) FROM coin_ledger WHERE user_id=$1",
+            user["id"]) or 0
+        await db.execute(
+            """INSERT INTO coin_ledger (user_id, delta, reason, ref_id, balance_after)
+               VALUES ($1,$2,'streak',$3,$4)""",
+            user["id"], odul, f"gun_{yeni}", bal + odul)
+
+    user["streak_count"], user["streak_last_day"] = yeni, bugun
+    return user
+
+
 @app.get("/v1/me")
 async def me(user=Depends(get_user)):
     """Ana ekranın tek çağrısı: profil + jeton + abonelik + streak.
@@ -339,6 +447,7 @@ async def me(user=Depends(get_user)):
     yavaş bağlantıda görünür gecikme demek.
     """
     db = state["db"]
+    user = await _touch_streak(db, user)
     bal = await db.fetchval(
         "SELECT coalesce(sum(delta),0) FROM coin_ledger WHERE user_id=$1",
         user["id"]) or 0

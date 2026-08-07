@@ -135,9 +135,16 @@ rq worker readings &
 ```
 0  3 * * * cd /srv/fal && .venv/bin/python -c "from app.workers.tasks import nightly_transits; nightly_transits()"
 30 6 * * * cd /srv/fal && .venv/bin/python -c "from app.workers.tasks import queue_daily; queue_daily()"
+0  * * * * cd /srv/fal && .venv/bin/python -c "from app.workers.tasks import send_daily_push; send_daily_push()"
 0 12 * * * cd /srv/fal && .venv/bin/python -c "from app.workers.tasks import ask_verdicts; ask_verdicts()"
 0  4 * * * cd /srv/fal && .venv/bin/python -c "from app.workers.tasks import purge_assets; purge_assets()"
+0  5 * * * cd /srv/fal && .venv/bin/python -c "from app.workers.tasks import winback; winback()"
 ```
+
+`send_daily_push` SAATTE BİR çalışır, günde bir değil: her kullanıcıya kendi
+`active_hour`'unda gönderiliyor ve kullanıcılar farklı saat dilimlerinde.
+Saatte bir tarayıp yalnızca saati gelenlere göndermek, tek bir toplu gönderim
+yapmaktan hem daha az rahatsız edici hem de açılma oranı daha yüksek.
 
 ### Doğrulama
 

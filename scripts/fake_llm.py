@@ -22,7 +22,26 @@ async def messages(req: Request):
     sys_txt = json.dumps(body.get("system",""), ensure_ascii=False)
     user_txt = "".join(c.get("text","") for m in body["messages"]
                        if m["role"]=="user" for c in (m["content"] if isinstance(m["content"],list) else []))
-    if "Sözlük:" in sys_txt and "labels" in sys_txt:          # vision etiketleme
+    if "metin" in sys_txt and "SADECE JSON" in sys_txt:        # doğrulama takip yorumu
+        tuttu = "tuttu" in user_txt and "tutmadı" not in user_txt
+        data = {"metin": ("Bunu görmek beni de şaşırtmadı — göstergeler bu yöne "
+                          "işaret ediyordu. Aynı hat önümüzdeki haftalarda güçleniyor.")
+                if tuttu else
+                ("Tutmadığını söylemen değerli. Bu tür göstergeler gecikmeli "
+                 "çalışabiliyor; pencereyi kapatmadan izlemeye devam edelim.")}
+    elif "FARKLI paragraf" in sys_txt or "variants" in sys_txt:  # blok tohumlama
+        kosul = ""
+        for satir in user_txt.split("\n"):
+            if satir.startswith("Koşul:"):
+                kosul = satir.split(":", 1)[1].strip()
+        acilar = ["bu koşul senin zeminini belirliyor", "burada bir gerilim var ama verimli",
+                  "bu yerleşim sana zaman kazandırıyor", "burası senin tekrar eden dersin"]
+        data = {"variants": [
+            f"[{kosul}] {a}. Bu, gündelik hayatta kendini fark edilmeden kuran bir "
+            f"örüntü olarak gösteriyor. Aceleye getirmediğin sürece lehine işliyor. "
+            f"(yerel geliştirme metni, varyant {i+1})"
+            for i, a in enumerate(acilar)]}
+    elif "Sözlük:" in sys_txt and "labels" in sys_txt:          # vision etiketleme
         data = {"labels":[{"label":random.choice(["kuş","yol","kalp","göz","balık"]),
                            "confidence":round(random.uniform(0.45,0.9),2)}]}
     elif "kalıcı bilgi" in sys_txt or "items" in sys_txt:     # hafıza

@@ -16,6 +16,7 @@ import asyncio
 import json
 import os
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from redis import Redis
 
@@ -199,6 +200,129 @@ async def _queue_daily(limit: int):
         await db.close()
 
 
+# ------------------------------------------------------ transit bildirimleri
+
+# Bildirim metni gezegen + açı koduna göre kuruluyor. LLM'e yazdırmıyoruz:
+# bildirim başlığı 40 karakter, üretmesi 0,001 $ etmez ama 100k kullanıcıda
+# günde 100 $ eder. Ayrıca sabit metin ölçülebilir (A/B test edilebilir).
+TRANSIT_METIN = {
+    "saturn": ("Satürn", "Bugün acele karar verme; sınırlarını gözden geçir."),
+    "jupiter": ("Jüpiter", "Kapı aralanıyor. İstemekten çekinme."),
+    "uranus": ("Uranüs", "Beklenmedik bir haber gelebilir; esnek kal."),
+    "neptune": ("Neptün", "Bugün netlik arama, hissettiğini not et."),
+    "pluto": ("Plüton", "Bırakman gereken şey kendini gösteriyor."),
+    "mars": ("Mars", "Enerjin yüksek ama kısa fitilli. Tartışmaya girme."),
+}
+NATAL_TR = {
+    "sun": "özüne", "moon": "duygularına", "mercury": "zihnine",
+    "venus": "kalbine", "mars": "iradene", "jupiter": "şansına",
+    "saturn": "sorumluluklarına", "uranus": "özgürlüğüne",
+    "neptune": "hayallerine", "pluto": "gücüne",
+}
+
+
+def _code_coz(code: str) -> tuple[str, str]:
+    """'saturn_square_venus' -> ('saturn', 'venus'). Açı adı ortada."""
+    p = code.split("_")
+    return (p[0], p[-1]) if len(p) >= 3 else (p[0], "")
+
+
+def send_daily_push(limit: int = 5000):
+    return _run(_send_daily_push(limit))
+
+
+async def _send_daily_push(limit: int):
+    """transits_queue'daki kayda değer transitleri bildirime çevirir.
+
+    Bu iş yazılmadığı sürece nightly_transits her gece satır üretip duruyordu
+    ama kimse okumuyordu: "Satürn senin Venüs'üne kare yapıyor" vaadi hiç
+    gönderilmiyordu, yani bildirim stratejisinin tamamı ölüydü.
+
+    Kurallar (churn önlemi): kullanıcının aktif saatinde, günde en fazla 2
+    bildirim (push() uyguluyor), gece yok, opt-in yoksa hiç.
+    """
+    db = await connect()
+    try:
+        rows = await db.fetch(
+            """SELECT t.id, t.user_id, t.code, t.severity,
+                      u.first_name, u.active_hour, u.tz_name
+               FROM transits_queue t
+               JOIN users u ON u.id = t.user_id
+               WHERE t.notified_at IS NULL
+                 AND u.deleted_at IS NULL AND u.push_optin
+                 AND t.exact_at BETWEEN now() AND now() + interval '2 days'
+               ORDER BY t.severity DESC
+               LIMIT $1""", limit)
+
+        simdi = datetime.now(timezone.utc)
+        for r in rows:
+            # Kullanıcının yerel saatine göre gönder; gece bildirimi opt-out üretir.
+            try:
+                yerel = simdi.astimezone(ZoneInfo(r["tz_name"] or "Europe/Istanbul"))
+            except Exception:
+                yerel = simdi
+            if yerel.hour != (r["active_hour"] or 9):
+                continue
+
+            transit, natal = _code_coz(r["code"])
+            meta = TRANSIT_METIN.get(transit)
+            if not meta:
+                continue
+            ad, tavsiye = meta
+            hedef = NATAL_TR.get(natal, "haritana")
+            ok = await push(
+                db, str(r["user_id"]),
+                f"{ad} {hedef} dokunuyor",
+                f"{r['first_name'] or 'Merhaba'} — {tavsiye}",
+                {"deeplink": "daily", "transit": r["code"]})
+            if ok:
+                await db.execute(
+                    "UPDATE transits_queue SET notified_at=now() WHERE id=$1",
+                    r["id"])
+    finally:
+        await db.close()
+
+
+# ------------------------------------------------------------------- winback
+
+def winback(limit: int = 2000):
+    return _run(_winback(limit))
+
+
+async def _winback(limit: int):
+    """Aboneliği bitmiş kullanıcıya tek seferlik dönüş teklifi.
+
+    3/14/30. günlerde bir kez. Aynı teklifi tekrar göndermek opt-out üretir;
+    push_log'da aynı kampanya+gün kaydı varsa atlanıyor.
+    """
+    db = await connect()
+    try:
+        rows = await db.fetch(
+            """SELECT e.user_id, u.first_name,
+                      (current_date - e.expires_at::date) AS gun
+               FROM entitlements e
+               JOIN users u ON u.id = e.user_id
+               WHERE e.expires_at < now()
+                 AND u.deleted_at IS NULL AND u.push_optin
+                 AND (current_date - e.expires_at::date) IN (3, 14, 30)
+               LIMIT $1""", limit)
+        for r in rows:
+            zaten = await db.fetchval(
+                """SELECT 1 FROM push_log
+                   WHERE user_id=$1 AND data->>'kampanya'='winback'
+                     AND data->>'gun'=$2""",
+                r["user_id"], str(r["gun"]))
+            if zaten:
+                continue
+            await push(db, str(r["user_id"]), "Defterin seni bekliyor",
+                       f"{r['first_name'] or 'Merhaba'} — bıraktığın yerden "
+                       "devam edebilirsin.",
+                       {"deeplink": "paywall", "kampanya": "winback",
+                        "gun": str(r["gun"])})
+    finally:
+        await db.close()
+
+
 # ------------------------------------------------------- fotoğraf silme (KVKK)
 
 def purge_assets():
@@ -247,12 +371,19 @@ async def push(db, user_id: str, title: str, body: str, data: dict):
            WHERE user_id=$1 AND created_at > date_trunc('day', now())""", user_id) or 0
     if sent_today >= 2:
         return False
-    ok = await _send_push(row["push_token"], title, body, data)
+    # Sağlayıcıya gönderim denemesi. Dönüş değeri "teslim edildi mi" DEĞİL,
+    # "kullanıcının günlük bildirim kotasını harcadık mı" sorusunu yanıtlıyor.
+    #
+    # Neden: çağıranlar bu değere bakıp tekrar göndermemek için işaret koyuyor
+    # (transits_queue.notified_at). Sağlayıcı anahtarı yokken _send_push False
+    # dönüyordu; sonuç olarak hiçbir transit işaretlenmiyor ve aynı bildirim
+    # her turda yeniden kuyruğa giriyordu.
+    gonderim = await _send_push(row["push_token"], title, body, data)
     await db.execute(
         """INSERT INTO push_log (user_id, title, body, data)
            VALUES ($1,$2,$3,$4)""",
-        user_id, title, body, data)
-    return ok
+        user_id, title, body, {**data, "gonderildi": bool(gonderim)})
+    return True
 
 
 ONESIGNAL_APP_ID = os.getenv("ONESIGNAL_APP_ID", "")

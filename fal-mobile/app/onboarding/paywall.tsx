@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
+import { api } from '@/lib/api';
 import * as purchases from '@/lib/purchases';
 import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
@@ -23,6 +24,10 @@ import { Eyebrow } from '@/components/Eyebrow';
 // Yedek gösterim: mağaza fiyatları yüklenene kadar (veya Expo Go'da native
 // modül yokken) ekran boş kalmasın. Gerçek fiyat her zaman mağazadan gelir —
 // koda yazılmış fiyat mağaza kuralına aykırı ve TR'de zamla birlikte yanlış olur.
+// Paywall varyantı. Remote config'ten sürülebilir olmalı — kod deploy'u
+// gerektiren A/B test pratikte ölü A/B testtir (bkz. fal-mobile/README).
+const VARYANT = 'soft_yillik_one_v1';
+
 const YEDEK_PLANLAR = [
   { key: 'yearly', title: 'Yıllık', price: '—', per: 'yılda', badge: 'en avantajlı' },
   { key: 'monthly', title: 'Aylık', price: '—', per: 'ayda', badge: null },
@@ -50,6 +55,11 @@ export default function Paywall() {
   const [plan, setPlan] = useState<string>('yearly');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Huni ölçümü: görüntülenme, kapatma ve satın alma ayrı ayrı işaretleniyor.
+  useEffect(() => {
+    api.paywallEvent('onboarding', VARYANT, 'view');
+  }, []);
 
   useEffect(() => {
     let iptal = false;
@@ -79,6 +89,8 @@ export default function Paywall() {
     const res = await purchases.purchase(plan);
     setBusy(false);
     if (res.ok) {
+      api.paywallEvent('onboarding', VARYANT, 'purchase',
+        plans.find((p) => p.key === plan)?.price);
       // Hak sunucuda RevenueCat webhook'uyla açılıyor; /v1/me önbelleğini
       // düşürüp güncel tier'ı çekiyoruz.
       qc.invalidateQueries({ queryKey: ['me'] });
@@ -91,6 +103,7 @@ export default function Paywall() {
   };
 
   const skip = () => {
+    api.paywallEvent('onboarding', VARYANT, 'dismiss');
     finish();
     router.replace('/(tabs)');
   };

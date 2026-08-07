@@ -12,15 +12,15 @@
  * Dürüstlük kuralı: tutmayan tahminler gizlenmiyor, aynı listede duruyor.
  * Oranı şişirmek kısa vadede iyi görünür, güveni öldürür.
  */
-import React from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PredictionRow } from '@/components/PredictionRow';
 import { TelveRing } from '@/components/TelveRing';
 import { api } from '@/lib/api';
-import { color, space, type } from '@/lib/theme';
+import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
 
 // Backend sabit dağarcığa indirgiyor (core/pricing.TOPICS); buradaki
@@ -44,9 +44,18 @@ export default function Journal() {
     queryFn: api.accuracy,
   });
 
+  // Takip yorumu: kullanıcı cevap verdikten sonra karşılık görmezse
+  // doğrulama mekaniği bir ankete dönüşüyor. Tutmayan tahminde dürüst
+  // davranmak da burada oluyor — ürünün güven iddiası bu paragrafta.
+  const [yorum, setYorum] = useState<string | null>(null);
+
   const verdict = useMutation({
     mutationFn: ({ id, v }: { id: string; v: 'hit' | 'partial' | 'miss' }) => api.verdict(id, v),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['accuracy'] }),
+    onSuccess: (res) => {
+      setYorum(res.yorum ?? null);
+      qc.invalidateQueries({ queryKey: ['accuracy'] });
+      qc.invalidateQueries({ queryKey: ['me'] });   // doğrulama jeton kazandırıyor
+    },
   });
 
   const o = data?.overall;
@@ -66,6 +75,15 @@ export default function Journal() {
       }
     >
       <Eyebrow style={styles.eyebrow}>kader günlüğü</Eyebrow>
+
+      {/* Doğrulama sonrası karşılık */}
+      {yorum ? (
+        <Pressable onPress={() => setYorum(null)} style={styles.yorumKutu}>
+          <Eyebrow style={styles.yorumLabel}>cevabın için</Eyebrow>
+          <Text style={styles.yorumMetin}>{yorum}</Text>
+          <Text style={styles.yorumKapat}>kapat</Text>
+        </Pressable>
+      ) : null}
 
       {/* İsabet paneli */}
       <View style={styles.panel}>
@@ -146,6 +164,17 @@ export default function Journal() {
 }
 
 const styles = StyleSheet.create({
+  yorumKutu: {
+    marginTop: space.lg,
+    padding: space.lg,
+    borderRadius: radius.md,
+    backgroundColor: color.cezve,
+    borderLeftWidth: 2,
+    borderLeftColor: color.cini,
+  },
+  yorumLabel: { ...type.eyebrow, color: color.cini },
+  yorumMetin: { ...type.oracle, color: color.porselen, marginTop: space.sm },
+  yorumKapat: { ...type.data, color: color.kulKoyu, fontSize: 11, marginTop: space.md },
   root: { flex: 1, backgroundColor: color.telve },
   eyebrow: { ...type.eyebrow, color: color.kul },
 

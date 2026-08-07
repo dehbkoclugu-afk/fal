@@ -170,38 +170,56 @@ Bu koşul için {n} FARKLI paragraf yaz. Her paragraf:
 Çıktı SADECE: {{"variants": ["...", "...", ...]}}"""
 
 
-async def seed_library(db, keys: list[str], locale: str = "tr") -> dict:
-    """Blok kütüphanesini doldurur. BİR KEZ çalıştırılır (veya yeni anahtar eklendikçe).
+async def seed_key(db, key: str, locale: str = "tr") -> tuple[int, float]:
+    """Tek bir koşul anahtarı için varyantları üretip yazar.
 
-    Toplam anahtar sayısı kabaca:
-      12 yükselen + 7 gezegen × 12 burç + 7 gezegen × 12 ev + retro + ~40 açı çifti
-      ≈ 300 anahtar × 4 varyant = 1.200 paragraf
-    Batch API ile toplam maliyet ~15-40 $. Sonrasında sonsuz ücretsiz kullanım.
-
-    Not: batch endpoint kullan, acele yok. Gece çalıştır.
+    (yazılan_paragraf, maliyet_usd) döner. Eşzamanlı çalıştırılabilsin diye
+    tek anahtarlık: scripts/seed_blocks.py bunu N kanalla sürüyor.
     """
     from .llm import complete
 
+    mevcut = await db.fetchval(
+        "SELECT count(*) FROM content_blocks WHERE key=$1 AND locale=$2", key, locale)
+    if mevcut:
+        return 0, 0.0
+
+    res = await complete(
+        system=SEED_SYSTEM.format(n=VARIANTS_PER_KEY),
+        user=f"Koşul: {key}\nBölüm: {section_of(key)}",
+        tier="small", max_tokens=1200, temperature=1.0, expect_json=True,
+    )
+    variants = [v for v in (res.data or {}).get("variants", [])
+                if isinstance(v, str) and len(v.strip()) > 40]
+    if not variants:
+        # Boş/bozuk çıktıyı sessizce yazma: kütüphaneye giren boş blok,
+        # ücretsiz kullanıcıya boş yorum olarak geri döner.
+        raise ValueError(f"{key}: kullanılabilir varyant üretilmedi")
+
+    yazilan = 0
+    for i, text in enumerate(variants[:VARIANTS_PER_KEY]):
+        await db.execute(
+            """INSERT INTO content_blocks (key, variant, locale, section, text)
+               VALUES ($1,$2,$3,$4,$5)
+               ON CONFLICT (key, variant, locale) DO NOTHING""",
+            key, i, locale, section_of(key), text.strip(),
+        )
+        yazilan += 1
+    return yazilan, res.cost_usd
+
+
+async def seed_library(db, keys: list[str], locale: str = "tr") -> dict:
+    """Sıralı doldurma (küçük listeler ve testler için).
+
+    Büyük tur için scripts/seed_blocks.py kullan — eşzamanlı çalışır,
+    maliyeti canlı raporlar ve bütçe freni vardır.
+    """
     created = 0
     for key in keys:
-        exists = await db.fetchval(
-            "SELECT count(*) FROM content_blocks WHERE key=$1 AND locale=$2", key, locale)
-        if exists:
+        try:
+            n, _ = await seed_key(db, key, locale)
+        except Exception:      # noqa: BLE001 — tek anahtar tüm turu durdurmasın
             continue
-        res = await complete(
-            system=SEED_SYSTEM.format(n=VARIANTS_PER_KEY),
-            user=f"Koşul: {key}\nBölüm: {section_of(key)}",
-            tier="small", max_tokens=1200, temperature=1.0, expect_json=True,
-        )
-        variants = (res.data or {}).get("variants", [])
-        for i, text in enumerate(variants[:VARIANTS_PER_KEY]):
-            await db.execute(
-                """INSERT INTO content_blocks (key, variant, locale, section, text)
-                   VALUES ($1,$2,$3,$4,$5)
-                   ON CONFLICT (key, variant, locale) DO NOTHING""",
-                key, i, locale, section_of(key), text,
-            )
-            created += 1
+        created += n
     return {"created": created}
 
 

@@ -44,7 +44,10 @@ def queue():
 
 
 @pytest.fixture
-async def client(db, queue, monkeypatch):
+async def client(db, queue, monkeypatch, fake_llm):
+    """fake_llm zorunlu: verdict ucu artık takip yorumu üretiyor. Stub
+    olmadan testler gerçek LLM adresine 3 kez deneme yapıp geri çekiliyor —
+    ağ yok, sadece yavaşlık ve belirsizlik."""
     from app import main
 
     monkeypatch.setitem(main.state, "db", db)
@@ -487,3 +490,235 @@ async def test_revenuecat_satin_alma_abonelik_aciyor(client, db, anon, monkeypat
 
 async def test_health(client):
     assert (await client.get("/health")).json() == {"ok": True}
+
+
+# ---------------------------------------------------------------- seri (streak)
+
+async def test_seri_ilk_acilista_basliyor(client, db, anon):
+    """Regresyon: streak hiç yazılmıyordu. Görünür etkisi ana ekranda "0 gün",
+    asıl etkisi queue_daily'nin `streak_last_day > current_date - 14` filtresiydi:
+    sütun hep NULL olduğu için gece işi hiçbir kullanıcı seçmiyordu."""
+    d = (await client.get("/v1/me", headers=H(anon))).json()
+    assert d["streak"]["count"] == 1
+    assert d["streak"]["last_day"] is not None
+
+
+async def test_ayni_gun_ikinci_acilis_seriyi_artirmiyor(client, db, anon):
+    await client.get("/v1/me", headers=H(anon))
+    d = (await client.get("/v1/me", headers=H(anon))).json()
+    assert d["streak"]["count"] == 1
+
+
+async def test_seri_ardisik_gunde_ilerliyor(client, db, anon):
+    await client.get("/v1/me", headers=H(anon))
+    await db.execute(
+        """UPDATE users SET streak_last_day = current_date - 1, streak_count = 6
+           WHERE anon_id=$1""", anon)
+    d = (await client.get("/v1/me", headers=H(anon))).json()
+    assert d["streak"]["count"] == 7
+    # 7. günde ödül jetonu
+    assert await db.fetchval(
+        "SELECT count(*) FROM coin_ledger WHERE reason='streak'") == 1
+
+
+async def test_seri_gun_atlanirsa_sifirlaniyor(client, db, anon):
+    await client.get("/v1/me", headers=H(anon))
+    await db.execute(
+        """UPDATE users SET streak_last_day = current_date - 5, streak_count = 20
+           WHERE anon_id=$1""", anon)
+    d = (await client.get("/v1/me", headers=H(anon))).json()
+    assert d["streak"]["count"] == 1
+
+
+async def test_queue_daily_seri_yazildiktan_sonra_kullanici_buluyor(client, db, anon):
+    """Zincirin ucu: seri yazılmadan gece işi boş dönüyordu."""
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    await client.get("/v1/me", headers=H(anon))
+    n = await db.fetchval(
+        """SELECT count(*) FROM users u
+           JOIN birth_profiles b ON b.user_id=u.id AND b.is_primary
+           LEFT JOIN readings rd ON rd.user_id=u.id AND rd.kind='daily'
+                AND rd.created_at > date_trunc('day', now())
+           WHERE u.deleted_at IS NULL AND rd.id IS NULL
+             AND u.streak_last_day > current_date - 14""")
+    assert n == 1, "queue_daily sorgusu hâlâ kullanıcı bulamıyor"
+
+
+# ------------------------------------------------------------- harita önbelleği
+
+async def test_natal_harita_onbellege_yaziliyor(client, db, anon):
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    row = await db.fetchrow(
+        """SELECT c.chart_json, c.engine_version FROM natal_charts c
+           JOIN birth_profiles b ON b.id = c.birth_profile_id
+           JOIN users u ON u.id = b.user_id WHERE u.anon_id=$1""", anon)
+    assert row is not None, "natal_charts tablosuna hiç yazılmıyor"
+    assert row["chart_json"]["ascendant"]
+    assert row["engine_version"]
+
+
+async def test_harita_guncellenince_onbellek_tazeleniyor(client, db, anon):
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    ilk = await db.fetchval("SELECT chart_json->>'ascendant' FROM natal_charts")
+    await client.put("/v1/profile", json={**PROFIL, "birth_time": "18:45"},
+                     headers=H(anon))
+    son = await db.fetchval("SELECT chart_json->>'ascendant' FROM natal_charts")
+    assert ilk != son
+    assert await db.fetchval("SELECT count(*) FROM natal_charts") == 1
+
+
+# ------------------------------------------------------------- paywall hunisi
+
+async def test_paywall_olayi_kaydediliyor(client, db, anon):
+    r = await client.post("/v1/events/paywall",
+                          json={"placement": "onboarding", "variant": "yillik_one",
+                                "action": "view", "price_shown": "₺999,00"},
+                          headers=H(anon))
+    assert r.status_code == 204
+    row = await db.fetchrow("SELECT placement, variant, action, price_shown "
+                            "FROM paywall_events")
+    assert row["placement"] == "onboarding" and row["action"] == "view"
+
+
+async def test_gecersiz_paywall_olayi_reddediliyor(client, anon):
+    r = await client.post("/v1/events/paywall",
+                          json={"placement": "uydurma", "variant": "x",
+                                "action": "view"}, headers=H(anon))
+    assert r.status_code == 422
+
+
+async def test_verdict_takip_yorumu_donuyor(client, db, anon, fake_llm):
+    """VERIFY_FOLLOWUP promptu yazılmıştı ama hiç çağrılmıyordu: kullanıcı
+    "tuttu mu?" sorusunu cevaplayıp hiçbir karşılık almıyordu. Döngü ancak
+    yanıtla kapanıyor."""
+    fake_llm.queue({"metin": "Tutmamasına şaşırmadım; Satürn geçişi gecikmeli "
+                             "çalışır. Pencereyi biraz açık tutalım."})
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    pid = await _tahmin_ekle(db, uid)
+
+    d = (await client.post(f"/v1/predictions/{pid}/verdict",
+                           json={"verdict": "miss"}, headers=H(anon))).json()
+    assert d["yorum"], "takip yorumu üretilmedi"
+    assert "Satürn" in d["yorum"]
+    # Modele gerçekten verdict ve iddia geçmiş mi
+    prompt = fake_llm.calls[-1]["user"]
+    assert "tutmadı" in prompt and "Bir mesaj alacaksın" in prompt
+
+
+async def test_takip_yorumu_yasakli_ciktida_gosterilmiyor(client, db, anon, fake_llm):
+    fake_llm.queue({"metin": "Bu yıl kesin olarak öleceksin."})
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    pid = await _tahmin_ekle(db, uid)
+    d = (await client.post(f"/v1/predictions/{pid}/verdict",
+                           json={"verdict": "hit"}, headers=H(anon))).json()
+    assert d["yorum"] is None, "çıktı taramasından geçmemiş metin kullanıcıya gitti"
+    assert d["coins_earned"] == 1, "yorum üretilemese de doğrulama geçerli olmalı"
+
+
+# -------------------------------------------------------------- yaş kapısı
+
+async def test_yas_kapisi_profildeki_dogum_tarihinden_calisiyor(client, db, anon,
+                                                                fake_llm, fake_embed):
+    """Regresyon: birth_year hiç kaydedilmiyor ve guardrail'e yaş
+    geçilmiyordu; kapı yalnızca kullanıcı metinde "16 yaşındayım" yazarsa
+    çalışıyordu, yani pratikte hiç."""
+    from datetime import date
+
+    from app.core import pipeline
+
+    genc = date.today().replace(year=date.today().year - 15)
+    await client.put("/v1/profile",
+                     json={**PROFIL, "birth_date": genc.isoformat()},
+                     headers=H(anon))
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    assert await db.fetchval("SELECT birth_year FROM users WHERE id=$1", uid) == genc.year
+
+    rid = str(uuid.uuid4())
+    await db.execute("INSERT INTO readings (id,user_id,kind) VALUES ($1,$2,'natal')",
+                     rid, uid)
+    with pytest.raises(pipeline.ReadingRejected) as exc:
+        await pipeline.generate_reading(db, uid, rid, "natal", {})
+    assert exc.value.code == "minor"
+    assert fake_llm.calls == [], "18 altı kullanıcı için LLM çağrıldı"
+
+
+async def test_yetiskin_kullanici_engellenmiyor(client, db, anon, fake_llm, fake_embed):
+    from app.core import pipeline
+
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))   # 1993 doğumlu
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    rid = str(uuid.uuid4())
+    await db.execute("INSERT INTO readings (id,user_id,kind) VALUES ($1,$2,'natal')",
+                     rid, uid)
+    await pipeline.generate_reading(db, uid, rid, "natal", {})
+    assert await db.fetchval("SELECT status FROM readings WHERE id=$1", rid) == "done"
+
+
+async def test_takilmis_gunluk_yeniden_kuyruga_veriliyor(client, db, anon, queue):
+    """Worker çökerse kayıt gün boyu 'queued' kalıyordu ve kullanıcı o gün hiç
+    yorum göremiyordu — ekranda sonsuza kadar "hazırlanıyor" yazıyordu."""
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    rid = str(uuid.uuid4())
+    await db.execute(
+        """INSERT INTO readings (id,user_id,kind,status,created_at,eta_seconds)
+           VALUES ($1,$2,'daily','queued', now() - interval '30 minutes', 20)""",
+        rid, uid)
+
+    d = (await client.post("/v1/readings/daily", headers=H(anon))).json()
+    assert d["reading_id"] == rid, "yeni kayıt açılmamalı, aynısı kurtarılmalı"
+    assert d.get("requeued") is True
+    assert len(queue.jobs) == 1
+    assert await db.fetchval("SELECT count(*) FROM readings WHERE kind='daily'") == 1
+
+
+async def test_taze_bekleyen_gunluk_yeniden_kuyruga_verilmiyor(client, db, anon, queue):
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    rid = str(uuid.uuid4())
+    await db.execute(
+        """INSERT INTO readings (id,user_id,kind,status,eta_seconds)
+           VALUES ($1,$2,'daily','running',20)""", rid, uid)
+    d = (await client.post("/v1/readings/daily", headers=H(anon))).json()
+    assert d["reading_id"] == rid and d["cached"] is True
+    assert queue.jobs == []
+
+
+async def test_tamamlanmis_gunluk_bekleyene_tercih_ediliyor(client, db, anon):
+    """Aynı gün hem tamamlanmış hem takılı kayıt varsa kullanıcı metni görmeli."""
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    bitmis = str(uuid.uuid4())
+    await db.execute(
+        """INSERT INTO readings (id,user_id,kind,status,output_json,created_at)
+           VALUES ($1,$2,'daily','done','{"ozet":"hazır"}', now() - interval '20 minutes')""",
+        bitmis, uid)
+    await db.execute(
+        """INSERT INTO readings (user_id,kind,status,created_at)
+           VALUES ($1,'daily','queued', now() - interval '30 minutes')""", uid)
+
+    d = (await client.post("/v1/readings/daily", headers=H(anon))).json()
+    assert d["reading_id"] == bitmis and d["status"] == "done"
+
+
+async def test_gun_siniri_kullanicinin_saat_dilimine_gore(client, db, anon, queue):
+    """Regresyon: gün sınırı sunucunun (UTC) gününe göreydi. İstanbul'da gece
+    02:00'de uygulamayı açan kullanıcı UTC'de hâlâ dünde olduğu için dünün
+    yorumunu alıyordu — "günün yorumu" ürününde doğrudan yanlış içerik."""
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+
+    # UTC'de bugün ama İstanbul'da (UTC+3) dün olan bir an seç.
+    # Örn. UTC 22:30 → İstanbul 01:30 ertesi gün.
+    dun_ist = await db.fetchval(
+        """SELECT (date_trunc('day', now() AT TIME ZONE 'Europe/Istanbul')
+                   AT TIME ZONE 'Europe/Istanbul') - interval '10 minutes'""")
+    await db.execute(
+        """INSERT INTO readings (user_id,kind,status,output_json,created_at)
+           VALUES ($1,'daily','done','{"ozet":"dünün yorumu"}',$2)""", uid, dun_ist)
+
+    d = (await client.post("/v1/readings/daily", headers=H(anon))).json()
+    assert d.get("cached") is not True, "dünün yorumu bugünün yerine döndü"
+    assert len(queue.jobs) == 1, "yeni günlük yorum kuyruğa girmedi"

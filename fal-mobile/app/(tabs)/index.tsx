@@ -158,6 +158,15 @@ export default function Home() {
           <Text style={styles.scoreArrow}>defter →</Text>
         </Pressable>
       )}
+
+      {/* Seri en altta, ince bir satır. Oyunlaştırmayı öne çıkarmak bu üründe
+          güveni azaltıyor — bu yüzden kasıtlı olarak sessiz. */}
+      {(me?.streak?.count ?? 0) > 1 && (
+        <Text style={styles.streak}>
+          {me!.streak.count} gündür buradasın
+          {[7, 30, 100].includes(me!.streak.count) ? ' · jeton kazandın' : ''}
+        </Text>
+      )}
     </Screen>
   );
 }
@@ -210,6 +219,13 @@ const styles = StyleSheet.create({
   tileNote: { ...type.data, color: color.kulKoyu, fontSize: 11 },
   tileCoins: { ...type.data, color: color.bakir, fontSize: 11 },
 
+  streak: {
+    ...type.data,
+    color: color.kulKoyu,
+    fontSize: 11,
+    marginTop: space.lg,
+    textAlign: 'center',
+  },
   scoreRow: {
     flexDirection: 'row',
     alignItems: 'center',

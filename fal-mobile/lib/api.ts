@@ -153,10 +153,30 @@ export const api = {
     ),
 
   verdict: (predictionId: string, verdict: 'hit' | 'miss' | 'partial') =>
-    request<{ ok: true; coins_earned: number }>(`/predictions/${predictionId}/verdict`, {
+    request<{ ok: true; coins_earned: number; yorum: string | null }>(
+      `/predictions/${predictionId}/verdict`,
+      { method: 'POST', body: JSON.stringify({ verdict }) },
+    ),
+
+  /**
+   * Paywall hunisi. Ölçülmeden fiyat testi yapılamaz.
+   * Hata yutuluyor: analitik çağrısı kullanıcı akışını asla durdurmamalı.
+   */
+  paywallEvent: (
+    placement: 'onboarding' | 'reading_gate' | 'home_banner' | 'profile',
+    variant: string,
+    action: 'view' | 'dismiss' | 'start_trial' | 'purchase',
+    priceShown?: string,
+  ) =>
+    request<void>('/events/paywall', {
       method: 'POST',
-      body: JSON.stringify({ verdict }),
-    }),
+      body: JSON.stringify({
+        placement,
+        variant,
+        action,
+        price_shown: priceShown ?? null,
+      }),
+    }).catch(() => undefined),
 
   accuracy: () => request<Accuracy>('/me/accuracy'),
 

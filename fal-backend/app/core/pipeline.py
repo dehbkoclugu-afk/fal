@@ -40,7 +40,7 @@ class CrisisIntercept(Exception):
 async def build_user_ctx(db, user_id: str) -> dict:
     row = await db.fetchrow(
         """SELECT u.first_name, u.locale, u.tone, u.relationship_status,
-                  u.focus_topic, e.tier,
+                  u.focus_topic, u.birth_year, e.tier,
                   b.birth_date, b.birth_time, b.time_known, b.lat, b.lon, b.tz_name
            FROM users u
            LEFT JOIN entitlements e ON e.user_id = u.id AND e.expires_at > now()
@@ -49,6 +49,17 @@ async def build_user_ctx(db, user_id: str) -> dict:
     if not row:
         raise ReadingRejected("no_user", "Kullanıcı bulunamadı.")
     return dict(row)
+
+
+def _age_from(row: dict) -> int | None:
+    """Profildeki doğum verisinden yaş. Yaş kapısının gerçek kaynağı burası."""
+    bd = row.get("birth_date")
+    if bd:
+        t = datetime.now(timezone.utc).date()
+        return t.year - bd.year - ((t.month, t.day) < (bd.month, bd.day))
+    if yil := row.get("birth_year"):
+        return datetime.now(timezone.utc).year - int(yil)
+    return None
 
 
 async def build_memory_ctx(db, user_id: str, limit: int = 6) -> str:
@@ -76,6 +87,27 @@ def _chart_from_row(row: dict) -> astro.Chart | None:
     return astro.compute_chart(b)
 
 
+async def cache_chart(db, birth_profile_id, chart: astro.Chart) -> None:
+    """Hesaplanmış haritayı natal_charts'a yazar.
+
+    Ephemeris hesabı ucuz (~5 ms) ama harita JSON'u analiz için de değerli:
+    hangi göstergenin hangi kullanıcıda olduğu, tahmin isabetiyle
+    ilişkilendirilebilir hale geliyor. engine_version ile birlikte yazılıyor
+    ki motor değişince eski haritalar ayırt edilebilsin.
+    """
+    if not birth_profile_id:
+        return
+    await db.execute(
+        """INSERT INTO natal_charts (birth_profile_id, chart_json, engine_version)
+           VALUES ($1,$2,$3)
+           ON CONFLICT (birth_profile_id) DO UPDATE
+             SET chart_json=EXCLUDED.chart_json,
+                 engine_version=EXCLUDED.engine_version,
+                 calculated_at=now()""",
+        birth_profile_id, chart.to_dict(),
+        chart.meta.get("engine_version", "1.0.0"))
+
+
 # ------------------------------------------------------------------- ana akış
 
 async def generate_reading(db, user_id: str, reading_id: str, kind: str,
@@ -83,8 +115,16 @@ async def generate_reading(db, user_id: str, reading_id: str, kind: str,
     """kind: coffee | tarot | natal | daily"""
     question = (inputs.get("question") or "").strip()
 
-    # 1) GUARDRAIL — her şeyden önce
-    g = guardrail.check(question, user_age=inputs.get("age"))
+    # 1) GUARDRAIL — üretimden önce, istisnasız.
+    #
+    # Kullanıcı bağlamı guardrail'den ÖNCE okunuyor çünkü yaş kapısı profildeki
+    # doğum verisine dayanıyor; sadece inputs'a bakmak, kapının yalnızca
+    # kullanıcı metinde "16 yaşındayım" yazarsa çalışması demekti. Bu bir DB
+    # okuması, üretim değil — sıra kuralı bozulmuyor.
+    user = await build_user_ctx(db, user_id)
+    yas = inputs.get("age") or _age_from(user)
+
+    g = guardrail.check(question, user_age=yas)
     if g["action"] == guardrail.Action.BLOCK_CRISIS:
         await db.execute(
             "UPDATE readings SET status='blocked', block_reason='crisis' WHERE id=$1",
@@ -93,7 +133,6 @@ async def generate_reading(db, user_id: str, reading_id: str, kind: str,
     if g["action"] == guardrail.Action.BLOCK_MINOR:
         raise ReadingRejected("minor", g["reply"])
 
-    user = await build_user_ctx(db, user_id)
     tier = "paid" if user.get("tier") in ("star", "fate", "yearly") else "free"
     memory = await build_memory_ctx(db, user_id)
     chart = _chart_from_row(user)
@@ -252,6 +291,39 @@ async def _finalize(db, user_id: str, reading_id: str, kind: str, data: dict,
             now, now + timedelta(days=days), t.get("guven", "orta"))
 
     return data
+
+
+# ------------------------------------------------ doğrulama sonrası takip yorumu
+
+async def verdict_followup(db, user_id: str, prediction_id: str) -> str | None:
+    """Kullanıcı "tuttu mu?" sorusunu cevapladıktan sonra tek paragraf yanıt.
+
+    Döngünün kapandığı yer burası. Cevap verip hiçbir karşılık almamak,
+    doğrulama mekaniğini bir anket haline getiriyor. Tutmayan tahminde dürüst
+    davranmak da tam olarak burada oluyor — ürünün güven iddiası bu paragrafta
+    sınanıyor, prompt bunu açıkça söylüyor (prompts.VERIFY_FOLLOWUP).
+
+    Ucuz model kullanılıyor: 4 cümle için büyük modele gitmek gereksiz.
+    """
+    row = await db.fetchrow(
+        """SELECT claim, user_verdict, topic,
+                  GREATEST(1, (now()::date - window_start::date)) AS gun
+           FROM predictions WHERE id=$1 AND user_id=$2""",
+        prediction_id, user_id)
+    if not row or not row["user_verdict"]:
+        return None
+
+    verdict_tr = {"hit": "tuttu", "miss": "tutmadı",
+                  "partial": "kısmen tuttu"}[row["user_verdict"]]
+    res = await complete(
+        system="Türkçe yaz. SADECE JSON: {\"metin\": \"...\"}",
+        user=prompts.VERIFY_FOLLOWUP.format(
+            days=row["gun"], claim=row["claim"], verdict=verdict_tr),
+        tier="small", max_tokens=350, temperature=0.8)
+    metin = (res.data or {}).get("metin")
+    if not metin or guardrail.scan_output(metin):
+        return None
+    return metin
 
 
 # ------------------------------------------------------ hafıza çıkarımı (asenkron)
