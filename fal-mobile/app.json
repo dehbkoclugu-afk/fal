@@ -21,7 +21,8 @@
       "permissions": [
         "CAMERA",
         "POST_NOTIFICATIONS"
-      ]
+      ],
+      "versionCode": 1
     },
     "plugins": [
       "expo-router",
@@ -41,11 +42,17 @@
       "expo-updates"
     ],
     "extra": {
-      "apiUrl": "https://api.telve.app"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/PROJE_ID",
-      "fallbackToCacheTimeout": 0
+      "apiUrl": "https://api.telve.app",
+      "rcAndroidKey": null,
+      "rcIosKey": null,
+      "eas": {
+        "projectId": null
+      },
+      "posthogKey": null,
+      "posthogHost": "https://eu.i.posthog.com",
+      "maxSdkKey": null,
+      "maxAndroidRewardedUnit": null,
+      "maxIosRewardedUnit": null
     },
     "runtimeVersion": {
       "policy": "appVersion"

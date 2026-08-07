@@ -17,6 +17,7 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { Button } from '@/components/Button';
+import { CoinGate } from '@/components/CoinGate';
 import { Screen } from '@/components/Screen';
 import { api, ApiError } from '@/lib/api';
 import { color, radius, space, type } from '@/lib/theme';
@@ -97,11 +98,7 @@ export default function Natal() {
         disabled={yetersiz}
         onPress={submit}
       />
-      {yetersiz ? (
-        <Text style={styles.hint}>
-          Jetonun yetmiyor. Reklam izleyerek veya abonelikle devam edebilirsin.
-        </Text>
-      ) : null}
+      {yetersiz ? <CoinGate kind="natal" /> : null}
     </Screen>
   );
 }

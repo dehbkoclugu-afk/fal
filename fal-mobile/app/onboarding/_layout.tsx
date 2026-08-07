@@ -4,10 +4,11 @@ import { Slot, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
+import { ONBOARDING_ADIMLARI, onboardingAdim } from '@/lib/analytics';
 import { color, motion, space } from '@/lib/theme';
 
-/** Onboarding adım sırası — ilerleme çubuğu bunu okur. */
-const STEPS = ['name', 'birth', 'place', 'reveal', 'about-you', 'tone', 'notifications', 'paywall'];
+/** Onboarding adım sırası — ilerleme çubuğu ve huni ölçümü bunu okur. */
+const STEPS = ONBOARDING_ADIMLARI;
 
 export default function OnboardingLayout() {
   const insets = useSafeAreaInsets();
@@ -20,6 +21,12 @@ export default function OnboardingLayout() {
     w.value = withTiming(pct, { duration: motion.settle });
   }, [pct]);
   const bar = useAnimatedStyle(() => ({ width: `${w.value * 100}%` }));
+
+  // Huni ölçümü tek yerden: her ekrana ayrı ayrı olay koymak, biri unutulunca
+  // hunide sessiz bir boşluk bırakıyor. Layout zaten adımı biliyor.
+  React.useEffect(() => {
+    if (current >= 0) onboardingAdim(STEPS[current]);
+  }, [current]);
 
   return (
     <View style={styles.root}>

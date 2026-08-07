@@ -12,6 +12,7 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 import { Button } from '@/components/Button';
+import { CoinGate } from '@/components/CoinGate';
 import { Screen } from '@/components/Screen';
 import { api, ApiError } from '@/lib/api';
 import { color, radius, space, type } from '@/lib/theme';
@@ -32,6 +33,7 @@ export default function Tarot() {
   const [picked, setPicked] = useState<number[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [jetonYok, setJetonYok] = useState(false);
 
   const cardW = (width - space.lg * 2 - space.sm * 3) / 4;
   const done = picked.length === spread.count;
@@ -49,7 +51,13 @@ export default function Tarot() {
       const r = await api.tarot(spread.key, '');
       router.replace(`/reading/${r.reading_id}`);
     } catch (e) {
-      setError((e as ApiError).message);
+      const err = e as ApiError;
+      if (err.code === 'insufficient_coins') {
+        setJetonYok(true);
+        setError(null);
+      } else {
+        setError(err.message);
+      }
     } finally {
       setBusy(false);
     }
@@ -90,6 +98,7 @@ export default function Tarot() {
       </View>
 
       {error && <Text style={styles.error}>{error}</Text>}
+      {jetonYok && <CoinGate kind="tarot" />}
 
       <Button
         label={`Açılımı oku · ${spread.coins} jeton`}

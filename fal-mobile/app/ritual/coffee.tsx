@@ -20,6 +20,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
+import { CoinGate } from '@/components/CoinGate';
 import { api, ApiError } from '@/lib/api';
 import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
@@ -41,6 +42,7 @@ export default function Coffee() {
   const [question, setQuestion] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [jetonYok, setJetonYok] = useState(false);
 
   const guide = width * 0.78;
 
@@ -87,11 +89,12 @@ export default function Coffee() {
       router.replace(`/reading/${r.reading_id}`);
     } catch (e) {
       const err = e as ApiError;
-      setError(
-        err.code === 'insufficient_coins'
-          ? 'Jetonun yetmiyor. Reklam izleyip jeton kazanabilir veya abone olabilirsin.'
-          : err.message,
-      );
+      if (err.code === 'insufficient_coins') {
+        setJetonYok(true);       // CoinGate göster: reklam veya abonelik
+        setError(null);
+      } else {
+        setError(err.message);
+      }
     } finally {
       setBusy(false);
     }
@@ -118,6 +121,7 @@ export default function Coffee() {
         />
 
         {error && <Text style={styles.error}>{error}</Text>}
+        {jetonYok && <CoinGate kind="coffee" />}
 
         <View style={styles.spacer} />
         <Button label="Fincanı oku" loading={busy} onPress={submit} />

@@ -143,13 +143,35 @@ Newsreader ve JetBrains Mono'da sorunsuz. Cihazda bir kez daha gözle bak.
 
 | Eksik | Nerede | Not |
 |---|---|---|
-| Gerçek cihazda çalıştırma | — | Tarayıcıda doğrulandı; kamera, Skia, RevenueCat ve push yalnızca cihazda denenebilir |
-| Ödüllü reklam | — | AppLovin MAX veya AdMob. Backend ucu hazır (`POST /v1/coins/reward`, günde 5 tavan) |
-| PostHog olayları | — | Paywall funnel'ı ölçülmeden fiyat testi yapılamaz |
+| Gerçek cihazda çalıştırma | — | Tarayıcıda doğrulandı; kamera, Skia, RevenueCat, reklam ve push yalnızca cihazda denenebilir |
+| Reklam SDK paketi | `lib/ads.ts` | Kod hazır ve `app.json > extra`'da anahtar yerleri var. `npx expo install react-native-applovin-max` + anahtarlar girilince devreye giriyor; yokken jeton kapısında reklam seçeneği hiç gösterilmiyor |
 | Rüya yorumu | ana ekranda "yakında" | Backend tarafı da yok |
 | Google ile hesap bağlama | `(tabs)/profile.tsx` | Buton var, akış yok |
 | İlçe hassasiyeti | `data/cities.json` | 81 il merkezi var; büyük illerde ilçe farkı yükseleni ~1° kaydırabilir |
 | Gizlilik politikası sayfası | `(tabs)/profile.tsx` | `telve.app/gizlilik` henüz yayında değil |
+
+### Anahtar girilecek yerler (`app.json > extra`)
+
+Hepsi `null` iken uygulama çalışıyor; ilgili özellik sessizce kapalı kalıyor.
+
+| Anahtar | Ne açar |
+|---|---|
+| `eas.projectId` | EAS build ve OTA update (`eas init` dolduruyor) |
+| `rcAndroidKey` / `rcIosKey` | RevenueCat — abonelik satın alma |
+| `posthogKey` | Onboarding hunisi ve retention ölçümü |
+| `maxSdkKey`, `maxAndroidRewardedUnit` | Ödüllü reklam — jeton kazanma yolu |
+
+## 6b. Derleme (EAS)
+
+```bash
+npx eas init                 # projectId'yi app.json'a yazar
+eas build -p android --profile preview      # paylaşılabilir APK
+eas build -p android --profile production   # Play için .aab
+```
+
+`eas.json` üç profil taşıyor ve API adresini her profil için ayrı veriyor
+(`EXPO_PUBLIC_API_URL`): `development` emülatöre, `preview` staging'e,
+`production` canlıya bakıyor. Tek app.json ile üç ortam bu yüzden mümkün.
 
 ## 7. Ölçülmesi gereken ilk üç şey
 
