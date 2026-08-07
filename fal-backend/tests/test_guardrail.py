@@ -193,3 +193,45 @@ def test_bos_embed_anahtari_gecersiz_baslik_uretmiyor():
         with patch.object(httpx, "AsyncClient", SahteIstemci):
             asyncio.run(llm.embed("deneme"))
     assert yakalanan["headers"]["authorization"] == "Bearer gizli"
+
+
+# ------------------------------------------------------ abonelik katmanı eşlemesi
+
+def test_katman_normalizasyonu():
+    from app.core.pricing import FALLBACK_TIER, PAID_TIERS, normalize_tier
+
+    for t in ("star", "fate", "yearly"):
+        assert normalize_tier(t) == t
+        assert t in PAID_TIERS
+    assert normalize_tier("STAR") == "star"
+    assert normalize_tier("  Fate ") == "fate"
+    # Abonelik yok
+    for t in (None, "", "   "):
+        assert normalize_tier(t) is None
+    # Tanınmayan ama DOLU değer = para ödenmiş; hak kaybı olmamalı
+    for t in ("premium", "gold_v2", "yeni_urun"):
+        assert normalize_tier(t) == FALLBACK_TIER
+
+
+def test_katman_kotalari():
+    from app.core.pricing import monthly_quota
+
+    assert monthly_quota("star") == 10
+    assert monthly_quota("fate") is None        # sınırsız
+    assert monthly_quota("yearly") is None
+    assert monthly_quota(None) is None          # abonelik yok
+    assert monthly_quota("bilinmeyen") is None
+
+
+def test_katman_tanimi_tek_yerde():
+    """Yıldız hatası, katman tanımının iki yere dağılmasından çıkmıştı:
+    jeton düşümü star'ı saymıyor, model seçimi sayıyordu."""
+    import inspect
+
+    from app.core import pipeline
+    from app import main
+
+    for mod in (pipeline, main):
+        kaynak = inspect.getsource(mod)
+        assert '("star", "fate", "yearly")' not in kaynak, (
+            f"{mod.__name__} katman listesini elle taşıyor")

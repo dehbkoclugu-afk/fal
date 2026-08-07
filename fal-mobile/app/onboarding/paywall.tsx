@@ -40,12 +40,23 @@ function planBasligi(period: string | null): { title: string; per: string } {
   return { title: 'Abonelik', per: '' };
 }
 
-const INCLUDED = [
-  'Sınırsız kahve falı ve tarot',
+// Kapsam katmana göre değişiyor. Tek bir liste gösterip her plana
+// "sınırsız" demek Yıldız'da YANLIŞ olur: o katman ayda 10 fal veriyor.
+// Yanlış vaat bu kategoride iade dalgası ve 1 yıldız yorum demek — mağaza
+// kuralı da abonelik kapsamının açıkça yazılmasını istiyor.
+const ORTAK = [
   'Gerçek doğum haritası çözümü',
   'Kişisel transit uyarıları',
   'Reklamsız',
 ];
+
+/** Plan anahtarından kapsam satırlarını türetir. */
+function kapsam(key: string): string[] {
+  const yillik = /year|yil|yıl|annual/i.test(key);
+  const ust = yillik || /fate|kader|unlimited/i.test(key);
+  return [ust ? 'Sınırsız kahve falı ve tarot' : 'Ayda 10 fal (kahve, tarot, harita)',
+          ...ORTAK];
+}
 
 export default function Paywall() {
   const router = useRouter();
@@ -133,7 +144,7 @@ export default function Paywall() {
       </Text>
 
       <View style={styles.list}>
-        {INCLUDED.map((i) => (
+        {kapsam(plan).map((i) => (
           <View key={i} style={styles.item}>
             <View style={styles.dot} />
             <Text style={styles.itemText}>{i}</Text>

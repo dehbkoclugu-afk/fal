@@ -104,7 +104,16 @@ export type Me = {
   coins: number;
   daily_spend_left: number;
   prices: Record<string, number>;
-  entitlement: { tier: string; expires_at: string; will_renew: boolean } | null;
+  entitlement: {
+    tier: 'star' | 'fate' | 'yearly';
+    tier_tr: string;
+    expires_at: string;
+    will_renew: boolean;
+    ads_free: boolean;
+    /** null = sınırsız katman */
+    monthly_quota: number | null;
+    quota_left: number | null;
+  } | null;
   streak: { count: number; last_day: string | null };
   push_optin: boolean;
 };

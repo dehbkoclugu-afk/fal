@@ -14,6 +14,50 @@ COIN_PRICES = {"coffee": 3, "tarot": 1, "natal": 5, "daily": 0}
 # Kaldırma: günde sınırsız harcama, bu kategoride iade dalgası demek.
 DAILY_SPEND_CAP = 25
 
+
+# ------------------------------------------------------------ abonelik katmanları
+#
+# Katmanların NE VAAT ETTİĞİ tek yerde. Dağınık olduğunda ortaya çıkan hata
+# şuydu: jeton düşümü yalnızca fate/yearly'yi muaf tutuyordu ama model seçimi
+# star'ı da "ödeyen" sayıyordu. Sonuç: Yıldız abonesi pahalı modele gidiyor
+# AMA yine tam jeton ödüyordu — hem gelir kaybı hem maliyet artışı.
+#
+# monthly_readings: None = sınırsız. Sayı ise aylık kota; kota bitince
+# kullanıcı duvara toslamıyor, normal jeton ekonomisine düşüyor (ödeyen
+# kullanıcıyı kilitlemek iptal sebebidir).
+TIER_LIMITS: dict[str, dict] = {
+    "star":   {"monthly_readings": 10,   "ads_free": True, "tr": "Yıldız"},
+    "fate":   {"monthly_readings": None, "ads_free": True, "tr": "Kader"},
+    "yearly": {"monthly_readings": None, "ads_free": True, "tr": "Yıllık"},
+}
+
+PAID_TIERS = frozenset(TIER_LIMITS)
+
+# Tanınmayan bir entitlement id gelirse düşülecek katman.
+# RevenueCat'te ürün adı değişir, yeni bir entitlement eklenir ve backend
+# haberi olmaz. O anda kullanıcı PARA ÖDEMİŞ durumda; hiçbir hak vermemek
+# en kötü sonuç. En düşük ücretli katmana düşüp uyarı logluyoruz.
+FALLBACK_TIER = "star"
+
+
+def normalize_tier(raw: str | None) -> str | None:
+    """RevenueCat entitlement id'sini bilinen bir katmana eşler.
+
+    None döner = ücretsiz kullanıcı. Tanınmayan ama dolu bir değer
+    FALLBACK_TIER'a düşer (yukarıdaki nota bak).
+    """
+    t = (raw or "").strip().lower()
+    if not t:
+        return None
+    return t if t in TIER_LIMITS else FALLBACK_TIER
+
+
+def monthly_quota(tier: str | None) -> int | None:
+    """Katmanın aylık fal kotası. None = sınırsız veya abonelik yok."""
+    if not tier or tier not in TIER_LIMITS:
+        return None
+    return TIER_LIMITS[tier]["monthly_readings"]
+
 # --------------------------------------------------------------- tahmin konuları
 #
 # Konu bazlı isabet paneli ("aşkta %72, parada %31") ürünün ana farkının

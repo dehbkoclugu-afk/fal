@@ -70,7 +70,15 @@ export default function Home() {
 
   const name = me?.first_name ?? draftName;
   const coins = me?.coins ?? 0;
-  const abone = !!me?.entitlement;
+  const ent = me?.entitlement ?? null;
+  const abone = !!ent;
+  // Kotalı katmanda "sınırsız" yazmak yalan olur ve kullanıcı 402'ye toslar.
+  const kotaVar = !!ent && ent.quota_left !== null;
+  const bakiyeMetni = !ent
+    ? `${coins} jeton`
+    : kotaVar
+      ? `${ent.quota_left} fal · ${ent.tier_tr}`
+      : ent.tier_tr;
   const pending = acc?.awaiting_verdict?.[0];
   const today =
     dailyReading?.status === 'done'
@@ -81,7 +89,7 @@ export default function Home() {
     <Screen scroll>
       <View style={styles.header}>
         <Text style={styles.hello}>{name ? `${name}` : 'merhaba'}</Text>
-        <Text style={styles.coins}>{abone ? 'sınırsız' : `${coins} jeton`}</Text>
+        <Text style={styles.coins}>{bakiyeMetni}</Text>
       </View>
 
       {/* 1. Bekleyen doğrulama */}
@@ -137,7 +145,9 @@ export default function Home() {
               <Text style={styles.tileNote}>{r.note}</Text>
               {!off && (
                 <Text style={styles.tileCoins}>
-                  {abone ? 'dahil' : `${fiyat} jeton`}
+                  {abone && (!kotaVar || (ent!.quota_left ?? 0) > 0)
+                    ? 'dahil'
+                    : `${fiyat} jeton`}
                 </Text>
               )}
             </Pressable>

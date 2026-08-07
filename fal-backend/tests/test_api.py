@@ -467,9 +467,20 @@ async def test_kvkk_silme_kullaniciyi_erisilemez_yapiyor(client, db, anon):
 
 # ------------------------------------------------------------------ webhook
 
-async def test_revenuecat_webhook_imzasiz_reddediliyor(client):
+async def test_revenuecat_webhook_imzasiz_reddediliyor(client, monkeypatch):
+    monkeypatch.setenv("RC_WEBHOOK_SECRET", "gizli")
     r = await client.post("/v1/webhooks/revenuecat", json={"event": {}})
     assert r.status_code == 401
+
+
+async def test_webhook_anahtar_yoksa_kapali(client, monkeypatch):
+    """Anahtar tanımsızken uç AÇIK kalmamalı. Eski hâl `"Bearer " + ""`
+    bekliyordu; sondaki boşluk yüzünden hiçbir HTTP istemcisi bu başlığı
+    gönderemiyordu — kazara güvenliydi, açıkça değil."""
+    monkeypatch.delenv("RC_WEBHOOK_SECRET", raising=False)
+    r = await client.post("/v1/webhooks/revenuecat",
+                          headers={"authorization": "Bearer x"}, json={"event": {}})
+    assert r.status_code == 503
 
 
 async def test_revenuecat_satin_alma_abonelik_aciyor(client, db, anon, monkeypatch):
@@ -722,3 +733,157 @@ async def test_gun_siniri_kullanicinin_saat_dilimine_gore(client, db, anon, queu
     d = (await client.post("/v1/readings/daily", headers=H(anon))).json()
     assert d.get("cached") is not True, "dünün yorumu bugünün yerine döndü"
     assert len(queue.jobs) == 1, "yeni günlük yorum kuyruğa girmedi"
+
+
+# ------------------------------------------------------------ abonelik katmanları
+
+async def _abone_yap(db, anon, tier, gun=30):
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    await db.execute(
+        f"""INSERT INTO entitlements (user_id,tier,source,expires_at)
+            VALUES ($1,$2,'android', now() + interval '{gun} days')
+            ON CONFLICT (user_id) DO UPDATE SET tier=EXCLUDED.tier,
+              expires_at=EXCLUDED.expires_at""", uid, tier)
+    return uid
+
+
+async def test_yildiz_kotadan_karsilaniyor_jeton_dusmuyor(client, db, anon):
+    """Regresyon: _charge yalnızca fate/yearly'yi muaf tutuyordu, model seçimi
+    ise star'ı "ödeyen" sayıyordu. Yıldız abonesi pahalı modele gidiyor ama
+    yine tam jeton ödüyordu — hem gelir kaybı hem maliyet artışı."""
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    await _abone_yap(db, anon, "star")
+    await coin_ver(db, anon, 20)
+
+    r = await client.post("/v1/readings/tarot", json={"spread": "single"},
+                          headers=H(anon))
+    assert r.status_code == 202
+    # Jeton bakiyesi DEĞİŞMEMELİ
+    assert await db.fetchval(
+        "SELECT coalesce(sum(delta),0) FROM coin_ledger") == 20
+    # Ama kullanım denetlenebilir olmalı
+    assert await db.fetchval(
+        "SELECT count(*) FROM coin_ledger WHERE reason='quota_tarot'") == 1
+
+
+async def test_yildiz_kotasi_bitince_jetona_dusuyor(client, db, anon):
+    """Kota bitince duvar örmüyoruz: ödeyen kullanıcıyı kilitlemek iptal
+    sebebi. Normal jeton ekonomisine düşüyor."""
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    uid = await _abone_yap(db, anon, "star")
+    await coin_ver(db, anon, 20)
+
+    for _ in range(10):
+        assert (await client.post("/v1/readings/tarot", json={"spread": "single"},
+                                  headers=H(anon))).status_code == 202
+    assert await db.fetchval("SELECT coalesce(sum(delta),0) FROM coin_ledger") == 20
+
+    # 11. fal jetondan
+    r = await client.post("/v1/readings/tarot", json={"spread": "single"},
+                          headers=H(anon))
+    assert r.status_code == 202
+    assert await db.fetchval("SELECT coalesce(sum(delta),0) FROM coin_ledger") == 19
+
+
+async def test_yildiz_kotasi_bitip_jeton_da_yoksa_402(client, db, anon):
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    uid = await _abone_yap(db, anon, "star")
+    for _ in range(10):
+        await client.post("/v1/readings/tarot", json={"spread": "single"},
+                          headers=H(anon))
+    r = await client.post("/v1/readings/tarot", json={"spread": "single"},
+                          headers=H(anon))
+    assert r.status_code == 402
+
+
+async def test_kader_ve_yillik_sinirsiz(client, db, anon):
+    for tier in ("fate", "yearly"):
+        await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+        await _abone_yap(db, anon, tier)
+        for _ in range(15):
+            assert (await client.post("/v1/readings/tarot", json={"spread": "single"},
+                                      headers=H(anon))).status_code == 202
+        assert await db.fetchval("SELECT count(*) FROM coin_ledger") == 0, tier
+        await db.execute("DELETE FROM entitlements")
+
+
+async def test_yildiz_buyuk_modele_gidiyor(client, db, anon, fake_llm, fake_embed):
+    """Ödeyen katman kalite bekliyor; star da 'paid' sayılmalı."""
+    from app.core import pipeline
+
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    uid = await _abone_yap(db, anon, "star")
+    rid = str(uuid.uuid4())
+    await db.execute("INSERT INTO readings (id,user_id,kind) VALUES ($1,$2,'natal')",
+                     rid, uid)
+    await pipeline.generate_reading(db, str(uid), rid, "natal", {})
+    assert fake_llm.calls[0]["tier"] == "large"
+    assert await db.fetchval("SELECT tier FROM readings WHERE id=$1", rid) == "paid"
+
+
+async def test_me_kalan_kotayi_donuyor(client, db, anon):
+    """Arayüz 'sınırsız mı, 3 fal mı kaldı' ayrımını yapamazsa kullanıcı
+    402 ile sürprize uğruyor."""
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    await _abone_yap(db, anon, "star")
+
+    d = (await client.get("/v1/me", headers=H(anon))).json()
+    e = d["entitlement"]
+    assert e["tier"] == "star" and e["tier_tr"] == "Yıldız"
+    assert e["monthly_quota"] == 10 and e["quota_left"] == 10
+    assert e["ads_free"] is True
+
+    await client.post("/v1/readings/tarot", json={"spread": "single"}, headers=H(anon))
+    assert (await client.get("/v1/me", headers=H(anon))).json()["entitlement"]["quota_left"] == 9
+
+
+async def test_me_sinirsiz_katmanda_kota_none(client, db, anon):
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    await _abone_yap(db, anon, "fate")
+    e = (await client.get("/v1/me", headers=H(anon))).json()["entitlement"]
+    assert e["monthly_quota"] is None and e["quota_left"] is None
+
+
+async def test_bilinmeyen_entitlement_hak_kaybina_yol_acmiyor(client, db, anon,
+                                                              monkeypatch):
+    """RevenueCat'te ürün adı değişir ve backend haberi olmaz. O anda kullanıcı
+    PARA ÖDEMİŞ durumda; tanınmayan id'yi olduğu gibi kaydetmek ona hiçbir hak
+    vermemek demekti."""
+    monkeypatch.setenv("RC_WEBHOOK_SECRET", "gizli")
+    await client.get("/v1/me", headers=H(anon))
+    r = await client.post(
+        "/v1/webhooks/revenuecat",
+        headers={"authorization": "Bearer gizli"},
+        json={"event": {"type": "INITIAL_PURCHASE", "app_user_id": anon,
+                        "entitlement_ids": ["premium_v3_yeni"], "store": "play_store",
+                        "expiration_at_ms": 4102444800000}})
+    assert r.status_code == 200
+    tier = await db.fetchval(
+        """SELECT tier FROM entitlements e JOIN users u ON u.id=e.user_id
+           WHERE u.anon_id=$1""", anon)
+    assert tier == "star", "tanınmayan entitlement bilinen katmana düşmedi"
+
+    e = (await client.get("/v1/me", headers=H(anon))).json()["entitlement"]
+    assert e is not None and e["monthly_quota"] == 10
+
+
+async def test_abonelik_bitince_haklar_kalkiyor(client, db, anon):
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    await _abone_yap(db, anon, "fate", gun=-1)      # süresi dolmuş
+    assert (await client.get("/v1/me", headers=H(anon))).json()["entitlement"] is None
+    r = await client.post("/v1/readings/tarot", json={"spread": "single"},
+                          headers=H(anon))
+    assert r.status_code == 402
+
+
+async def test_kota_kullanimi_gunluk_tavani_etkilemiyor(client, db, anon):
+    """Kota satırları delta=0; bakiyeyi ve günlük harcama tavanını bozmamalı."""
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    await _abone_yap(db, anon, "star")
+    await coin_ver(db, anon, 100)
+    for _ in range(10):
+        await client.post("/v1/readings/tarot", json={"spread": "single"},
+                          headers=H(anon))
+    d = (await client.get("/v1/me", headers=H(anon))).json()
+    assert d["coins"] == 100
+    assert d["daily_spend_left"] == 25

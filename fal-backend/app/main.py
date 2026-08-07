@@ -11,6 +11,7 @@ mobilde "fincanın okunuyor" ritüeli oynar, bitince push gider. Böylece
 from __future__ import annotations
 
 import json
+import logging
 import os
 import uuid
 from contextlib import asynccontextmanager
@@ -32,6 +33,8 @@ MAX_UPLOAD_MB = 8
 # Bu süreyi aşmış 'queued'/'running' günlük kayıt takılmış sayılır ve yeniden
 # kuyruğa verilir. Ritüel gecikmesinin (en fazla ~150 sn) rahatça üstünde.
 STUCK_AFTER_SECONDS = 600
+
+log = logging.getLogger(__name__)
 
 state: dict = {}
 
@@ -112,17 +115,52 @@ class PushTokenIn(BaseModel):
     active_hour: int = Field(9, ge=0, le=23)
 
 
-from .core.pricing import COIN_PRICES, DAILY_SPEND_CAP  # noqa: E402
+from .core.pricing import (COIN_PRICES, DAILY_SPEND_CAP, TIER_LIMITS,  # noqa: E402
+                           monthly_quota, normalize_tier)
+
+
+async def _quota_kullanimi(db, user_id: str) -> int:
+    """Bu takvim ayında aboneliğin kotasından karşılanan fal sayısı.
+
+    Kayıt coin_ledger'da delta=0 satırları olarak tutuluyor: ayrı tablo
+    gerektirmiyor, bakiyeyi ve günlük harcama tavanını etkilemiyor (ikisi de
+    delta'ya bakıyor) ve "bu fal abonelikten karşılandı" bilgisi denetlenebilir
+    kalıyor.
+
+    Takvim ayı kullanılıyor, fatura ayı değil. Bilinçli sadeleştirme: ayın
+    20'sinde abone olan kullanıcı ay sonuna kadar 10, sonraki ay 10 daha alır.
+    Hata payı her zaman kullanıcının lehine — iade talebi üretmez.
+    """
+    return await db.fetchval(
+        """SELECT count(*) FROM coin_ledger
+           WHERE user_id=$1 AND reason LIKE 'quota_%'
+             AND created_at >= date_trunc('month', now())""", user_id) or 0
 
 
 async def _charge(db, user_id: str, kind: str) -> None:
     cost = COIN_PRICES.get(kind, 1)
     if cost == 0:
         return
-    ent = await db.fetchval(
-        "SELECT tier FROM entitlements WHERE user_id=$1 AND expires_at > now()", user_id)
-    if ent in ("fate", "yearly"):
-        return
+
+    tier = normalize_tier(await db.fetchval(
+        "SELECT tier FROM entitlements WHERE user_id=$1 AND expires_at > now()",
+        user_id))
+
+    if tier:
+        kota = monthly_quota(tier)
+        if kota is None:
+            return                                  # sınırsız katman
+        if await _quota_kullanimi(db, user_id) < kota:
+            # Bakiyeyi değiştirmeyen denetim satırı.
+            bal = await db.fetchval(
+                "SELECT coalesce(sum(delta),0) FROM coin_ledger WHERE user_id=$1",
+                user_id) or 0
+            await db.execute(
+                """INSERT INTO coin_ledger (user_id, delta, reason, balance_after)
+                   VALUES ($1,0,$2,$3)""", user_id, f"quota_{kind}", bal)
+            return
+        # Kota bitti: duvar örmüyoruz, normal jeton ekonomisine düşüyor.
+
     spent = await db.fetchval(
         """SELECT coalesce(-sum(delta),0) FROM coin_ledger
            WHERE user_id=$1 AND delta<0 AND created_at > date_trunc('day', now())""",
@@ -458,6 +496,23 @@ async def me(user=Depends(get_user)):
     ent = await db.fetchrow(
         """SELECT tier, expires_at, will_renew FROM entitlements
            WHERE user_id=$1 AND expires_at > now()""", user["id"])
+
+    # Abonelik bilgisi: kalan kota olmadan arayüz "sınırsız mı, 3 fal mı kaldı"
+    # ayrımını yapamıyor ve kullanıcı 402 ile sürprize uğruyor.
+    abonelik = None
+    if ent:
+        tier = normalize_tier(ent["tier"])
+        kota = monthly_quota(tier)
+        abonelik = {
+            "tier": tier,
+            "tier_tr": TIER_LIMITS.get(tier, {}).get("tr"),
+            "expires_at": ent["expires_at"],
+            "will_renew": ent["will_renew"],
+            "ads_free": TIER_LIMITS.get(tier, {}).get("ads_free", False),
+            "monthly_quota": kota,          # None = sınırsız
+            "quota_left": (None if kota is None
+                           else max(0, kota - await _quota_kullanimi(db, user["id"]))),
+        }
     birth = await db.fetchval(
         "SELECT 1 FROM birth_profiles WHERE user_id=$1 AND is_primary", user["id"])
     return {
@@ -468,7 +523,7 @@ async def me(user=Depends(get_user)):
         "coins": int(bal),
         "daily_spend_left": max(0, DAILY_SPEND_CAP - int(spent)),
         "prices": COIN_PRICES,
-        "entitlement": dict(ent) if ent else None,
+        "entitlement": abonelik,
         "streak": {"count": user["streak_count"], "last_day": user["streak_last_day"]},
         "push_optin": user["push_optin"],
     }
@@ -561,7 +616,15 @@ async def reward_coins(user=Depends(get_user)):
 
 @app.post("/v1/webhooks/revenuecat")
 async def rc_webhook(payload: dict, authorization: str = Header("")):
-    if authorization != f"Bearer {os.getenv('RC_WEBHOOK_SECRET','')}":
+    # Anahtar tanımlı değilse webhook'u AÇIK bırakmak yerine kapat.
+    # Eski hâl `"Bearer " + ""` bekliyordu; sondaki boşluk yüzünden hiçbir HTTP
+    # istemcisi bu başlığı gönderemiyor (httpx LocalProtocolError atıyor), yani
+    # uç kazara erişilemez oluyordu. Kazara güvenli olmak yerine açıkça reddet.
+    secret = os.getenv("RC_WEBHOOK_SECRET", "")
+    if not secret:
+        log.error("RC_WEBHOOK_SECRET tanımlı değil — RevenueCat webhook'u kapalı")
+        raise HTTPException(503, "webhook yapılandırılmamış")
+    if authorization != f"Bearer {secret}":
         raise HTTPException(401, "unauthorized")
     ev = payload.get("event", {})
     app_user_id = ev.get("app_user_id")
@@ -573,7 +636,14 @@ async def rc_webhook(payload: dict, authorization: str = Header("")):
     if not uid:
         return {"ok": True}
     if etype in ("INITIAL_PURCHASE", "RENEWAL", "PRODUCT_CHANGE", "UNCANCELLATION"):
-        tier = (ev.get("entitlement_ids") or ["star"])[0]
+        # Tanınmayan entitlement id'yi olduğu gibi kaydetmek, PARA ÖDEMİŞ
+        # kullanıcıya hiçbir hak vermemek demekti (jeton düşümü ve model
+        # seçimi bilinen katman adlarına bakıyor). normalize_tier en düşük
+        # ücretli katmana düşürüyor.
+        ham = (ev.get("entitlement_ids") or [None])[0]
+        tier = normalize_tier(ham) or "star"
+        if ham and tier != ham.strip().lower():
+            log.warning("bilinmeyen entitlement id %r → %s", ham, tier)
         exp_ms = ev.get("expiration_at_ms")
         await db.execute(
             """INSERT INTO entitlements (user_id, tier, source, rc_app_user, expires_at, will_renew)

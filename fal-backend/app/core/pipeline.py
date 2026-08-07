@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from . import astro, blocks, guardrail, prompts, tarot
-from .pricing import normalize_topic
+from .pricing import PAID_TIERS, normalize_tier, normalize_topic
 from .cup_vision import SYMBOL_LEXICON_TR, analyze_cup, REJECT_MESSAGES_TR
 from .llm import complete, embed, label_symbols, too_similar
 
@@ -133,7 +133,10 @@ async def generate_reading(db, user_id: str, reading_id: str, kind: str,
     if g["action"] == guardrail.Action.BLOCK_MINOR:
         raise ReadingRejected("minor", g["reply"])
 
-    tier = "paid" if user.get("tier") in ("star", "fate", "yearly") else "free"
+    # Tek kaynak: pricing.PAID_TIERS. Buradaki liste elle yazıldığında
+    # katman tanımı iki yere dağılıyor ve tam olarak Yıldız hatası çıkıyor
+    # (model seçimi star'ı ödeyen sayıyor, jeton düşümü saymıyordu).
+    tier = "paid" if normalize_tier(user.get("tier")) in PAID_TIERS else "free"
     memory = await build_memory_ctx(db, user_id)
     chart = _chart_from_row(user)
 
