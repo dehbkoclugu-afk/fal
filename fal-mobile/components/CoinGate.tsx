@@ -9,7 +9,7 @@
  * Sıra kasıtlı: önce ücretsiz yol (reklam), sonra abonelik. Tersi, ödemeye
  * zorlanmış hissi veriyor ve bu üründe rating'i düşürüyor.
  *
- * Reklam SDK'sı yoksa (Expo Go, web, henüz eklenmemiş üretim derlemesi)
+ * Reklam native modülü yoksa (Expo Go veya web)
  * reklam seçeneği HİÇ gösterilmiyor — çalışmayan buton göstermek daha kötü.
  */
 import React, { useState } from 'react';
@@ -21,13 +21,14 @@ import { Eyebrow } from '@/components/Eyebrow';
 import { api } from '@/lib/api';
 import * as ads from '@/lib/ads';
 import { color, radius, space, type } from '@/lib/theme';
+import { t } from '@/lib/i18n';
 
 type Props = {
   /** Ritüel türü — fiyat ve bakiye sunucudan okunuyor. */
-  kind: 'coffee' | 'tarot' | 'natal';
+  kind: 'coffee' | 'tarot' | 'natal' | 'dream';
 };
 
-const VARSAYILAN: Record<string, number> = { coffee: 3, tarot: 1, natal: 5 };
+const VARSAYILAN: Record<string, number> = { coffee: 3, tarot: 1, natal: 5, dream: 2 };
 
 export function CoinGate({ kind }: Props) {
   const router = useRouter();
@@ -49,38 +50,36 @@ export function CoinGate({ kind }: Props) {
     setBusy(false);
     if (r.ok) {
       qc.invalidateQueries({ queryKey: ['me'] });
-      setNot(`+1 jeton · toplam ${r.coins}`);
+      setNot(t('kapi.odulKazandin', { n: r.coins }));
       return;
     }
     setNot(
       r.reason === 'cap'
-        ? 'Bugünlük ödül hakkın doldu. Yarın devam edelim.'
+        ? t('kapi.odulBitti')
         : r.reason === 'not_loaded'
-          ? 'Reklam henüz hazır değil, birazdan tekrar dene.'
+          ? t('kapi.reklamHazirDegil')
           : r.reason === 'dismissed'
-            ? 'Video tamamlanmadı.'
-            : 'Şu an reklam gösteremiyorum.',
+            ? t('kapi.videoTamamlanmadi')
+            : t('kapi.reklamGosterilemiyor'),
     );
   };
 
   return (
     <View style={styles.kutu}>
-      <Eyebrow style={styles.baslik}>jeton gerekiyor</Eyebrow>
-      <Text style={styles.metin}>
-        Bu ritüel {gerekli} jeton. Şu an {mevcut} jetonun var.
-      </Text>
+      <Eyebrow style={styles.baslik}>{t('kapi.baslik')}</Eyebrow>
+      <Text style={styles.metin}>{t('kapi.metin', { gerekli, mevcut })}</Text>
 
       {reklamVar && (
         <Pressable onPress={izle} disabled={busy} style={styles.birincil}>
           <Text style={styles.birincilText}>
-            {busy ? 'reklam yükleniyor…' : 'Reklam izle · +1 jeton'}
+            {busy ? t('kapi.reklamYukleniyor') : t('kapi.reklamIzle')}
           </Text>
         </Pressable>
       )}
 
       <Pressable onPress={() => router.push('/onboarding/paywall')}>
         <Text style={styles.ikincil}>
-          {reklamVar ? 'veya sınırsız kullan' : 'Sınırsız kullan'}
+          {reklamVar ? t('kapi.veyaSinirsiz') : t('kapi.sinirsizKullan')}
         </Text>
       </Pressable>
 

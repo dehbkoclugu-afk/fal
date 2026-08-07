@@ -16,7 +16,7 @@ Düşük bütçeli (3-6 aylık toplam ~3.000-5.000 $) senaryoya göre kesilmiş 
 | Blok kütüphanesi (tek seferlik) | 15-40 $ | Bir kez ödenir |
 | Play Console (tek seferlik) | 25 $ | |
 | RevenueCat | 0 $ | Aylık 2.500 $ gelire kadar ücretsiz |
-| PostHog / OneSignal / Sentry | 0 $ | Ücretsiz katmanlar yeterli |
+| PostHog / Expo Push / Sentry | 0 $ | Ücretsiz katmanlar yeterli |
 | EAS Build | 0 $ | Ücretsiz kotayla haftada birkaç build |
 | **Altyapı toplamı** | **~45-135 $** | |
 | Kreatif + reklam testi | 300-500 $ | **Burası pazarlık edilemez** |
@@ -78,7 +78,7 @@ FastAPI ──202──► Redis Queue ──► RQ Worker
    ▼                                 │
 Postgres + pgvector ◄────────────────┘
         │
-   push (OneSignal) → "Falın hazır"
+   push (Expo Push Service) → "Falın hazır"
 ```
 
 Ritüel gecikmesi (90 sn - 15 dk) üç işi birden yapar: mistik his, push izninin
@@ -126,27 +126,71 @@ cp .env.example .env    # LLM_API_KEY'i doldur
 python -m scripts.seed_blocks --dry-run    # önce ne yapılacağını gör
 python -m scripts.seed_blocks              # eşzamanlı, kaldığı yerden devam eder
 
-# Çalıştır
+# Çalıştır — üç süreç
 uvicorn app.main:app --reload --port 8000
 rq worker readings &
+python -m app.workers.scheduler &
 ```
 
-### Cron (crontab -e)
+### Zamanlayıcı
 
-```
-0  3 * * * cd /srv/fal && .venv/bin/python -c "from app.workers.tasks import nightly_transits; nightly_transits()"
-30 6 * * * cd /srv/fal && .venv/bin/python -c "from app.workers.tasks import queue_daily; queue_daily()"
-0  * * * * cd /srv/fal && .venv/bin/python -c "from app.workers.tasks import send_daily_push; send_daily_push()"
-0 12 * * * cd /srv/fal && .venv/bin/python -c "from app.workers.tasks import ask_verdicts; ask_verdicts()"
-0  4 * * * cd /srv/fal && .venv/bin/python -c "from app.workers.tasks import purge_assets; purge_assets()"
-30 4 * * * cd /srv/fal && .venv/bin/python -c "from app.workers.tasks import purge_deleted_users; purge_deleted_users()"
-0  5 * * * cd /srv/fal && .venv/bin/python -c "from app.workers.tasks import winback; winback()"
-```
+Bakım ve bildirim işleri `app/workers/scheduler.py` içinde. **Crontab
+kurmana gerek yok**; zamanlama uygulamanın parçası.
+
+| İş | Ne zaman | Ne yapar |
+|---|---|---|
+| `nightly_transits` | 03:00 | 7 günlük transit taraması |
+| `purge_assets` | 04:00 | Süresi geçen fincan fotoğraflarını siler (KVKK) |
+| `purge_deleted_users` | 04:30 | Silme talebini kalıcı hale getirir (KVKK) |
+| `winback` | 05:00 | İptal etmiş kullanıcılara teklif |
+| `queue_daily` | 06:30 | Günlük yorumları önceden üretir |
+| `ask_verdicts` | 12:00 | Penceresi kapanan tahminler için doğrulama sorusu |
+| `send_daily_push` | her saat | Kullanıcının aktif saatine göre bildirim |
+| `check_push_receipts` | her saat :10 | Expo teslim makbuzlarını kontrol eder; geçersiz tokenı kapatır |
 
 `send_daily_push` SAATTE BİR çalışır, günde bir değil: her kullanıcıya kendi
 `active_hour`'unda gönderiliyor ve kullanıcılar farklı saat dilimlerinde.
 Saatte bir tarayıp yalnızca saati gelenlere göndermek, tek bir toplu gönderim
 yapmaktan hem daha az rahatsız edici hem de açılma oranı daha yüksek.
+
+**Neden crontab değil.** Yedi satırın elle yazılması gerekiyordu ve biri
+unutulursa hiçbir şey uyarmıyordu — sadece o iş hiç çalışmıyordu. En kötüsü
+`ask_verdicts`: doğrulama sorusu gitmezse Kader Günlüğü hiç dolmaz ve ürünün
+ana farkı olan "söylediğinin hesabını tutuyor" iddiası sessizce ölür.
+Uygulama çalışıyor görünmeye devam ettiği için de kimse fark etmez.
+
+**Kesintiye dayanıklı.** Zamanlayıcı "saati yakalamaya" çalışmıyor; "bu iş
+bugün çalıştı mı" diye soruyor. Sunucu 12:00'de kapalıysa 12:40'ta açıldığında
+doğrulama sorusu yine gidiyor. Son çalışma kaydı Redis'te tutuluyor, yani
+süreç gün içinde kaç kez yeniden başlarsa başlasın iş bir kez çalışıyor —
+iki zamanlayıcı süreci bir an birlikte yaşasa bile (`SET NX`).
+
+Saat dilimi `SCHEDULER_TZ` ile değiştirilebilir (varsayılan
+`Europe/Istanbul`). Yerel geliştirmede kapatmak için `FAL_SCHEDULER=0`.
+
+#### systemd birimi
+
+```ini
+# /etc/systemd/system/fal-scheduler.service
+[Unit]
+Description=Telve zamanlayıcı
+After=network.target redis.service postgresql.service
+
+[Service]
+WorkingDirectory=/srv/fal/fal-backend
+EnvironmentFile=/srv/fal/.env
+ExecStart=/srv/fal/.venv/bin/python -m app.workers.scheduler
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+systemctl enable --now fal-scheduler
+journalctl -u fal-scheduler -f     # hangi iş ne zaman çalıştı
+```
 
 ### Doğrulama
 
@@ -290,10 +334,11 @@ zeminini ve KVKK yükümlülüklerini bir avukatla netleştir — ürünü kurma
 
 - **Blok kütüphanesi boş.** `scripts/seed_blocks.py` çalıştırılmadan ücretsiz
   kullanıcının günlük yorumu boş çıkar. 302 anahtar × 4 varyant, tek seferlik
-  ~15-40 $. Şu an tek tek çağrı yapıyor; batch API'ye geçirilmeli.
+  ~15-40 $. Betik 8 eşzamanlı kanalla çalışır, kaldığı yerden devam eder ve
+  bütçe sınırında otomatik durur; sağlayıcıya özgü batch API zorunlu değildir.
 - **`cup_vision.py` eşikleri gerçek fotoğrafla kalibre edilmedi** (bkz. bölüm 7).
-- OneSignal gönderimi yazıldı ama gerçek anahtarla denenmedi
-  (`ONESIGNAL_APP_ID` / `ONESIGNAL_API_KEY` boşsa sessizce atlanıyor).
+- Expo Push gönderimi ve receipt doğrulaması bağlı; gerçek EAS projesinin FCM
+  kimlik bilgileri ve fiziksel cihaz olmadan son teslim halkası doğrulanamaz.
 - Geocoding (şehir → lat/lon) client tarafında, 81 il gömülü; uluslararası
   pazarda Nominatim + `timezonefinder` gerekecek.
 - Web2app hunisi (Next.js + Stripe) ayrı repo

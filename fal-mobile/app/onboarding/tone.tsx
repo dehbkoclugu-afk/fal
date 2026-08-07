@@ -7,6 +7,7 @@ import { Screen } from '@/components/Screen';
 import { useDraft, type Tone } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
 /**
  * Ton seçimi.
@@ -15,11 +16,13 @@ import { Eyebrow } from '@/components/Eyebrow';
  * sahibiyim" hissi veriyor. Seçim backend'de prompts.system_prompt(tone=...)
  * içine gidiyor ve yorumun sesini gerçekten değiştiriyor.
  */
-const TONES: { key: Tone; title: string; sample: string }[] = [
-  { key: 'nazik', title: 'Nazik', sample: 'Zor bir dönemden geçiyorsun ama yalnız değilsin.' },
-  { key: 'dobra', title: 'Dobra', sample: 'Bu işi sen sürüncemede bırakıyorsun, gökyüzü değil.' },
-  { key: 'mistik', title: 'Mistik', sample: 'Fincanın dibinde bekleyen bir gölge var.' },
-  { key: 'bilimsel', title: 'Açıklamalı', sample: 'Satürn 7. evinde: ilişkilerde sınır testi.' },
+// Örnek cümleler de çeviri gerektiriyor: her tonun NASIL konuştuğunu
+// gösteriyorlar ve bu dile göre değişir.
+const TONES = [
+  { key: 'nazik' as Tone, title: 'ton.nazik' as const, sample: 'ton.nazikOrnek' as const },
+  { key: 'dobra' as Tone, title: 'ton.dobra' as const, sample: 'ton.dobraOrnek' as const },
+  { key: 'mistik' as Tone, title: 'ton.mistik' as const, sample: 'ton.mistikOrnek' as const },
+  { key: 'bilimsel' as Tone, title: 'ton.bilimsel' as const, sample: 'ton.bilimselOrnek' as const },
 ];
 
 export default function ToneScreen() {
@@ -29,29 +32,33 @@ export default function ToneScreen() {
 
   return (
     <Screen scroll>
-      <Eyebrow style={styles.eyebrow}>Nasıl konuşayım</Eyebrow>
-      <Text style={styles.q}>Hangi ses sana yakın?</Text>
+      <Eyebrow style={styles.eyebrow}>{t('ob.ton.eyebrow')}</Eyebrow>
+      <Text style={styles.q}>{t('ob.ton.soru')}</Text>
 
       <View style={{ gap: space.md, marginTop: space.xl }}>
-        {TONES.map((t) => {
-          const on = tone === t.key;
+        {/* Map değişkenini `t` diye adlandırmak i18n `t()`'sini gölgeliyor ve
+            ekranda çeviri yerine anahtarın kendisi çıkıyor — `secenek` kalsın. */}
+        {TONES.map((secenek) => {
+          const on = tone === secenek.key;
           return (
             <Pressable
-              key={t.key}
-              onPress={() => setTone(t.key)}
+              key={secenek.key}
+              onPress={() => setTone(secenek.key)}
               style={[styles.card, on && styles.cardOn]}
               accessibilityRole="radio"
               accessibilityState={{ selected: on }}
             >
-              <Text style={[styles.cardTitle, on && { color: color.bakir }]}>{t.title}</Text>
-              <Text style={styles.cardSample}>“{t.sample}”</Text>
+              <Text style={[styles.cardTitle, on && { color: color.bakir }]}>
+                {t(secenek.title)}
+              </Text>
+              <Text style={styles.cardSample}>“{t(secenek.sample)}”</Text>
             </Pressable>
           );
         })}
       </View>
 
       <Button
-        label="Devam et"
+        label={t('ortak.devam')}
         style={{ marginTop: space.xl }}
         onPress={() => {
           set({ tone });

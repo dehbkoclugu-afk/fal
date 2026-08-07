@@ -65,9 +65,18 @@ if [ -z "${LLM_API_KEY:-}" ]; then
   export LLM_API_KEY="sahte"
 fi
 
-# --- API + worker
+# --- API + worker + zamanlayıcı
 bilgi "Worker başlatılıyor"
 ( cd "$BACKEND" && rq worker readings --url "$REDIS_URL" >"$LOG/worker.log" 2>&1 & )
+
+# Zamanlayıcı yerelde de çalışıyor: bakım işleri üretimde çalışıp yerelde
+# çalışmazsa, aradaki fark ancak canlıda fark ediliyor. Yerelde çalışması
+# ayrıca "tahmin penceresi kapandı, soru gitti mi" akışını denemeyi de
+# mümkün kılıyor.
+if [ "${FAL_SCHEDULER:-1}" = "1" ]; then
+  bilgi "Zamanlayıcı başlatılıyor"
+  ( cd "$BACKEND" && python3 -m app.workers.scheduler >"$LOG/scheduler.log" 2>&1 & )
+fi
 
 bilgi "API başlatılıyor → http://127.0.0.1:8000"
 bilgi "Loglar: $LOG"

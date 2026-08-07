@@ -67,15 +67,17 @@ TEST_DATABASE_URL=postgresql://localhost/fal_test python -m pytest   # tamamı
 | Guardrail (kriz / yaş / sağlık) | ✓ yaş kapısı profildeki doğum verisinden |
 | Hibrit blok üretimi (maliyet) | ✓ kütüphane **doldurulmadı** (`seed_blocks.py`, tek seferlik 15-40 $) |
 | Tahmin doğrulama + isabet paneli + takip yorumu | ✓ uçtan uca |
-| Transit bildirimleri (gece tarama → kişisel push) | ✓ zincir bağlı, **OneSignal anahtarıyla denenmedi** |
+| Transit bildirimleri (gece tarama → kişisel push) | ✓ Expo Push Service + receipt doğrulama bağlı; **EAS/FCM cihaz kimliğiyle denenmedi** |
 | Seri (streak), winback, KVKK kalıcı silme | ✓ |
-| Jeton + 3 abonelik katmanı (kotalı) + ödüllü reklam yolu | ✓ backend tam; reklam SDK paketi eklenecek |
+| Jeton + 3 abonelik katmanı (kotalı) + ödüllü reklam yolu | ✓ backend tam; reklam SDK'sı anahtar gelene kadar kapalı |
 | Mobil: onboarding → harita → ritüeller → defter | ✓ tarayıcıda gerçek backend'e karşı çalıştırıldı |
+| Rüya ritüeli | ✓ rüyanın görüldüğü gecenin Ay konumuyla uçtan uca bağlı |
+| Geçmiş fallar | ✓ arşiv ekranı + ana ekranda son üç fal |
 | Web PWA (kurulabilir, çevrimdışı kabuk) | ✓ tarayıcıda doğrulandı — Apple beklerken ikinci kanal |
 | RevenueCat / paylaşım kartı / kamera | ✓ yazıldı, **cihazda denenmedi** |
 
-Test: **212 test** (`fal-backend/tests`) + üç uçtan uca senaryo (ana akış,
-zincirler, hata yolları).
+Test: backend test paketi (`fal-backend/tests`, bu dalda push/receipt kapsamı genişletildi) + TypeScript/i18n/bildirim/yetenek
+kontrolleri. GitHub Actions aynı kontrolleri ve web export'u her PR'da çalıştırır.
 
 ### Sırada ne var
 
@@ -89,12 +91,12 @@ zincirler, hata yolları).
 4. **Kendi doğum haritanı doğrula:** `python -m app.core.astro`. Yükselen bilinen
    bir kaynaktan 30° kayıyorsa timezone zinciri bozuktur.
 5. **Anahtarları gir** (`fal-mobile/app.json > extra` ve `fal-backend/.env`):
-   RevenueCat, PostHog, OneSignal, AppLovin. Hepsi boşken uygulama çalışıyor,
+   RevenueCat, PostHog ve AppLovin. Hepsi boşken uygulama çalışıyor,
    ilgili özellik sessizce kapalı kalıyor.
 
-### Hâlâ yok
+### Bilerek kapsam dışında
 
-Rüya yorumu · sesli anlatım · çift modu · sinastri · Arapça · insan falcı
+Sesli anlatım · çift modu · sinastri · Arapça · insan falcı
 pazaryeri · web2app hunisi (Stripe) · web push · semantic cache · el falı ve yüz falı (biyometrik
 veri riski nedeniyle bilerek dışarıda).
 

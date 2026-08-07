@@ -7,9 +7,24 @@ import { Screen } from '@/components/Screen';
 import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
-const STATUSES = ['ilişkim yok', 'ilişkim var', 'evli', 'karışık'];
-const FOCUS = ['aşk', 'para', 'kariyer', 'aile', 'kendim'];
+// Saklanan değer SABİT, gösterilen etiket dile göre. Kullanıcı dilini
+// sonradan değiştirdiğinde profilindeki seçim bozulmasın diye: etiketi
+// saklamak, eski dildeki kelimeyi kalıcı hâle getiriyordu.
+const DURUMLAR = [
+  { key: 'yalniz', label: 'ob.tani.iliskiYok' },
+  { key: 'iliskide', label: 'ob.tani.iliskiVar' },
+  { key: 'evli', label: 'ob.tani.evli' },
+  { key: 'karisik', label: 'ob.tani.karisik' },
+] as const;
+const ODAKLAR = [
+  { key: 'ask', label: 'konu.ask' },
+  { key: 'para', label: 'konu.para' },
+  { key: 'kariyer', label: 'konu.kariyer' },
+  { key: 'aile', label: 'konu.aile' },
+  { key: 'kendim', label: 'konu.kendim' },
+] as const;
 
 export default function AboutYou() {
   const router = useRouter();
@@ -19,25 +34,27 @@ export default function AboutYou() {
 
   return (
     <Screen scroll>
-      <Eyebrow style={styles.eyebrow}>Seni tanıyorum</Eyebrow>
-      <Text style={styles.q}>Şu an nerede duruyorsun?</Text>
+      <Eyebrow style={styles.eyebrow}>{t('ob.tani.eyebrow')}</Eyebrow>
+      <Text style={styles.q}>{t('ob.tani.soru')}</Text>
 
-      <Eyebrow style={styles.label}>İlişki durumu</Eyebrow>
+      <Eyebrow style={styles.label}>{t('ob.tani.iliskiDurumu')}</Eyebrow>
       <View style={styles.chips}>
-        {STATUSES.map((s) => (
-          <Chip key={s} label={s} on={status === s} onPress={() => setStatus(s)} />
+        {DURUMLAR.map((d) => (
+          <Chip key={d.key} label={t(d.label)} on={status === d.key}
+                onPress={() => setStatus(d.key)} />
         ))}
       </View>
 
-      <Eyebrow style={styles.label}>En çok neyi merak ediyorsun?</Eyebrow>
+      <Eyebrow style={styles.label}>{t('ob.tani.merak')}</Eyebrow>
       <View style={styles.chips}>
-        {FOCUS.map((f) => (
-          <Chip key={f} label={f} on={focus === f} onPress={() => setFocus(f)} />
+        {ODAKLAR.map((o) => (
+          <Chip key={o.key} label={t(o.label)} on={focus === o.key}
+                onPress={() => setFocus(o.key)} />
         ))}
       </View>
 
       <Button
-        label="Devam et"
+        label={t('ortak.devam')}
         disabled={!status || !focus}
         style={{ marginTop: space.xxl }}
         onPress={() => {

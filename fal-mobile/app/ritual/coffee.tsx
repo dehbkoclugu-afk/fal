@@ -25,9 +25,10 @@ import { api, ApiError } from '@/lib/api';
 import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
-const STEPS = [
-  { key: 'inside', title: 'Fincanın içi', hint: 'Fincanı ters çevirip beklettikten sonra içini yukarıdan çek. Sapı yukarı bakacak şekilde tut.' },
+const ADIMLAR = [
+  { key: 'inside', baslik: 'kahve.adimBaslik', ipucu: 'kahve.adimIpucu' },
 ] as const;
 
 export default function Coffee() {
@@ -51,13 +52,10 @@ export default function Coffee() {
   if (!perm.granted) {
     return (
       <View style={[styles.root, styles.center, { padding: space.lg }]}>
-        <Text style={styles.permTitle}>Kamera izni gerekiyor</Text>
-        <Text style={styles.permBody}>
-          Fincanı okuyabilmem için fotoğrafını çekmem gerek. Fotoğraf 24 saat içinde
-          siliniyor, kalıcı olarak saklanmıyor.
-        </Text>
-        <Button label="İzin ver" onPress={requestPerm} style={{ marginTop: space.xl }} />
-        <Button label="Vazgeç" variant="ghost" onPress={() => router.back()} style={{ marginTop: space.md }} />
+        <Text style={styles.permTitle}>{t('kahve.izinBaslik')}</Text>
+        <Text style={styles.permBody}>{t('kahve.izinAciklama')}</Text>
+        <Button label={t('kahve.izinVer')} onPress={requestPerm} style={{ marginTop: space.xl }} />
+        <Button label={t('ortak.vazgec')} variant="ghost" onPress={() => router.back()} style={{ marginTop: space.md }} />
       </View>
     );
   }
@@ -104,16 +102,16 @@ export default function Coffee() {
   if (shot) {
     return (
       <View style={[styles.root, { paddingTop: insets.top + space.lg, paddingHorizontal: space.lg }]}>
-        <Eyebrow style={styles.eyebrow}>Fincan hazır</Eyebrow>
+        <Eyebrow style={styles.eyebrow}>{t('kahve.hazir')}</Eyebrow>
         <View style={[styles.preview, { height: guide }]}>
           <Image source={{ uri: shot }} style={StyleSheet.absoluteFill} contentFit="cover" />
         </View>
 
-        <Eyebrow style={styles.label}>Aklında bir soru var mı?</Eyebrow>
+        <Eyebrow style={styles.label}>{t('kahve.soruEtiket')}</Eyebrow>
         <TextInput
           value={question}
           onChangeText={setQuestion}
-          placeholder="istersen boş bırak"
+          placeholder={t('kahve.soruPlaceholder')}
           placeholderTextColor={color.kulKoyu}
           multiline
           maxLength={280}
@@ -124,9 +122,9 @@ export default function Coffee() {
         {jetonYok && <CoinGate kind="coffee" />}
 
         <View style={styles.spacer} />
-        <Button label="Fincanı oku" loading={busy} onPress={submit} />
+        <Button label={t('kahve.oku')} loading={busy} onPress={submit} />
         <Button
-          label="Yeniden çek"
+          label={t('kahve.yenidenCek')}
           variant="ghost"
           style={{ marginTop: space.md }}
           onPress={() => setShot(null)}
@@ -149,20 +147,20 @@ export default function Coffee() {
           ]}
         >
           <View style={styles.handleMark} />
-          <Eyebrow style={styles.handleLabel}>sap</Eyebrow>
+          <Eyebrow style={styles.handleLabel}>{t('kahve.sap')}</Eyebrow>
         </View>
       </View>
 
       <View style={[styles.top, { paddingTop: insets.top + space.md }]}>
-        <Eyebrow style={styles.stepTitle}>{STEPS[0].title}</Eyebrow>
-        <Text style={styles.stepHint}>{STEPS[0].hint}</Text>
+        <Eyebrow style={styles.stepTitle}>{t(ADIMLAR[0].baslik)}</Eyebrow>
+        <Text style={styles.stepHint}>{t(ADIMLAR[0].ipucu)}</Text>
       </View>
 
       <View style={[styles.bottom, { paddingBottom: insets.bottom + space.xl }]}>
         <Pressable onPress={() => router.back()} style={styles.cancel} accessibilityRole="button">
-          <Text style={styles.cancelText}>vazgeç</Text>
+          <Text style={styles.cancelText}>{t('ortak.vazgecKucuk')}</Text>
         </Pressable>
-        <Pressable onPress={capture} style={styles.shutter} accessibilityRole="button" accessibilityLabel="Fotoğraf çek">
+        <Pressable onPress={capture} style={styles.shutter} accessibilityRole="button" accessibilityLabel={t('kahve.fotografCek')}>
           <View style={styles.shutterInner} />
         </Pressable>
         <View style={styles.cancel} />
@@ -178,7 +176,10 @@ const styles = StyleSheet.create({
   permTitle: { ...type.title, color: color.porselen, textAlign: 'center' },
   permBody: { ...type.body, color: color.kul, textAlign: 'center', marginTop: space.md },
 
-  overlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  overlay: {
+    position: 'absolute', top: 0, right: 0, bottom: 0, left: 0,
+    alignItems: 'center', justifyContent: 'center',
+  },
   guide: {
     borderWidth: 2,
     borderColor: 'rgba(200,121,66,0.9)',

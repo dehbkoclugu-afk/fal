@@ -8,7 +8,26 @@ sürecinde tüm FastAPI uygulamasını ayağa kaldırır.
 
 from __future__ import annotations
 
-COIN_PRICES = {"coffee": 3, "tarot": 1, "natal": 5, "daily": 0}
+COIN_PRICES = {"coffee": 3, "tarot": 1, "natal": 5, "dream": 2, "daily": 0}
+
+# Yeni kullanıcıya açılışta verilen jeton.
+#
+# NEDEN VAR: bu olmadan kullanıcı sekiz onboarding ekranını bitiriyor,
+# gerçek doğum haritasını görüyor — ürünün en güçlü anı — ve ana ekranda
+# HER ritüel kilitli oluyor. Kahve falı 3, tarot 1, harita 5, rüya 2 jeton;
+# elinde 0 var. İlk fincanını açabilmesi için üç reklam izlemesi gerekiyordu.
+#
+# Daha kötüsü: doğrulama ödülü (+1) bir tahmin gerektiriyor, tahmin bir fal
+# gerektiriyor, fal jeton gerektiriyor. Yani jeton ekonomisinin kendi kendini
+# besleyen döngüsü hiç başlayamıyordu.
+#
+# 5 SEÇİLDİ, 3 DEĞİL: kahve falı (3) ürünün kahramanı ve adı; kullanıcı onu
+# mutlaka görmeli. Ama tam 0'a düşmek tuzağa düşmüş hissi veriyor. 5, bir
+# kahve falı + bir tarot ya da tek bir doğum haritası demek — kullanıcı ana
+# döngüyü bir kez yaşıyor ve elinde bir şey kalıyor. Duvara ikinci ritüelde,
+# değeri gördükten sonra çarpıyor; reklam ve abonelik teklifi ancak orada
+# anlamlı.
+SIGNUP_COINS = 5
 
 # Kumar döngüsü önlemi ve aynı zamanda iade/chargeback önlemi.
 # Kaldırma: günde sınırsız harcama, bu kategoride iade dalgası demek.

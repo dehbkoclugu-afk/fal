@@ -11,26 +11,37 @@ import * as Haptics from 'expo-haptics';
 
 import { color, hitStyle, space, type, type Verdict } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
 type Props = {
   claim: string;
   topic: string;
   dueAt: string;
   verdict: Verdict;
+  /** Bildirimle gelinen satır — kullanıcı hangisi için çağrıldığını görsün. */
+  vurgulu?: boolean;
   onVerdict?: (v: 'hit' | 'partial' | 'miss') => void;
 };
 
-const TOPIC_TR: Record<string, string> = {
-  ask: 'aşk', para: 'para', kariyer: 'kariyer', aile: 'aile',
-  kendim: 'kendim', genel: 'genel',
-};
+// Anahtar tutuluyor, metin render anında üretiliyor: modül gövdesindeki
+// t() dili içe aktarma anında dondurur. ('kariyer' burada ayrıca ham dize
+// olarak kalmıştı, yani hiç çevrilmiyordu.)
+const KONU_ANAHTAR = {
+  ask: 'konu.ask',
+  para: 'konu.para',
+  kariyer: 'konu.kariyer',
+  aile: 'konu.aile',
+  saglik: 'konu.saglik',
+  kendim: 'konu.kendim',
+  genel: 'konu.genel',
+} as const;
 
 function shortDate(iso: string) {
   const d = new Date(iso);
   return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-export function PredictionRow({ claim, topic, dueAt, verdict, onVerdict }: Props) {
+export function PredictionRow({ claim, topic, dueAt, verdict, vurgulu, onVerdict }: Props) {
   const s = hitStyle[verdict];
   const answerable = verdict === 'pending' && !!onVerdict;
 
@@ -40,10 +51,12 @@ export function PredictionRow({ claim, topic, dueAt, verdict, onVerdict }: Props
   };
 
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, vurgulu && styles.rowVurgulu]}>
       <View style={styles.meta}>
         <Text style={styles.date}>{shortDate(dueAt)}</Text>
-        <Eyebrow style={styles.topic}>{TOPIC_TR[topic] ?? topic}</Eyebrow>
+        <Eyebrow style={styles.topic}>
+          {topic in KONU_ANAHTAR ? t(KONU_ANAHTAR[topic as keyof typeof KONU_ANAHTAR]) : topic}
+        </Eyebrow>
         <View style={styles.spacer} />
         <Text style={[styles.state, { color: s.color }]}>{s.label}</Text>
       </View>
@@ -75,6 +88,14 @@ const styles = StyleSheet.create({
     paddingVertical: space.md,
     borderBottomWidth: 1,
     borderBottomColor: color.cizgi,
+  },
+  // Defter kaydının klinik dilinden çıkmadan işaretlemek: sol kenarda ince
+  // bir bakır çizgi. Dolgu veya renk, satırı "sonuç" gibi gösterirdi.
+  rowVurgulu: {
+    borderLeftWidth: 2,
+    borderLeftColor: color.bakir,
+    paddingLeft: space.md,
+    marginLeft: -space.md,
   },
   meta: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   date: { ...type.data, color: color.kulKoyu },

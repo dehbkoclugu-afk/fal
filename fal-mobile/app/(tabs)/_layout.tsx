@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router';
 import { Text } from 'react-native';
 
 import { color, font } from '@/lib/theme';
+import { t } from '@/lib/i18n';
 
 /**
  * Sekme etiketleri ikon yerine küçük mono metin.
@@ -31,9 +32,9 @@ export default function TabsLayout() {
         tabBarIcon: () => null,
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'bugün' }} />
+      <Tabs.Screen name="index" options={{ title: t('ana.bugun') }} />
       <Tabs.Screen name="journal" options={{ title: 'defter' }} />
-      <Tabs.Screen name="profile" options={{ title: 'profil' }} />
+      <Tabs.Screen name="profile" options={{ title: t('profil.eyebrow') }} />
     </Tabs>
   );
 }

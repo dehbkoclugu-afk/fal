@@ -9,6 +9,7 @@ Cron planı (bootstrap için yeterli, ayrı scheduler servisine gerek yok):
   04:00  purge_assets        — 24 saati geçen fincan fotoğraflarını sil (KVKK)
   05:00  winback             — iptal etmiş kullanıcılara teklif
   04:30  purge_deleted_users — KVKK silme talebini kalıcı hale getir
+  saatlik check_push_receipts — Expo push teslim makbuzlarını doğrula
 """
 
 from __future__ import annotations
@@ -39,6 +40,25 @@ def _run(coro):
 
 # --------------------------------------------------------------- fal üretimi
 
+# Bildirim metni ritüele göre. Tek metin ("Fincanını okudum") tarot, doğum
+# haritası ve rüya için de gönderiliyordu — kullanıcı hiç çekmediği bir
+# fincandan haber alıyordu.
+_HAZIR_PUSH = {
+    "coffee": ("Falın hazır 🔮", "Fincanını okudum. Bakmaya hazır mısın?"),
+    "tarot":  ("Kartların hazır 🔮", "Açılımını yorumladım. Bakmaya hazır mısın?"),
+    "natal":  ("Haritan hazır ✨", "Doğum haritanı çözdüm. Seni bekliyor."),
+    "dream":  ("Rüyan yorumlandı 🌙", "Anlattığın rüyaya baktım. Hazır olduğunda seni bekliyor."),
+    "daily":  ("Günün yorumu hazır ✨", "Bugün için haritanda ne var, bakalım mı?"),
+    "_":      ("Falın hazır 🔮", "Yorumun hazır. Bakmaya hazır mısın?"),
+}
+
+_HATA_PUSH = {
+    "coffee": "Fotoğrafı tekrar çekelim",
+    "dream":  "Rüyanı tekrar anlatalım",
+    "_":      "Bu sefer olmadı",
+}
+
+
 def run_reading(reading_id: str, kind: str, inputs: dict):
     """RQ giriş noktası."""
     return _run(_run_reading(reading_id, kind, inputs))
@@ -65,11 +85,13 @@ async def _run_reading(reading_id: str, kind: str, inputs: dict):
 
         await generate_reading(db, user_id, reading_id, kind, inputs)
 
-        if q := inputs.get("question"):
+        # Hafıza: rüya ritüelinde serbest metin `dream` alanında. Sadece
+        # `question`'a bakmak, rüyaları hafızanın tamamen dışında bırakırdı
+        # — oysa tekrar eden rüya motifi, hatırlanmaya en değer şey.
+        if q := (inputs.get("question") or inputs.get("dream")):
             await extract_memory(db, user_id, q)          # hafıza asenkron zenginleşir
-        await push(db, user_id, "Falın hazır 🔮",
-                   "Fincanını okudum. Bakmaya hazır mısın?",
-                   {"reading_id": reading_id})
+        baslik, metin = _HAZIR_PUSH.get(kind, _HAZIR_PUSH["_"])
+        await push(db, user_id, baslik, metin, {"reading_id": reading_id})
 
     except CrisisIntercept as e:
         # Push GÖNDERİLMEZ. Kullanıcı uygulamayı açtığında destek mesajını görür.
@@ -81,7 +103,10 @@ async def _run_reading(reading_id: str, kind: str, inputs: dict):
             "UPDATE readings SET status='failed', block_reason=$2 WHERE id=$1",
             reading_id, e.code)
         await refund(db, str(row["user_id"]), kind)
-        await push(db, str(row["user_id"]), "Fotoğrafı tekrar çekelim", e.message, {})
+        # Hata başlığı da ritüele göre: rüyası reddedilen kullanıcıya
+        # "fotoğrafı tekrar çekelim" demek anlamsız bir mesaj.
+        await push(db, str(row["user_id"]),
+                   _HATA_PUSH.get(kind, _HATA_PUSH["_"]), e.message, {})
     finally:
         r.delete(f"cupimg:{reading_id}")
         await db.close()
@@ -394,7 +419,7 @@ async def _purge_assets():
 # --------------------------------------------------------------------- push
 
 async def push(db, user_id: str, title: str, body: str, data: dict):
-    """OneSignal/FCM entegrasyonu buraya. Bootstrap'te OneSignal ücretsiz katmanı yeter.
+    """Expo Push Service üzerinden bildirim gönder.
 
     Kurallar (churn önlemi):
       - günde en fazla 2 bildirim
@@ -417,34 +442,131 @@ async def push(db, user_id: str, title: str, body: str, data: dict):
     # (transits_queue.notified_at). Sağlayıcı anahtarı yokken _send_push False
     # dönüyordu; sonuç olarak hiçbir transit işaretlenmiyor ve aynı bildirim
     # her turda yeniden kuyruğa giriyordu.
-    gonderim = await _send_push(row["push_token"], title, body, data)
+    ticket = await _send_push(row["push_token"], title, body, data)
+    log_data = {**data, "gonderildi": bool(ticket)}
+    if isinstance(ticket, str):
+        # 15+ dakika sonra receipt sorgusu bu kimlikle teslimi doğrular.
+        # Token yalnızca o receipt işlenene kadar tutulur; sonra log'dan çıkar.
+        log_data["expo_ticket_id"] = ticket
+        log_data["expo_token"] = row["push_token"]
     await db.execute(
         """INSERT INTO push_log (user_id, title, body, data)
            VALUES ($1,$2,$3,$4)""",
-        user_id, title, body, {**data, "gonderildi": bool(gonderim)})
+        user_id, title, body, log_data)
     return True
 
 
-ONESIGNAL_APP_ID = os.getenv("ONESIGNAL_APP_ID", "")
-ONESIGNAL_API_KEY = os.getenv("ONESIGNAL_API_KEY", "")
+EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
+EXPO_RECEIPTS_URL = "https://exp.host/--/api/v2/push/getReceipts"
 
 
-async def _send_push(token: str, title: str, body: str, data: dict) -> bool:
-    """OneSignal REST çağrısı. Anahtar yoksa sessizce atlar (yerel geliştirme)."""
-    if not (ONESIGNAL_APP_ID and ONESIGNAL_API_KEY):
-        return False
+async def _expo_post(url: str, payload: dict) -> dict | None:
+    """Expo Push API çağrısı; geçici 429/5xx ve ağ hatalarında üç kez dene."""
     import httpx
+
+    for deneme in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=15) as c:
+                r = await c.post(
+                    url,
+                    headers={"accept": "application/json",
+                             "content-type": "application/json"},
+                    json=payload,
+                )
+            if r.status_code == 429 or r.status_code >= 500:
+                if deneme < 2:
+                    await asyncio.sleep(2 ** deneme)
+                    continue
+                return None
+            if r.status_code >= 300:
+                return None
+            cevap = r.json()
+            return cevap if isinstance(cevap, dict) else None
+        except Exception:
+            if deneme < 2:
+                await asyncio.sleep(2 ** deneme)
+                continue
+            return None
+    return None
+
+
+async def _send_push(token: str, title: str, body: str, data: dict) -> str | None:
+    """ExpoPushToken gönder; kabul edilen bildirimin receipt kimliğini döndür."""
+    cevap = await _expo_post(
+        EXPO_PUSH_URL,
+        {"to": token, "title": title, "body": body, "data": data,
+         "priority": "default", "channelId": "default"},
+    )
+    ticket = (cevap or {}).get("data")
+    if isinstance(ticket, list):
+        ticket = ticket[0] if ticket else None
+    if not isinstance(ticket, dict) or ticket.get("status") != "ok":
+        return None
+    kimlik = ticket.get("id")
+    return kimlik if isinstance(kimlik, str) and kimlik else None
+
+
+def check_push_receipts(limit: int = 200):
+    """RQ/scheduler giriş noktası: 15 dakikadan eski push'ların teslimini doğrula."""
+    return _run(_check_push_receipts(limit))
+
+
+async def _check_push_receipts(limit: int = 200) -> int:
+    db = await connect()
     try:
-        async with httpx.AsyncClient(timeout=15) as c:
-            r = await c.post(
-                "https://api.onesignal.com/notifications",
-                headers={"Authorization": f"Key {ONESIGNAL_API_KEY}",
-                         "content-type": "application/json"},
-                json={"app_id": ONESIGNAL_APP_ID,
-                      "include_subscription_ids": [token],
-                      "headings": {"tr": title, "en": title},
-                      "contents": {"tr": body, "en": body},
-                      "data": data})
-            return r.status_code < 300
-    except Exception:
-        return False
+        # Expo receipt'leri 24 saatten sonra temizliyor. O pencere kaçmışsa
+        # artık kullanamayacağımız cihaz tokenını push_log'da sonsuza kadar
+        # tutma; sonucu "expired" diye görünür bırak ve geçici tokenı sil.
+        await db.execute(
+            """UPDATE push_log
+               SET data=(data - 'expo_token') || '{"expo_receipt_status":"expired"}'::jsonb
+               WHERE data ? 'expo_ticket_id'
+                 AND NOT data ? 'expo_receipt_status'
+                 AND created_at <= now() - interval '23 hours'""")
+        rows = await db.fetch(
+            """SELECT id, user_id, data
+               FROM push_log
+               WHERE data ? 'expo_ticket_id'
+                 AND NOT data ? 'expo_receipt_status'
+                 AND created_at <= now() - interval '15 minutes'
+                 AND created_at > now() - interval '23 hours'
+               ORDER BY created_at
+               LIMIT $1""", limit)
+        if not rows:
+            return 0
+
+        ids = [r["data"]["expo_ticket_id"] for r in rows]
+        cevap = await _expo_post(EXPO_RECEIPTS_URL, {"ids": ids})
+        receipts = (cevap or {}).get("data")
+        if not isinstance(receipts, dict):
+            return 0
+
+        islenen = 0
+        for row in rows:
+            veri = dict(row["data"])
+            ticket_id = veri.get("expo_ticket_id")
+            receipt = receipts.get(ticket_id)
+            if not isinstance(receipt, dict):
+                continue
+
+            durum = receipt.get("status", "error")
+            detay = receipt.get("details") if isinstance(receipt.get("details"), dict) else {}
+            hata = detay.get("error")
+            eski_token = veri.pop("expo_token", None)
+            veri["expo_receipt_status"] = durum
+            if hata:
+                veri["expo_receipt_error"] = hata
+            await db.execute("UPDATE push_log SET data=$2 WHERE id=$1", row["id"], veri)
+
+            # Expo bunu kalıcı hata olarak tanımlar. Yalnızca receipt'in ait
+            # olduğu ESKİ token hâlâ kullanıcıda kayıtlıysa opt-out yap; bu
+            # arada yenilenmiş yeni tokenı yanlışlıkla silme.
+            if hata == "DeviceNotRegistered" and eski_token:
+                await db.execute(
+                    """UPDATE users SET push_token=NULL, push_optin=false
+                       WHERE id=$1 AND push_token=$2""",
+                    row["user_id"], eski_token)
+            islenen += 1
+        return islenen
+    finally:
+        await db.close()

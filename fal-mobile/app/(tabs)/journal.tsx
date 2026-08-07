@@ -17,27 +17,46 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useLocalSearchParams } from 'expo-router';
+
 import { PredictionRow } from '@/components/PredictionRow';
 import { TelveRing } from '@/components/TelveRing';
 import { api } from '@/lib/api';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
 // Backend sabit dağarcığa indirgiyor (core/pricing.TOPICS); buradaki
 // karşılıklar onunla birebir eşleşmeli, yoksa panel ham anahtar gösterir.
-const TOPIC_TR: Record<string, string> = {
-  ask: 'aşk',
-  para: 'para',
-  kariyer: 'iş ve kariyer',
-  aile: 'aile',
-  saglik: 'sağlık',
-  kendim: 'kendim',
-  genel: 'genel',
-};
+//
+// Değerler ANAHTAR, metin değil: modül gövdesinde t() çağırmak dili içe
+// aktarma anında donduruyor (dil seçimi açılışta bir effect'te yapılıyor).
+const KONU_ANAHTAR = {
+  ask: 'konu.ask',
+  para: 'konu.para',
+  kariyer: 'konu.kariyer',
+  aile: 'konu.aile',
+  saglik: 'konu.saglik',
+  kendim: 'konu.kendim',
+  genel: 'konu.genel',
+} as const;
+
+const konuAdi = (k: string) =>
+  k in KONU_ANAHTAR ? t(KONU_ANAHTAR[k as keyof typeof KONU_ANAHTAR]) : k;
 
 export default function Journal() {
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
+
+  /**
+   * Doğrulama bildiriminden gelen tahmin.
+   *
+   * Bildirim "geçen hafta şunu söylemiştim — tuttu mu?" diyor; kullanıcı
+   * tam olarak o tahmine cevap vermeye geliyor. Defteri açıp onu listede
+   * aratmak, gelen kullanıcının yarısını kaybetmek demek. Vurgulanan satır
+   * listenin başına alınıyor.
+   */
+  const { vurgu } = useLocalSearchParams<{ vurgu?: string }>();
 
   const { data, isRefetching, refetch } = useQuery({
     queryKey: ['accuracy'],
@@ -74,14 +93,14 @@ export default function Journal() {
         <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={color.bakir} />
       }
     >
-      <Eyebrow style={styles.eyebrow}>kader günlüğü</Eyebrow>
+      <Eyebrow style={styles.eyebrow}>{t('gunluk.eyebrow')}</Eyebrow>
 
       {/* Doğrulama sonrası karşılık */}
       {yorum ? (
         <Pressable onPress={() => setYorum(null)} style={styles.yorumKutu}>
-          <Eyebrow style={styles.yorumLabel}>cevabın için</Eyebrow>
+          <Eyebrow style={styles.yorumLabel}>{t('gunluk.cevabinIcin')}</Eyebrow>
           <Text style={styles.yorumMetin}>{yorum}</Text>
-          <Text style={styles.yorumKapat}>kapat</Text>
+          <Text style={styles.yorumKapat}>{t('ortak.kapat')}</Text>
         </Pressable>
       ) : null}
 
@@ -93,15 +112,13 @@ export default function Journal() {
             <>
               <Text style={styles.figure}>%{score}</Text>
               <Text style={styles.figureNote}>
-                {o!.total} tahmin · {o!.hits} tuttu · {o!.partials} kısmen
+                {t('gunluk.ozet', { total: o!.total, hits: o!.hits, partials: o!.partials })}
               </Text>
             </>
           ) : (
             <>
               <Text style={styles.figureEmpty}>—</Text>
-              <Text style={styles.figureNote}>
-                Henüz değerlendirilmiş tahmin yok. İlk falından sonra burası dolmaya başlar.
-              </Text>
+              <Text style={styles.figureNote}>{t('gunluk.henuzYok')}</Text>
             </>
           )}
         </View>
@@ -110,13 +127,13 @@ export default function Journal() {
       {/* Konu kırılımı — hangi alanda isabet yüksek */}
       {!!data?.by_topic?.length && (
         <>
-          <Eyebrow style={styles.sectionLabel}>konuya göre</Eyebrow>
+          <Eyebrow style={styles.sectionLabel}>{t('gunluk.konuyaGore')}</Eyebrow>
           <View style={styles.topics}>
             {data.by_topic.map((t) => {
               const pct = t.total ? Math.round((t.hits / t.total) * 100) : 0;
               return (
                 <View key={t.topic} style={styles.topicRow}>
-                  <Text style={styles.topicName}>{TOPIC_TR[t.topic] ?? t.topic}</Text>
+                  <Text style={styles.topicName}>{konuAdi(t.topic)}</Text>
                   <View style={styles.barTrack}>
                     <View style={[styles.barFill, { width: `${pct}%` }]} />
                   </View>
@@ -132,33 +149,31 @@ export default function Journal() {
       {/* Cevap bekleyenler */}
       {!!data?.awaiting_verdict?.length && (
         <>
-          <Eyebrow style={styles.sectionLabel}>cevabını bekliyorum</Eyebrow>
-          {data.awaiting_verdict.map((p) => (
-            <PredictionRow
-              key={p.id}
-              claim={p.claim}
-              topic={p.topic}
-              dueAt={p.window_end}
-              verdict="pending"
-              onVerdict={(v) => verdict.mutate({ id: p.id, v })}
-            />
-          ))}
+          <Eyebrow style={styles.sectionLabel}>{t('gunluk.cevabiniBekliyorum')}</Eyebrow>
+          {[...data.awaiting_verdict]
+            .sort((a, b) => (b.id === vurgu ? 1 : 0) - (a.id === vurgu ? 1 : 0))
+            .map((p) => (
+              <PredictionRow
+                key={p.id}
+                claim={p.claim}
+                topic={p.topic}
+                dueAt={p.window_end}
+                verdict="pending"
+                vurgulu={p.id === vurgu}
+                onVerdict={(v) => verdict.mutate({ id: p.id, v })}
+              />
+            ))}
         </>
       )}
 
       {answered === 0 && !data?.awaiting_verdict?.length && (
         <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>Defter boş</Text>
-          <Text style={styles.emptyBody}>
-            Her fal, süresi belli olan iddialar üretiyor. Süre dolunca sana soruyorum:
-            tuttu mu? Cevapların burada birikiyor ve tutmayanlar da silinmiyor.
-          </Text>
+          <Text style={styles.emptyTitle}>{t('gunluk.defterBos')}</Text>
+          <Text style={styles.emptyBody}>{t('gunluk.defterBosMetin')}</Text>
         </View>
       )}
 
-      <Text style={styles.foot}>
-        Yorumlar eğlence amaçlıdır. İsabet oranı senin kendi değerlendirmelerine dayanır.
-      </Text>
+      <Text style={styles.foot}>{t('gunluk.aciklama')}</Text>
     </ScrollView>
   );
 }

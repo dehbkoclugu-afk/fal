@@ -7,6 +7,7 @@ import { Screen } from '@/components/Screen';
 import { useDraft } from '@/lib/store';
 import { color, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
 /**
  * Doğum tarihi + saat.
@@ -47,29 +48,26 @@ export default function Birth() {
 
   return (
     <Screen>
-      <Eyebrow style={styles.eyebrow}>1 / 3 · doğum verisi</Eyebrow>
-      <Text style={styles.q}>Ne zaman doğdun?</Text>
-      <Text style={styles.sub}>
-        Gezegen konumlarını gerçek gökyüzü verisinden hesaplıyorum, o yüzden tarih ve
-        saat gerekiyor.
-      </Text>
+      <Eyebrow style={styles.eyebrow}>{t('ob.dogum.eyebrow')}</Eyebrow>
+      <Text style={styles.q}>{t('ob.dogum.soru')}</Text>
+      <Text style={styles.sub}>{t('ob.dogum.neden')}</Text>
 
-      <Eyebrow style={styles.label}>Tarih</Eyebrow>
+      <Eyebrow style={styles.label}>{t('ob.dogum.tarih')}</Eyebrow>
       <TextInput
         value={date}
         onChangeText={maskDate}
-        placeholder="14.06.1993"
+        placeholder={t('ob.dogum.tarihOrnek')}
         placeholderTextColor={color.kulKoyu}
         keyboardType="number-pad"
         autoFocus
         style={styles.input}
       />
 
-      <Eyebrow style={styles.label}>Saat</Eyebrow>
+      <Eyebrow style={styles.label}>{t('ob.dogum.saat')}</Eyebrow>
       <TextInput
         value={unknown ? '' : time}
         onChangeText={maskTime}
-        placeholder={unknown ? 'bilinmiyor' : '04:30'}
+        placeholder={unknown ? t('profil.bilinmiyor') : t('ob.dogum.saatOrnek')}
         placeholderTextColor={color.kulKoyu}
         keyboardType="number-pad"
         editable={!unknown}
@@ -78,11 +76,11 @@ export default function Birth() {
 
       <Pressable onPress={() => setUnknown((v) => !v)} style={styles.check} accessibilityRole="checkbox" accessibilityState={{ checked: unknown }}>
         <View style={[styles.box, unknown && styles.boxOn]} />
-        <Text style={styles.checkText}>Doğum saatimi bilmiyorum</Text>
+        <Text style={styles.checkText}>{t('ob.dogum.saatimiBilmiyorum')}</Text>
       </Pressable>
 
       <View style={styles.spacer} />
-      <Button label="Devam et" disabled={!dateOk || !timeOk} onPress={next} />
+      <Button label={t('ortak.devam')} disabled={!dateOk || !timeOk} onPress={next} />
     </Screen>
   );
 }

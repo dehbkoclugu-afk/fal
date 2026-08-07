@@ -3,6 +3,7 @@
  */
 import Constants from 'expo-constants';
 import { getAnonId } from './anon';
+import { aktifDil, hataMetni } from './i18n';
 
 // Öncelik: build zamanı env → app.json extra → Android emülatör varsayılanı.
 // EXPO_PUBLIC_API_URL, dev/staging/prod'u tek app.json ile ayırmayı sağlıyor;
@@ -13,7 +14,16 @@ const BASE =
   'http://10.0.2.2:8000';
 
 export class ApiError extends Error {
-  constructor(public status: number, public code: string, message: string) {
+  /**
+   * `message` seçili dilde — sunucunun Türkçe metni değil. Sunucudan geleni
+   * `sunucuMetni` altında saklıyoruz; log/hata ayıklama için lazım oluyor.
+   */
+  constructor(
+    public status: number,
+    public code: string,
+    message: string,
+    public sunucuMetni?: string,
+  ) {
     super(message);
   }
 }
@@ -31,14 +41,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
   if (!res.ok) {
     let code = 'unknown';
-    let message = 'Bir şeyler ters gitti. Tekrar dene.';
+    let sunucuMetni: string | undefined;
     try {
       const body = await res.json();
       const d = body?.detail ?? body;
       code = d?.code ?? code;
-      message = d?.message ?? (typeof d === 'string' ? d : message);
+      sunucuMetni = d?.message ?? (typeof d === 'string' ? d : undefined);
     } catch {}
-    throw new ApiError(res.status, code, message);
+    throw new ApiError(res.status, code, hataMetni(code, sunucuMetni), sunucuMetni);
   }
   return res.status === 204 ? (undefined as T) : res.json();
 }
@@ -74,7 +84,7 @@ export type CupMarker = {
 
 export type Reading = {
   id: string;
-  kind: 'coffee' | 'tarot' | 'natal' | 'daily';
+  kind: 'coffee' | 'tarot' | 'natal' | 'dream' | 'daily';
   status: 'queued' | 'running' | 'done' | 'failed' | 'blocked';
   block_reason?: string | null;
   output_json?: ReadingOutput | null;
@@ -131,10 +141,19 @@ export type NextTransit = {
 // ---------------------------------------------------------------- uçlar
 
 export const api = {
+  /**
+   * Dil her zaman gönderiliyor — çağıranın hatırlamasına bırakılmıyor.
+   *
+   * Sunucudaki guardrail kriz kaynaklarını (acil yardım numaraları) kayıtlı
+   * dilden okuyor. Alan boş kalırsa varsayılana, yani Türkiye'nin
+   * numaralarına düşüyor: ikinci dil açıldığı gün başka ülkedeki kullanıcı
+   * arayacağı numarayı yanlış görür. Tek bir unutulmuş alan, katmanın
+   * tamamını sessizce işlevsiz bırakıyor.
+   */
   saveProfile: (p: Record<string, unknown>) =>
     request<{ ok: true; teaser: Teaser | null }>('/profile', {
       method: 'PUT',
-      body: JSON.stringify(p),
+      body: JSON.stringify({ locale: aktifDil().code, ...p }),
     }),
 
   coffee: (photoUri: string, question: string, handleAngle: number) => {
@@ -197,6 +216,19 @@ export const api = {
     request<{ reading_id: string; eta_seconds: number }>('/readings/natal', {
       method: 'POST',
       body: JSON.stringify({ focus }),
+    }),
+
+  /**
+   * Rüya yorumu.
+   *
+   * `dreamDate` rüyanın GÖRÜLDÜĞÜ gece (YYYY-AA-GG). Kullanıcı rüyayı
+   * sabah anlatıyor ama gökyüzü bağlamı o gecenin Ay'ına ait olmalı —
+   * Ay iki buçuk günde burç değiştiriyor.
+   */
+  dream: (dream: string, dreamDate?: string) =>
+    request<{ reading_id: string; eta_seconds: number }>('/readings/dream', {
+      method: 'POST',
+      body: JSON.stringify({ dream, dream_date: dreamDate ?? null }),
     }),
 
   daily: () =>

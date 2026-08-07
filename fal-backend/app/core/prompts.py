@@ -145,6 +145,40 @@ Yorumu şu bölümlerle kur: Karakter çekirdeği, Duygusal yapı, İlişki kal�
 Para ve iş, Bu dönemin teması. Her bölümde en az bir gezegen/ev/açı adını an."""
 
 
+DREAM_USER = """RİTÜEL: Rüya yorumu
+
+RÜYA (kullanıcının kendi anlatımı, birebir bu anlatıya bağlı kal):
+{dream}
+
+RÜYA GÖRÜLEN GECENİN GÖKYÜZÜ (hesaplandı, uydurma):
+Ay burcu ve fazı: {moon}
+O gece etkin transitler: {transits}
+
+NATAL BAĞLAM (kullanıcının haritasından, birebir kullan):
+{chart_brief}
+
+KULLANICI:
+{user}
+
+GEÇMİŞ BAĞLAM — daha önce anlatılan rüyalar ve konular:
+{memory}
+
+NASIL YORUMLAYACAKSIN
+- Rüya sözlüğü yapma. "Su görmek bolluktur" gibi hazır eşlemeler yasak; bu
+  yorumu her uygulamada bulabilir. Anlattığı SAHNEYE ve kendi haritasına bağla.
+- Anlatının kendi imgelerini kullan: kullanıcı hangi nesneyi, kişiyi, mekânı
+  anlattıysa yorumda o geçsin. Anlatmadığı bir sembolü yorumda icat etme.
+- En az bir bölümde, rüyanın gecesindeki gökyüzü verisine (Ay fazı veya bir
+  transit) açıkça atıf yap. Veri yoksa bu bağı KURMA, uydurma.
+- Rüyayı bir kehanet değil, bir işaret olarak ele al: "şu olacak" değil,
+  "şuraya bakmanı istiyor".
+- Daha önce benzer bir rüya veya konu anlatılmışsa bağını kur — bu ürünün
+  hatırlayan tarafı burada görünür.
+
+Bölümleri şöyle kur: Sahnenin söylediği, Gökyüzüyle bağı, Sana dokunduğu yer,
+Ne yapmalı."""
+
+
 DAILY_USER = """RİTÜEL: Günlük kişisel yorum
 
 BUGÜNÜN TRANSİTLERİ (natal haritaya göre hesaplandı):
@@ -218,4 +252,24 @@ def natal_prompt(chart_ctx: dict, user_ctx: dict, focus: str,
         user=json.dumps(user_ctx, ensure_ascii=False),
         memory=memory or "yok",
         focus=focus or "genel",
+    )
+
+
+def dream_prompt(dream: str, moon: str, transits: list, chart_brief: list,
+                 user_ctx: dict, memory: str = "") -> str:
+    """Rüya yorumu.
+
+    Ayırt edici nokta, rüyayı GÖRÜLDÜĞÜ GECENİN gökyüzüne bağlaması. Rüya
+    sözlüğü ("su bolluktur") her uygulamada var ve kullanıcıyı tanımıyor;
+    burada yorum kullanıcının kendi haritasına ve o gecenin transitine
+    dayanıyor. Gökyüzü verisi boşsa prompt o bağı kurmamasını söylüyor —
+    veri yokken bağ uydurmak, ürünün "uydurmuyoruz" tezini bozar.
+    """
+    return DREAM_USER.format(
+        dream=dream.strip(),
+        moon=moon or "bilinmiyor",
+        transits=json.dumps(transits, ensure_ascii=False) if transits else "yok",
+        chart_brief=json.dumps(chart_brief, ensure_ascii=False) if chart_brief else "yok",
+        user=json.dumps(user_ctx, ensure_ascii=False),
+        memory=memory or "yok",
     )

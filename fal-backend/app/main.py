@@ -25,6 +25,7 @@ from redis import asyncio as aioredis
 from rq import Queue
 
 from .core import db as dbmod
+from .core import locales
 
 DB_URL = dbmod.DB_URL
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -64,10 +65,39 @@ async def get_user(x_anon_id: str = Header(...)) -> dict:
     db = state["db"]
     row = await db.fetchrow("SELECT * FROM users WHERE anon_id=$1 AND deleted_at IS NULL",
                             x_anon_id)
-    if not row:
-        row = await db.fetchrow(
-            "INSERT INTO users (anon_id) VALUES ($1) RETURNING *", x_anon_id)
-    return dict(row)
+    if row:
+        return dict(row)
+
+    # Yeni kullanıcı: kayıt ve açılış jetonu TEK İFADEDE.
+    #
+    # Tek CTE olmasının iki sebebi var:
+    #
+    # 1. ATOMİK. İki ayrı sorgu yazılırsa araya giren bir hata kullanıcıyı
+    #    kalıcı olarak 0 jetonla bırakıyor ve bunu telafi edecek yol yok —
+    #    kullanıcı jetonsuz olduğunu görüyor, biz hangi kullanıcının
+    #    hediyesini alamadığını bilmiyoruz. Açık transaction da olurdu ama
+    #    `db` üretimde havuz, testte tek bağlantı; ikisinin transaction
+    #    arayüzü aynı değil. Tek ifade her ikisinde de aynı çalışıyor.
+    #
+    # 2. ON CONFLICT ile yarış güvenli. Uygulama açılışında /v1/me ve profil
+    #    kaydı neredeyse aynı anda gidiyor; iki INSERT yarışınca ikincisi
+    #    anon_id tekil kısıtına takılıp 500 dönüyordu. Çakışmada mevcut satır
+    #    dönüyor ve hediye TEKRAR VERİLMİYOR: `xmax = 0`, satırın bu ifadede
+    #    gerçekten yaratılıp yaratılmadığını söylüyor.
+    row = await db.fetchrow(
+        """WITH yeni AS (
+             INSERT INTO users (anon_id) VALUES ($1)
+             ON CONFLICT (anon_id) DO UPDATE SET anon_id = EXCLUDED.anon_id
+             RETURNING *, (xmax = 0) AS yeni_kayit
+           ), hediye AS (
+             INSERT INTO coin_ledger (user_id, delta, reason, balance_after)
+             SELECT id, $2, 'signup', $2 FROM yeni WHERE yeni_kayit AND $2 > 0
+           )
+           SELECT * FROM yeni""", x_anon_id, SIGNUP_COINS)
+
+    veri = dict(row)
+    veri.pop("yeni_kayit", None)
+    return veri
 
 
 # ------------------------------------------------------------------ modeller
@@ -105,6 +135,15 @@ class NatalIn(BaseModel):
     question: str = Field("", max_length=1000)
 
 
+class DreamIn(BaseModel):
+    # Alt sınır pipeline'da da var (orada 20 karakter). Burada 10: sınırda
+    # reddetmek jeton düşmeden 422 vermek demek, kullanıcı boşuna ödemez.
+    dream: str = Field(min_length=10, max_length=4000)
+    # Rüyanın görüldüğü gece. Boşsa dün geceye düşüyor — kullanıcı rüyayı
+    # sabah anlatıyor ve o anın Ay'ı rüyanın Ay'ı değil.
+    dream_date: date | None = None
+
+
 class VerdictIn(BaseModel):
     verdict: str = Field(pattern="^(hit|miss|partial)$")
 
@@ -115,8 +154,8 @@ class PushTokenIn(BaseModel):
     active_hour: int = Field(9, ge=0, le=23)
 
 
-from .core.pricing import (COIN_PRICES, DAILY_SPEND_CAP, TIER_LIMITS,  # noqa: E402
-                           monthly_quota, normalize_tier)
+from .core.pricing import (COIN_PRICES, DAILY_SPEND_CAP, SIGNUP_COINS,  # noqa: E402
+                           TIER_LIMITS, monthly_quota, normalize_tier)
 
 
 async def _quota_kullanimi(db, user_id: str) -> int:
@@ -182,6 +221,18 @@ async def _charge(db, user_id: str, kind: str) -> None:
 @app.put("/v1/profile")
 async def upsert_profile(p: ProfileIn, user=Depends(get_user)):
     db = state["db"]
+
+    # Dili sınırda doğrula. Desteklenmeyen bir kod kaydedilirse guardrail
+    # varsayılana düşer ve kullanıcı YANLIŞ DİLDE kriz kaynağı görür —
+    # sessizce kabul etmek yerine 422 dönmek doğrusu.
+    if p.locale is not None:
+        loc = locales.get(p.locale)
+        if not loc or not loc.enabled:
+            raise HTTPException(422, {
+                "code": "unsupported_locale",
+                "message": "Bu dil henüz desteklenmiyor.",
+                "supported": [l.code for l in locales.enabled_locales()]})
+
     # birth_year ayrıca users'a yazılıyor: yaş kapısı (guardrail.BLOCK_MINOR)
     # bu sütuna bakıyor. Yazılmazsa kapı yalnızca kullanıcının metinde
     # "16 yaşındayım" demesiyle çalışır — yani hiç çalışmaz.
@@ -305,6 +356,29 @@ async def natal_reading(body: NatalIn, user=Depends(get_user)):
     return {"reading_id": rid, "eta_seconds": 120, "status": "queued"}
 
 
+@app.post("/v1/readings/dream", status_code=202)
+async def dream_reading(body: DreamIn, user=Depends(get_user)):
+    """Rüya yorumu.
+
+    Doğum verisi ZORUNLU DEĞİL — bilerek. Diğer ritüellerin hepsi haritaya
+    dayanıyor ve doğum bilgisi olmadan anlamsız; rüya, kullanıcının kendi
+    anlatısına dayandığı için haritasız da çalışıyor. Bu onu onboarding'i
+    yarıda bırakmış kullanıcı için ilk değer anı yapıyor.
+
+    Harita varsa yorum o gecenin transitlerine de bağlanıyor.
+    """
+    db = state["db"]
+    await _charge(db, user["id"], "dream")
+    rid = str(uuid.uuid4())
+    veri = body.model_dump(mode="json")
+    await db.execute(
+        """INSERT INTO readings (id, user_id, kind, input_json, eta_seconds)
+           VALUES ($1,$2,'dream',$3,90)""",
+        rid, user["id"], veri)
+    state["queue"].enqueue("app.workers.tasks.run_reading", rid, "dream", veri)
+    return {"reading_id": rid, "eta_seconds": 90, "status": "queued"}
+
+
 @app.post("/v1/readings/daily", status_code=202)
 async def daily_reading(user=Depends(get_user)):
     """Günün yorumu. Ücretsiz (jeton düşmez) ve günde bir üretilir.
@@ -383,9 +457,21 @@ async def get_reading(rid: str, user=Depends(get_user)):
 
 @app.get("/v1/readings")
 async def history(limit: int = 20, user=Depends(get_user)):
+    """Geçmiş fallar — arşiv ekranını besliyor.
+
+    GÜNLÜK YORUM HARİÇ. Günlük her gün otomatik üretiliyor; listeye
+    katılırsa bir ay sonra arşivde 30 günlük kayıt ve aralarında kaybolmuş
+    3-5 ritüel oluyor. Kullanıcının geri dönmek istediği şey jeton ödeyip
+    ürettiği fal; günlük zaten ana ekranda "bugün" kartında ve tanımı gereği
+    ertesi gün bayat.
+
+    Yalnızca 'done': üretimi yarıda kalmış veya kriz nedeniyle durdurulmuş
+    kayıtlar arşivde yer almamalı.
+    """
     rows = await state["db"].fetch(
         """SELECT id, kind, status, output_json->>'ozet' AS ozet, created_at
-           FROM readings WHERE user_id=$1 AND status='done'
+           FROM readings
+           WHERE user_id=$1 AND status='done' AND kind <> 'daily'
            ORDER BY created_at DESC LIMIT $2""", user["id"], min(limit, 50))
     return [dict(r) for r in rows]
 
@@ -515,10 +601,16 @@ async def me(user=Depends(get_user)):
         }
     birth = await db.fetchval(
         "SELECT 1 FROM birth_profiles WHERE user_id=$1 AND is_primary", user["id"])
+    loc = locales.resolve(user["locale"])
     return {
         "first_name": user["first_name"],
         "tone": user["tone"],
-        "locale": user["locale"],
+        "locale": loc.code,
+        "rtl": loc.rtl,
+        "supported_locales": [
+            {"code": l.code, "name": l.name_native, "rtl": l.rtl}
+            for l in locales.enabled_locales()
+        ],
         "has_birth_data": bool(birth),
         "coins": int(bal),
         "daily_spend_left": max(0, DAILY_SPEND_CAP - int(spent)),

@@ -22,13 +22,18 @@ import { Screen } from '@/components/Screen';
 import { api, ApiError } from '@/lib/api';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
+// `key` sunucuya `focus` olarak gidiyor ve orada Literal ile doğrulanıyor:
+// SABİT kalmak zorunda. Çeviri çıkarımı bunları da t() ile sarmıştı;
+// Türkçe katalog değerleri anahtarlarla aynı olduğu için hata görünmüyordu,
+// ikinci dilde her doğum haritası isteği 422 dönecekti.
 const ODAKLAR = [
-  { key: 'genel', title: 'Bütün harita', note: 'Karakter, duygu, ilişki, iş — hepsi' },
-  { key: 'ask', title: 'Aşk ve ilişkiler', note: 'Venüs, 5. ve 7. ev' },
-  { key: 'para', title: 'Para ve güvence', note: '2. ve 8. ev, Jüpiter' },
-  { key: 'kariyer', title: 'İş ve yön', note: 'MC, 6. ve 10. ev, Satürn' },
-  { key: 'kendim', title: 'Kendim', note: 'Yükselen, Ay, Chiron' },
+  { key: 'genel', title: 'natal.butunHarita', note: 'natal.butunHaritaNot' },
+  { key: 'ask', title: 'natal.ask', note: 'natal.askNot' },
+  { key: 'para', title: 'natal.para', note: 'natal.paraNot' },
+  { key: 'kariyer', title: 'natal.kariyer', note: 'natal.kariyerNot' },
+  { key: 'kendim', title: 'natal.kendim', note: 'natal.kendimNot' },
 ] as const;
 
 export default function Natal() {
@@ -57,12 +62,9 @@ export default function Natal() {
 
   return (
     <Screen scroll>
-      <Eyebrow style={styles.eyebrow}>doğum haritası</Eyebrow>
-      <Text style={styles.title}>Neye bakalım?</Text>
-      <Text style={styles.lead}>
-        Haritan doğum anındaki gerçek gökyüzünden hesaplandı. Seçtiğin eksen,
-        yorumun hangi gezegen ve evlere ağırlık vereceğini belirler.
-      </Text>
+      <Eyebrow style={styles.eyebrow}>{t('natal.eyebrow')}</Eyebrow>
+      <Text style={styles.title}>{t('natal.baslik')}</Text>
+      <Text style={styles.lead}>{t('natal.aciklama')}</Text>
 
       <View style={styles.list}>
         {ODAKLAR.map((o, i) => {
@@ -78,9 +80,9 @@ export default function Natal() {
               >
                 <View style={styles.rowText}>
                   <Text style={[styles.rowTitle, on && { color: color.porselen }]}>
-                    {o.title}
+                    {t(o.title)}
                   </Text>
-                  <Text style={styles.rowNote}>{o.note}</Text>
+                  <Text style={styles.rowNote}>{t(o.note)}</Text>
                 </View>
                 <View style={[styles.dot, on && styles.dotOn]} />
               </Pressable>
@@ -93,7 +95,7 @@ export default function Natal() {
 
       <View style={styles.spacer} />
       <Button
-        label={abone ? 'Haritamı yorumla' : `Haritamı yorumla · ${fiyat} jeton`}
+        label={abone ? t('natal.yorumla') : t('natal.yorumlaJeton', { n: fiyat })}
         loading={busy}
         disabled={yetersiz}
         onPress={submit}

@@ -16,11 +16,13 @@ import { color, space, type } from '@/lib/theme';
  */
 import citiesData from '@/data/cities.json';
 import { Eyebrow } from '@/components/Eyebrow';
+import { t } from '@/lib/i18n';
 
 type City = { name: string; lat: number; lon: number };
 const CITIES = citiesData as City[];
 
 // İlk açılışta gösterilen kısayollar — nüfusa göre, arama yapmadan seçilebilsin.
+// i18n-ignore: bunlar çeviri metni değil, data/cities.json'a arama anahtarı
 const POPULER = ['İstanbul', 'Ankara', 'İzmir', 'Bursa', 'Antalya', 'Adana'];
 const ONE_CIKANLAR = POPULER.map((n) => CITIES.find((c) => c.name === n)!).filter(Boolean);
 
@@ -44,9 +46,9 @@ export default function Place() {
 
   return (
     <Screen>
-      <Eyebrow style={styles.eyebrow}>2 / 3 · doğum verisi</Eyebrow>
-      <Text style={styles.q}>Nerede doğdun?</Text>
-      <Text style={styles.sub}>Yükselen burcun doğduğun yerin enlemine göre değişiyor.</Text>
+      <Eyebrow style={styles.eyebrow}>{t('ob.yer.eyebrow')}</Eyebrow>
+      <Text style={styles.q}>{t('ob.yer.soru')}</Text>
+      <Text style={styles.sub}>{t('ob.yer.aciklama')}</Text>
 
       <TextInput
         value={picked ? picked.name : q}
@@ -54,7 +56,7 @@ export default function Place() {
           setPicked(null);
           setQ(t);
         }}
-        placeholder="şehir ara"
+        placeholder={t('ob.yer.ara')}
         placeholderTextColor={color.kulKoyu}
         autoFocus
         style={styles.input}
@@ -75,14 +77,14 @@ export default function Place() {
             </Pressable>
           )}
           ListEmptyComponent={
-            <Text style={styles.empty}>Bu isimde şehir yok. Yazımı kontrol et.</Text>
+            <Text style={styles.empty}>{t('ob.yer.bulunamadi')}</Text>
           }
         />
       )}
 
       <View style={styles.spacer} />
       <Button
-        label="Haritamı çiz"
+        label={t('ob.yer.devam')}
         disabled={!picked}
         onPress={() => {
           set({ placeName: picked!.name, lat: picked!.lat, lon: picked!.lon, tzName: 'Europe/Istanbul' });

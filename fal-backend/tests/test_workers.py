@@ -43,7 +43,7 @@ async def _transit(db, uid, code="saturn_square_venus", gun=1, severity=0.9):
 
 @pytest.fixture
 def push_yakala(monkeypatch):
-    """Gerçek gönderim yerine kayıt tut — OneSignal çağrısı yapılmasın."""
+    """Gerçek gönderim yerine kayıt tut — Expo Push çağrısı yapılmasın."""
     gonderilen: list[dict] = []
 
     async def sahte(token, title, body, data):
@@ -133,6 +133,58 @@ async def test_transit_kodu_cozuluyor():
     assert tasks._code_coz("saturn_square_venus") == ("saturn", "venus")
     assert tasks._code_coz("jupiter_conjunction_sun") == ("jupiter", "sun")
     assert tasks._code_coz("bozuk") == ("bozuk", "")
+
+
+async def test_expo_push_ticket_payload(monkeypatch):
+    async def sahte_post(url, payload):
+        assert url == tasks.EXPO_PUSH_URL
+        assert payload["to"] == "ExponentPushToken[test]"
+        assert payload["data"]["deeplink"] == "daily"
+        return {"data": {"status": "ok", "id": "ticket-1"}}
+
+    monkeypatch.setattr(tasks, "_expo_post", sahte_post)
+    ticket = await tasks._send_push(
+        "ExponentPushToken[test]", "Başlık", "Gövde", {"deeplink": "daily"})
+    assert ticket == "ticket-1"
+
+
+async def test_device_not_registered_tokeni_kapatiyor(db, monkeypatch):
+    uid = await _kullanici(db)
+    await db.execute(
+        """INSERT INTO push_log (user_id, title, body, data, created_at)
+           VALUES ($1,'x','y',$2, now() - interval '20 minutes')""",
+        uid, {"expo_ticket_id": "ticket-dead", "expo_token": "tok-1",
+              "gonderildi": True})
+
+    async def sahte_post(url, payload):
+        assert url == tasks.EXPO_RECEIPTS_URL
+        assert payload == {"ids": ["ticket-dead"]}
+        return {"data": {"ticket-dead": {
+            "status": "error", "details": {"error": "DeviceNotRegistered"}}}}
+
+    monkeypatch.setattr(tasks, "_expo_post", sahte_post)
+    monkeypatch.setattr(tasks, "connect", lambda: _ayni(db))
+    assert await tasks._check_push_receipts() == 1
+    user = await db.fetchrow("SELECT push_token, push_optin FROM users WHERE id=$1", uid)
+    assert user["push_token"] is None
+    assert user["push_optin"] is False
+    kayit = await db.fetchval("SELECT data FROM push_log WHERE user_id=$1", uid)
+    assert kayit["expo_receipt_error"] == "DeviceNotRegistered"
+    assert "expo_token" not in kayit
+
+
+async def test_receipt_penceresi_gecen_token_logdan_siliniyor(db, monkeypatch):
+    uid = await _kullanici(db)
+    await db.execute(
+        """INSERT INTO push_log (user_id, title, body, data, created_at)
+           VALUES ($1,'x','y',$2, now() - interval '24 hours')""",
+        uid, {"expo_ticket_id": "ticket-old", "expo_token": "tok-1",
+              "gonderildi": True})
+    monkeypatch.setattr(tasks, "connect", lambda: _ayni(db))
+    assert await tasks._check_push_receipts() == 0
+    kayit = await db.fetchval("SELECT data FROM push_log WHERE user_id=$1", uid)
+    assert kayit["expo_receipt_status"] == "expired"
+    assert "expo_token" not in kayit
 
 
 # ------------------------------------------------------------------ winback
