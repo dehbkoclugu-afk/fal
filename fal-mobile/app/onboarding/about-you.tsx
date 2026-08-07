@@ -6,6 +6,7 @@ import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
+import { Eyebrow } from '@/components/Eyebrow';
 
 const STATUSES = ['ilişkim yok', 'ilişkim var', 'evli', 'karışık'];
 const FOCUS = ['aşk', 'para', 'kariyer', 'aile', 'kendim'];
@@ -18,17 +19,17 @@ export default function AboutYou() {
 
   return (
     <Screen scroll>
-      <Text style={styles.eyebrow}>Seni tanıyorum</Text>
+      <Eyebrow style={styles.eyebrow}>Seni tanıyorum</Eyebrow>
       <Text style={styles.q}>Şu an nerede duruyorsun?</Text>
 
-      <Text style={styles.label}>İlişki durumu</Text>
+      <Eyebrow style={styles.label}>İlişki durumu</Eyebrow>
       <View style={styles.chips}>
         {STATUSES.map((s) => (
           <Chip key={s} label={s} on={status === s} onPress={() => setStatus(s)} />
         ))}
       </View>
 
-      <Text style={styles.label}>En çok neyi merak ediyorsun?</Text>
+      <Eyebrow style={styles.label}>En çok neyi merak ediyorsun?</Eyebrow>
       <View style={styles.chips}>
         {FOCUS.map((f) => (
           <Chip key={f} label={f} on={focus === f} onPress={() => setFocus(f)} />

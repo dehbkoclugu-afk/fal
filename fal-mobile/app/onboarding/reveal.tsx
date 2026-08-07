@@ -21,6 +21,7 @@ import { TelveRing } from '@/components/TelveRing';
 import { api, ApiError, type Teaser } from '@/lib/api';
 import { useDraft } from '@/lib/store';
 import { color, space, type } from '@/lib/theme';
+import { Eyebrow } from '@/components/Eyebrow';
 
 export default function Reveal() {
   const router = useRouter();
@@ -74,7 +75,7 @@ export default function Reveal() {
         <TelveRing size={220} value={progress} mode="ritual" breathing={!teaser} />
         <View style={styles.ringCenter} pointerEvents="none">
           {teaser ? (
-            <Text style={styles.phase}>{teaser.ay_fazi}</Text>
+            <Eyebrow style={styles.phase}>{teaser.ay_fazi}</Eyebrow>
           ) : (
             <Text style={styles.calc}>haritan{'\n'}çiziliyor</Text>
           )}
@@ -95,7 +96,7 @@ export default function Reveal() {
                 entering={FadeInDown.delay(i * 320).duration(520)}
                 style={styles.row}
               >
-                <Text style={styles.rowKey}>{r.key}</Text>
+                <Eyebrow style={styles.rowKey}>{r.key}</Eyebrow>
                 <Text style={styles.rowValue}>{r.value}</Text>
                 <Text style={styles.rowNote}>{r.note}</Text>
               </Animated.View>

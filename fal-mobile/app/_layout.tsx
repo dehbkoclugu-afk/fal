@@ -12,6 +12,8 @@ import {
   Newsreader_500Medium,
 } from '@expo-google-fonts/newsreader';
 import { Karla_400Regular, Karla_500Medium, Karla_700Bold } from '@expo-google-fonts/karla';
+
+import { hydrateDraft, useDraft } from '@/lib/store';
 import {
   JetBrainsMono_400Regular,
   JetBrainsMono_500Medium,
@@ -37,11 +39,19 @@ export default function RootLayout() {
     JetBrainsMono_500Medium,
   });
 
+  // Kalıcı taslağı depodan oku. Splash yazı tipleriyle birlikte bunu da
+  // bekliyor: okunmadan yönlendirme yapılırsa mevcut kullanıcı bir kare
+  // boyunca onboarding'e düşer.
   useEffect(() => {
-    if (ready) SplashScreen.hideAsync();
-  }, [ready]);
+    hydrateDraft();
+  }, []);
+  const hydrated = useDraft((s) => s.hydrated);
 
-  if (!ready) return null;
+  useEffect(() => {
+    if (ready && hydrated) SplashScreen.hideAsync();
+  }, [ready, hydrated]);
+
+  if (!ready || !hydrated) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: color.telve }}>

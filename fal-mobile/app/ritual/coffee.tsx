@@ -21,7 +21,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
 import { api, ApiError } from '@/lib/api';
+import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
+import { Eyebrow } from '@/components/Eyebrow';
 
 const STEPS = [
   { key: 'inside', title: 'Fincanın içi', hint: 'Fincanı ters çevirip beklettikten sonra içini yukarıdan çek. Sapı yukarı bakacak şekilde tut.' },
@@ -33,6 +35,7 @@ export default function Coffee() {
   const { width } = useWindowDimensions();
   const [perm, requestPerm] = useCameraPermissions();
   const cam = useRef<CameraView>(null);
+  const rememberCupPhoto = useDraft((s) => s.rememberCupPhoto);
 
   const [shot, setShot] = useState<string | null>(null);
   const [question, setQuestion] = useState('');
@@ -78,6 +81,9 @@ export default function Coffee() {
     try {
       // handle_angle = 0: kullanıcı sapı çerçevedeki 12 işaretine hizaladı
       const r = await api.coffee(shot, question.trim(), 0);
+      // Fotoğrafı cihazda tut: sunucu ham görüntüyü işledikten hemen sonra
+      // siliyor. Sonuç ekranındaki overlay'in çizileceği tek kaynak bu.
+      rememberCupPhoto(r.reading_id, shot);
       router.replace(`/reading/${r.reading_id}`);
     } catch (e) {
       const err = e as ApiError;
@@ -95,12 +101,12 @@ export default function Coffee() {
   if (shot) {
     return (
       <View style={[styles.root, { paddingTop: insets.top + space.lg, paddingHorizontal: space.lg }]}>
-        <Text style={styles.eyebrow}>Fincan hazır</Text>
+        <Eyebrow style={styles.eyebrow}>Fincan hazır</Eyebrow>
         <View style={[styles.preview, { height: guide }]}>
           <Image source={{ uri: shot }} style={StyleSheet.absoluteFill} contentFit="cover" />
         </View>
 
-        <Text style={styles.label}>Aklında bir soru var mı?</Text>
+        <Eyebrow style={styles.label}>Aklında bir soru var mı?</Eyebrow>
         <TextInput
           value={question}
           onChangeText={setQuestion}
@@ -139,12 +145,12 @@ export default function Coffee() {
           ]}
         >
           <View style={styles.handleMark} />
-          <Text style={styles.handleLabel}>sap</Text>
+          <Eyebrow style={styles.handleLabel}>sap</Eyebrow>
         </View>
       </View>
 
       <View style={[styles.top, { paddingTop: insets.top + space.md }]}>
-        <Text style={styles.stepTitle}>{STEPS[0].title}</Text>
+        <Eyebrow style={styles.stepTitle}>{STEPS[0].title}</Eyebrow>
         <Text style={styles.stepHint}>{STEPS[0].hint}</Text>
       </View>
 

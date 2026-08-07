@@ -6,6 +6,7 @@ import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { useDraft } from '@/lib/store';
 import { color, space, type } from '@/lib/theme';
+import { Eyebrow } from '@/components/Eyebrow';
 
 /** İlk kanca: isim. Kişiselleşme burada başlıyor, kayıt ekranı yok. */
 export default function Name() {
@@ -15,7 +16,7 @@ export default function Name() {
 
   return (
     <Screen>
-      <Text style={styles.eyebrow}>Başlarken</Text>
+      <Eyebrow style={styles.eyebrow}>Başlarken</Eyebrow>
       <Text style={styles.q}>Sana ne diyeyim?</Text>
       <Text style={styles.sub}>
         Yorumlarda adını kullanacağım. Soyadına, e-postaya, şifreye gerek yok.

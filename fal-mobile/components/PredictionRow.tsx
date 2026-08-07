@@ -10,6 +10,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
 import { color, hitStyle, space, type, type Verdict } from '@/lib/theme';
+import { Eyebrow } from '@/components/Eyebrow';
 
 type Props = {
   claim: string;
@@ -42,7 +43,7 @@ export function PredictionRow({ claim, topic, dueAt, verdict, onVerdict }: Props
     <View style={styles.row}>
       <View style={styles.meta}>
         <Text style={styles.date}>{shortDate(dueAt)}</Text>
-        <Text style={styles.topic}>{TOPIC_TR[topic] ?? topic}</Text>
+        <Eyebrow style={styles.topic}>{TOPIC_TR[topic] ?? topic}</Eyebrow>
         <View style={styles.spacer} />
         <Text style={[styles.state, { color: s.color }]}>{s.label}</Text>
       </View>

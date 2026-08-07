@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
+import * as purchases from '@/lib/purchases';
 import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
+import { Eyebrow } from '@/components/Eyebrow';
 
 /**
  * Onboarding paywall'ı.
@@ -17,10 +20,20 @@ import { color, radius, space, type } from '@/lib/theme';
  *
  * Fiyat ve süre bilgisi açıkça yazılı: hem mağaza kuralı hem iade önlemi.
  */
-const PLANS = [
-  { key: 'yearly', title: 'Yıllık', price: '999₺', per: 'ayda ~83₺', badge: '%58 tasarruf' },
-  { key: 'monthly', title: 'Aylık', price: '199₺', per: 'ayda', badge: null },
-] as const;
+// Yedek gösterim: mağaza fiyatları yüklenene kadar (veya Expo Go'da native
+// modül yokken) ekran boş kalmasın. Gerçek fiyat her zaman mağazadan gelir —
+// koda yazılmış fiyat mağaza kuralına aykırı ve TR'de zamla birlikte yanlış olur.
+const YEDEK_PLANLAR = [
+  { key: 'yearly', title: 'Yıllık', price: '—', per: 'yılda', badge: 'en avantajlı' },
+  { key: 'monthly', title: 'Aylık', price: '—', per: 'ayda', badge: null },
+];
+
+function planBasligi(period: string | null): { title: string; per: string } {
+  if (period === 'P1Y') return { title: 'Yıllık', per: 'yılda' };
+  if (period === 'P1M') return { title: 'Aylık', per: 'ayda' };
+  if (period === 'P1W') return { title: 'Haftalık', per: 'haftada' };
+  return { title: 'Abonelik', per: '' };
+}
 
 const INCLUDED = [
   'Sınırsız kahve falı ve tarot',
@@ -31,18 +44,68 @@ const INCLUDED = [
 
 export default function Paywall() {
   const router = useRouter();
+  const qc = useQueryClient();
   const finish = useDraft((s) => s.finish);
+  const [plans, setPlans] = useState(YEDEK_PLANLAR);
   const [plan, setPlan] = useState<string>('yearly');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const go = () => {
-    // TODO: react-native-purchases → Purchases.purchasePackage(...)
-    finish();
-    router.replace('/(tabs)');
+  useEffect(() => {
+    let iptal = false;
+    purchases.getPlans().then((p) => {
+      if (iptal || p.length === 0) return;
+      const list = p.map((x) => {
+        const { title, per } = planBasligi(x.period);
+        return {
+          key: x.identifier,
+          title,
+          per,
+          price: x.priceString,
+          badge: x.period === 'P1Y' ? 'en avantajlı' : null,
+        };
+      });
+      setPlans(list);
+      setPlan(list[0].key);
+    });
+    return () => {
+      iptal = true;
+    };
+  }, []);
+
+  const go = async () => {
+    setBusy(true);
+    setError(null);
+    const res = await purchases.purchase(plan);
+    setBusy(false);
+    if (res.ok) {
+      // Hak sunucuda RevenueCat webhook'uyla açılıyor; /v1/me önbelleğini
+      // düşürüp güncel tier'ı çekiyoruz.
+      qc.invalidateQueries({ queryKey: ['me'] });
+      finish();
+      router.replace('/(tabs)');
+      return;
+    }
+    if (res.cancelled) return;         // iptal hata değil, sessizce kal
+    setError(res.message);
   };
 
   const skip = () => {
     finish();
     router.replace('/(tabs)');
+  };
+
+  const restore = async () => {
+    setBusy(true);
+    const ok = await purchases.restore();
+    setBusy(false);
+    if (ok) {
+      qc.invalidateQueries({ queryKey: ['me'] });
+      finish();
+      router.replace('/(tabs)');
+    } else {
+      setError('Geri yüklenecek bir abonelik bulamadım.');
+    }
   };
 
   return (
@@ -66,7 +129,7 @@ export default function Paywall() {
       </View>
 
       <View style={styles.plans}>
-        {PLANS.map((p) => {
+        {plans.map((p) => {
           const on = plan === p.key;
           return (
             <Pressable key={p.key} onPress={() => setPlan(p.key)} style={[styles.plan, on && styles.planOn]}>
@@ -75,21 +138,29 @@ export default function Paywall() {
                 <Text style={styles.planPer}>{p.per}</Text>
               </View>
               <Text style={[styles.planPrice, on && { color: color.bakir }]}>{p.price}</Text>
-              {p.badge && <Text style={styles.badge}>{p.badge}</Text>}
+              {p.badge && <Eyebrow style={styles.badge}>{p.badge}</Eyebrow>}
             </Pressable>
           );
         })}
       </View>
 
-      <Button label="Abone ol" onPress={go} style={{ marginTop: space.lg }} />
+      <Button label="Abone ol" loading={busy} onPress={go} style={{ marginTop: space.lg }} />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <Text style={styles.terms}>
         Abonelik otomatik yenilenir. Yenilemeden en az 24 saat önce Google Play hesabından
-        iptal edebilirsin. Ücret onayladığın anda tahsil edilir.
+        iptal edebilirsin. Ücret onayladığın anda tahsil edilir. Fal içeriği eğlence
+        amaçlıdır; tıbbi, hukuki veya finansal tavsiye yerine geçmez.
       </Text>
-      <Pressable onPress={skip} style={{ marginTop: space.lg }}>
-        <Text style={styles.free}>Ücretsiz devam et</Text>
-      </Pressable>
+
+      <View style={styles.footerLinks}>
+        <Pressable onPress={skip}>
+          <Text style={styles.free}>Ücretsiz devam et</Text>
+        </Pressable>
+        <Pressable onPress={restore}>
+          <Text style={styles.free}>Satın alımı geri yükle</Text>
+        </Pressable>
+      </View>
     </Screen>
   );
 }
@@ -120,5 +191,11 @@ const styles = StyleSheet.create({
   planPrice: { ...type.dataStrong, color: color.porselen, fontSize: 18 },
   badge: { ...type.eyebrow, color: color.cini, fontSize: 9 },
   terms: { ...type.data, color: color.kulKoyu, fontSize: 10, lineHeight: 16, marginTop: space.lg },
-  free: { ...type.data, color: color.kul, textAlign: 'center' },
+  footerLinks: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: space.lg,
+  },
+  free: { ...type.data, color: color.kul },
+  error: { ...type.data, color: color.kiremit, fontSize: 12, marginTop: space.md },
 });

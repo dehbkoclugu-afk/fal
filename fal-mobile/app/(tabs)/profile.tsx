@@ -1,26 +1,76 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Screen } from '@/components/Screen';
+import { api } from '@/lib/api';
+import { resetAnonId } from '@/lib/anon';
 import { useDraft } from '@/lib/store';
 import { color, space, type } from '@/lib/theme';
+import { Eyebrow } from '@/components/Eyebrow';
+
+const GIZLILIK_URL = 'https://telve.app/gizlilik';
 
 export default function Profile() {
+  const router = useRouter();
+  const qc = useQueryClient();
   const draft = useDraft((s) => s.draft);
-  const coins = useDraft((s) => s.coins);
+  const reset = useDraft((s) => s.reset);
+  const [busy, setBusy] = useState(false);
+
+  const { data: me } = useQuery({ queryKey: ['me'], queryFn: api.me });
 
   const rows = [
-    { k: 'ad', v: draft.firstName ?? '—' },
+    { k: 'ad', v: me?.first_name ?? draft.firstName ?? '—' },
     { k: 'doğum', v: draft.birthDate ?? '—' },
     { k: 'saat', v: draft.timeKnown ? draft.birthTime ?? '—' : 'bilinmiyor' },
     { k: 'yer', v: draft.placeName ?? '—' },
-    { k: 'ton', v: draft.tone },
-    { k: 'jeton', v: String(coins) },
+    { k: 'ton', v: me?.tone ?? draft.tone },
+    { k: 'jeton', v: me?.entitlement ? 'sınırsız' : String(me?.coins ?? 0) },
+    { k: 'seri', v: `${me?.streak?.count ?? 0} gün` },
   ];
+
+  /**
+   * KVKK silme akışı. Çalışır durumda olmak zorunda — "sonra ekleriz"
+   * listesine giremez.
+   *
+   * Sunucu kaydı silinmiş işaretleyip anon_id'yi serbest bırakıyor; burada
+   * cihazdaki kimliği ve yerel taslağı da temizliyoruz, yoksa aynı cihaz
+   * silinmiş kullanıcının verisini yerelden göstermeye devam eder.
+   */
+  const sil = () => {
+    Alert.alert(
+      'Verilerin silinsin mi?',
+      'Doğum bilgilerin, fal geçmişin ve tahmin defterin kalıcı olarak silinir. ' +
+        'Bu işlem geri alınamaz.',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: async () => {
+            setBusy(true);
+            try {
+              await api.deleteAccount();
+              await resetAnonId();
+              reset();
+              qc.clear();
+              router.replace('/onboarding/name');
+            } catch {
+              Alert.alert('Silinemedi', 'Bağlantını kontrol edip tekrar dener misin?');
+            } finally {
+              setBusy(false);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <Screen scroll>
-      <Text style={styles.eyebrow}>profil</Text>
+      <Eyebrow style={styles.eyebrow}>profil</Eyebrow>
 
       <View style={styles.table}>
         {rows.map((r) => (
@@ -42,8 +92,14 @@ export default function Profile() {
           Uygulamadaki tüm yorumlar eğlence amaçlıdır. Tıbbi, hukuki veya finansal
           tavsiye yerine geçmez.
         </Text>
-        <Pressable><Text style={styles.legalLink}>Verilerimi sil</Text></Pressable>
-        <Pressable><Text style={styles.legalLink}>Gizlilik politikası</Text></Pressable>
+        <Pressable onPress={sil} disabled={busy}>
+          <Text style={[styles.legalLink, { color: color.kiremit }]}>
+            {busy ? 'siliniyor…' : 'Verilerimi sil'}
+          </Text>
+        </Pressable>
+        <Pressable onPress={() => Linking.openURL(GIZLILIK_URL)}>
+          <Text style={styles.legalLink}>Gizlilik politikası</Text>
+        </Pressable>
       </View>
     </Screen>
   );

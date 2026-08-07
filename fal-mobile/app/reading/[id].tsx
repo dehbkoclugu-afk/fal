@@ -17,9 +17,12 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/Button';
 import { CupOverlay } from '@/components/CupOverlay';
 import { Screen } from '@/components/Screen';
+import { ShareCard } from '@/components/ShareCard';
 import { TelveRing } from '@/components/TelveRing';
 import { api } from '@/lib/api';
+import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
+import { Eyebrow } from '@/components/Eyebrow';
 
 const WAITING_LINES = [
   'fincan çevriliyor',
@@ -32,6 +35,7 @@ export default function ReadingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [marker, setMarker] = useState<string | null>(null);
+  const cupPhotos = useDraft((s) => s.cupPhotos);
 
   const { data, isError } = useQuery({
     queryKey: ['reading', id],
@@ -98,7 +102,7 @@ export default function ReadingScreen() {
   if (data.status === 'failed') {
     return (
       <Screen>
-        <Text style={styles.eyebrow}>Olmadı</Text>
+        <Eyebrow style={styles.eyebrow}>Olmadı</Eyebrow>
         <Text style={styles.failTitle}>Fincanı okuyamadım</Text>
         <Text style={styles.failBody}>
           Fotoğrafı yukarıdan, fincanın içi net görünecek şekilde tekrar çekelim.
@@ -113,21 +117,31 @@ export default function ReadingScreen() {
   // --- 3. Sonuç
   const out = data.output_json!;
   const markers = data.extra_json?.overlay ?? [];
-  const cupPhoto = (data.extra_json as any)?.photo_uri as string | undefined;
+
+  // Fotoğraf cihazda kalıyor: sunucu ham görüntüyü işledikten hemen sonra
+  // siliyor (KVKK kararı, bkz. fal-backend README bölüm 8). Overlay'i çizmek
+  // için gereken tek şey yerel dosya yolu — sunucuya imzalı URL yazdırmaya
+  // gerek yok, hem maliyet hem hukuki risk düşüyor.
+  const cupPhoto = cupPhotos[id!];
+
+  // Ölçek: bbox'lar cup_vision'ın çalıştığı boyutta (uzun kenar 1280'e
+  // indirilmiş). Sabit 1280×1280 varsaymak kare olmayan her fotoğrafta
+  // işaretleri kaydırır — gerçek boyut quality içinde geliyor.
+  const q = data.extra_json?.cup?.quality;
 
   return (
     <Screen scroll>
-      <Text style={styles.eyebrow}>
+      <Eyebrow style={styles.eyebrow}>
         {data.kind === 'coffee' ? 'kahve falı' : data.kind === 'tarot' ? 'tarot' : 'yorum'}
-      </Text>
+      </Eyebrow>
 
-      {data.kind === 'coffee' && cupPhoto && markers.length > 0 && (
+      {data.kind === 'coffee' && cupPhoto && markers.length > 0 && q && (
         <View style={{ marginTop: space.md }}>
           <CupOverlay
             photoUri={cupPhoto}
             markers={markers}
-            srcWidth={1280}
-            srcHeight={1280}
+            srcWidth={q.width}
+            srcHeight={q.height}
             selectedId={marker}
             onSelect={setMarker}
           />
@@ -138,14 +152,14 @@ export default function ReadingScreen() {
 
       {out.bolumler?.map((b, i) => (
         <View key={i} style={styles.section}>
-          <Text style={styles.sectionTitle}>{b.baslik}</Text>
+          <Eyebrow style={styles.sectionTitle}>{b.baslik}</Eyebrow>
           <Text style={styles.sectionBody}>{b.metin}</Text>
         </View>
       ))}
 
       {!!out.tavsiye && (
         <View style={styles.adviceBox}>
-          <Text style={styles.adviceLabel}>ne yapmalı</Text>
+          <Eyebrow style={styles.adviceLabel}>ne yapmalı</Eyebrow>
           <Text style={styles.advice}>{out.tavsiye}</Text>
         </View>
       )}
@@ -154,7 +168,7 @@ export default function ReadingScreen() {
           iddiaları görüyor. Ürünün ana farkının kullanıcıya göründüğü yer. */}
       {out.tahminler?.length > 0 && (
         <View style={styles.predBox}>
-          <Text style={styles.predLabel}>deftere yazıldı</Text>
+          <Eyebrow style={styles.predLabel}>deftere yazıldı</Eyebrow>
           {out.tahminler.map((t, i) => (
             <View key={i} style={styles.predRow}>
               <Text style={styles.predWindow}>{t.pencere_gun}g</Text>
@@ -166,6 +180,15 @@ export default function ReadingScreen() {
           </Text>
         </View>
       )}
+
+      {/* Paylaşım: viral döngünün tek mekanik parçası. Watermark'lı, Story
+          ölçüsünde bir görsel üretiliyor — ekran görüntüsü almak yerine. */}
+      <ShareCard
+        line={out.paylasim_cumlesi || out.ozet}
+        symbol={out.sembol}
+        kind={data.kind}
+        photoUri={data.kind === 'coffee' ? cupPhoto : undefined}
+      />
 
       <Button
         label="Kader Günlüğü'ne git"

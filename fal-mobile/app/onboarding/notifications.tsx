@@ -1,11 +1,22 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import * as Notifications from 'expo-notifications';
 
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
+import { api } from '@/lib/api';
 import { color, space, type } from '@/lib/theme';
+import { Eyebrow } from '@/components/Eyebrow';
+
+const AYLAR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+  'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+
+function tarihTR(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getDate()} ${AYLAR[d.getMonth()]}`;
+}
 
 /**
  * Bildirim izni.
@@ -23,13 +34,26 @@ export default function NotificationsScreen() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
-  // TODO: /v1/me/next-transit ucundan çek. Şimdilik yaklaşık gösterim.
-  const next = { date: '14 Ağustos', what: 'Merkür iletişim evine giriyor' };
+  // Gerçek transit: bu ekranın ikna gücü verinin gerçek olmasından geliyor.
+  const { data } = useQuery({
+    queryKey: ['next-transit'],
+    queryFn: api.nextTransit,
+    retry: 1,
+  });
+  const t = data?.transit;
 
   const ask = async () => {
     setBusy(true);
     try {
-      await Notifications.requestPermissionsAsync();
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status === 'granted') {
+        // Token olmadan izin tek başına işe yaramaz; backend kime
+        // göndereceğini bilemez.
+        const token = (await Notifications.getExpoPushTokenAsync()).data;
+        await api.registerPush(token, new Date().getHours());
+      }
+    } catch {
+      // İzin/token alınamazsa akış durmaz — onboarding'i tıkamak daha pahalı.
     } finally {
       setBusy(false);
       router.push('/onboarding/paywall');
@@ -38,15 +62,27 @@ export default function NotificationsScreen() {
 
   return (
     <Screen>
-      <Text style={styles.eyebrow}>Yaklaşan</Text>
+      <Eyebrow style={styles.eyebrow}>Yaklaşan</Eyebrow>
       <Text style={styles.q}>Haritanda bir hareket var</Text>
 
       <View style={styles.card}>
-        <Text style={styles.date}>{next.date}</Text>
-        <Text style={styles.what}>{next.what}</Text>
-        <Text style={styles.note}>
-          Bu, senin doğum haritana göre hesaplandı — genel burç yorumu değil.
-        </Text>
+        {t ? (
+          <>
+            <Eyebrow style={styles.date}>{tarihTR(t.exact_at)}</Eyebrow>
+            <Text style={styles.what}>{t.metin}</Text>
+            <Text style={styles.note}>
+              Bu, senin doğum haritana göre hesaplandı — genel burç yorumu değil.
+            </Text>
+          </>
+        ) : (
+          <>
+            <Eyebrow style={styles.date}>Yaklaşan günler</Eyebrow>
+            <Text style={styles.what}>Haritanda hareketli dönemler var</Text>
+            <Text style={styles.note}>
+              Hesaplama sürüyor; hazır olduğunda sana bildireceğim.
+            </Text>
+          </>
+        )}
       </View>
 
       <Text style={styles.body}>

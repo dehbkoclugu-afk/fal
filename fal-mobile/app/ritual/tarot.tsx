@@ -15,6 +15,7 @@ import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { api, ApiError } from '@/lib/api';
 import { color, radius, space, type } from '@/lib/theme';
+import { Eyebrow } from '@/components/Eyebrow';
 
 const SPREADS = [
   { key: 'single', title: 'Günün kartı', count: 1, coins: 1 },
@@ -56,7 +57,7 @@ export default function Tarot() {
 
   return (
     <Screen scroll>
-      <Text style={styles.eyebrow}>tarot</Text>
+      <Eyebrow style={styles.eyebrow}>tarot</Eyebrow>
 
       <View style={styles.spreads}>
         {SPREADS.map((s) => {

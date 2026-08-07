@@ -22,44 +22,72 @@ import { TelveRing } from '@/components/TelveRing';
 import { api } from '@/lib/api';
 import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
+import { Eyebrow } from '@/components/Eyebrow';
 
+// Fiyatlar sunucudan (/v1/me → prices) geliyor; buradakiler sadece sunucu
+// yanıtı gelmeden önceki gösterim. Sabit fiyat yazmak, fiyat değiştiğinde
+// kullanıcıya yanlış rakam gösterip 402 ile karşılaştırır.
 const RITUALS = [
-  { key: 'coffee', title: 'Kahve falı', note: 'fincanını çek', coins: 3, route: '/ritual/coffee' },
-  { key: 'tarot', title: 'Tarot', note: 'kartını seç', coins: 1, route: '/ritual/tarot' },
-  { key: 'natal', title: 'Doğum haritası', note: 'karakter çözümü', coins: 5, route: '/ritual/natal' },
-  { key: 'dream', title: 'Rüya yorumu', note: 'yakında', coins: 0, route: null },
+  { key: 'coffee', title: 'Kahve falı', note: 'fincanını çek', route: '/ritual/coffee' },
+  { key: 'tarot', title: 'Tarot', note: 'kartını seç', route: '/ritual/tarot' },
+  { key: 'natal', title: 'Doğum haritası', note: 'karakter çözümü', route: '/ritual/natal' },
+  { key: 'dream', title: 'Rüya yorumu', note: 'yakında', route: null },
 ] as const;
+
+const VARSAYILAN_FIYAT: Record<string, number> = { coffee: 3, tarot: 1, natal: 5 };
 
 export default function Home() {
   const router = useRouter();
   const qc = useQueryClient();
-  const name = useDraft((s) => s.draft.firstName);
-  const coins = useDraft((s) => s.coins);
+  const draftName = useDraft((s) => s.draft.firstName);
 
+  const { data: me } = useQuery({ queryKey: ['me'], queryFn: api.me });
   const { data: acc } = useQuery({ queryKey: ['accuracy'], queryFn: api.accuracy });
-  const { data: history } = useQuery({ queryKey: ['history'], queryFn: () => api.history(1) });
+
+  // Günün yorumu: history(1) son YAPILAN falı döndürüyor — geçen haftaki
+  // kahve falı da olabilir. "Bugün" kartı gerçekten bugüne ait olmalı,
+  // o yüzden ayrı uçtan isteniyor (ücretsiz, günde bir üretiliyor).
+  const { data: daily } = useQuery({
+    queryKey: ['daily'],
+    queryFn: api.daily,
+    enabled: !!me?.has_birth_data,
+    staleTime: 60 * 60 * 1000,
+  });
+  const { data: dailyReading } = useQuery({
+    queryKey: ['reading', daily?.reading_id],
+    queryFn: () => api.reading(daily!.reading_id),
+    enabled: !!daily?.reading_id,
+    refetchInterval: (q) => (q.state.data?.status === 'done' ? false : 5000),
+  });
 
   const verdict = useMutation({
     mutationFn: ({ id, v }: { id: string; v: 'hit' | 'partial' | 'miss' }) => api.verdict(id, v),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['accuracy'] });
+      qc.invalidateQueries({ queryKey: ['me'] });   // doğrulama jeton kazandırıyor
     },
   });
 
+  const name = me?.first_name ?? draftName;
+  const coins = me?.coins ?? 0;
+  const abone = !!me?.entitlement;
   const pending = acc?.awaiting_verdict?.[0];
-  const today = history?.[0];
+  const today =
+    dailyReading?.status === 'done'
+      ? { id: dailyReading.id, ozet: dailyReading.output_json?.ozet ?? '' }
+      : null;
 
   return (
     <Screen scroll>
       <View style={styles.header}>
         <Text style={styles.hello}>{name ? `${name}` : 'merhaba'}</Text>
-        <Text style={styles.coins}>{coins} jeton</Text>
+        <Text style={styles.coins}>{abone ? 'sınırsız' : `${coins} jeton`}</Text>
       </View>
 
       {/* 1. Bekleyen doğrulama */}
       {pending && (
         <View style={styles.verifyBox}>
-          <Text style={styles.verifyLabel}>hesabı sorulacak</Text>
+          <Eyebrow style={styles.verifyLabel}>hesabı sorulacak</Eyebrow>
           <Text style={styles.verifyClaim}>{pending.claim}</Text>
           <View style={styles.verifyActions}>
             {(['hit', 'partial', 'miss'] as const).map((v) => (
@@ -85,7 +113,7 @@ export default function Home() {
       >
         <TelveRing size={250} value={today ? 1 : 0.25} mode="ritual" breathing={!today} />
         <View style={styles.cupInner} pointerEvents="none">
-          <Text style={styles.cupLabel}>bugün</Text>
+          <Eyebrow style={styles.cupLabel}>bugün</Eyebrow>
           <Text style={styles.cupText} numberOfLines={4}>
             {today?.ozet ?? 'Günün yorumu hazırlanıyor. Birazdan burada olacak.'}
           </Text>
@@ -93,10 +121,11 @@ export default function Home() {
       </Pressable>
 
       {/* 3. Ritüeller */}
-      <Text style={styles.sectionLabel}>ritüeller</Text>
+      <Eyebrow style={styles.sectionLabel}>ritüeller</Eyebrow>
       <View style={styles.grid}>
         {RITUALS.map((r) => {
           const off = !r.route;
+          const fiyat = me?.prices?.[r.key] ?? VARSAYILAN_FIYAT[r.key];
           return (
             <Pressable
               key={r.key}
@@ -106,7 +135,11 @@ export default function Home() {
             >
               <Text style={styles.tileTitle}>{r.title}</Text>
               <Text style={styles.tileNote}>{r.note}</Text>
-              {!off && <Text style={styles.tileCoins}>{r.coins} jeton</Text>}
+              {!off && (
+                <Text style={styles.tileCoins}>
+                  {abone ? 'dahil' : `${fiyat} jeton`}
+                </Text>
+              )}
             </Pressable>
           );
         })}
@@ -117,7 +150,7 @@ export default function Home() {
         <Pressable style={styles.scoreRow} onPress={() => router.push('/(tabs)/journal')}>
           <TelveRing size={44} value={(acc.overall.score ?? 0) / 100} mode="ledger" breathing={false} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.scoreLabel}>isabet oranın</Text>
+            <Eyebrow style={styles.scoreLabel}>isabet oranın</Eyebrow>
             <Text style={styles.scoreValue}>
               %{acc.overall.score} · {acc.overall.total} tahmin
             </Text>

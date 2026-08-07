@@ -4,7 +4,13 @@
 import Constants from 'expo-constants';
 import { getAnonId } from './anon';
 
-const BASE = (Constants.expoConfig?.extra as any)?.apiUrl ?? 'http://10.0.2.2:8000';
+// Öncelik: build zamanı env → app.json extra → Android emülatör varsayılanı.
+// EXPO_PUBLIC_API_URL, dev/staging/prod'u tek app.json ile ayırmayı sağlıyor;
+// adresi app.json'a gömmek her ortam için ayrı build demek.
+const BASE =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (Constants.expoConfig?.extra as any)?.apiUrl ??
+  'http://10.0.2.2:8000';
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string) {
@@ -72,7 +78,13 @@ export type Reading = {
   status: 'queued' | 'running' | 'done' | 'failed' | 'blocked';
   block_reason?: string | null;
   output_json?: ReadingOutput | null;
-  extra_json?: { overlay?: CupMarker[]; draw?: any; transits?: any[] } | null;
+  extra_json?: {
+    overlay?: CupMarker[];
+    /** cup_vision'ın işlediği görüntünün boyutu — overlay ölçeklemesi buna dayanır. */
+    cup?: { quality?: { width: number; height: number }; coverage?: number };
+    draw?: any;
+    transits?: any[];
+  } | null;
   eta_seconds: number;
   progress?: number;
   created_at: string;
@@ -82,6 +94,29 @@ export type Accuracy = {
   overall: { total: number; hits: number; partials: number; score: number | null } | null;
   by_topic: { topic: string; total: number; hits: number }[];
   awaiting_verdict: Prediction[];
+};
+
+export type Me = {
+  first_name: string | null;
+  tone: string | null;
+  locale: string;
+  has_birth_data: boolean;
+  coins: number;
+  daily_spend_left: number;
+  prices: Record<string, number>;
+  entitlement: { tier: string; expires_at: string; will_renew: boolean } | null;
+  streak: { count: number; last_day: string | null };
+  push_optin: boolean;
+};
+
+export type NextTransit = {
+  transit: {
+    code: string;
+    exact_at: string;
+    severity: number;
+    house: number | null;
+    metin: string;
+  } | null;
 };
 
 // ---------------------------------------------------------------- uçlar
@@ -124,4 +159,36 @@ export const api = {
     }),
 
   accuracy: () => request<Accuracy>('/me/accuracy'),
+
+  me: () => request<Me>('/me'),
+
+  nextTransit: () => request<NextTransit>('/me/next-transit'),
+
+  natal: (focus = 'genel') =>
+    request<{ reading_id: string; eta_seconds: number }>('/readings/natal', {
+      method: 'POST',
+      body: JSON.stringify({ focus }),
+    }),
+
+  daily: () =>
+    request<{ reading_id: string; eta_seconds: number; cached?: boolean }>(
+      '/readings/daily',
+      { method: 'POST' },
+    ),
+
+  registerPush: (token: string, activeHour: number) =>
+    request<{ ok: true }>('/me/push-token', {
+      method: 'PUT',
+      body: JSON.stringify({
+        push_token: token,
+        push_optin: true,
+        active_hour: activeHour,
+      }),
+    }),
+
+  rewardCoins: () =>
+    request<{ ok: true; coins: number }>('/coins/reward', { method: 'POST' }),
+
+  /** KVKK silme talebi — uygulama içinden çalışır durumda olmak zorunda. */
+  deleteAccount: () => request<{ ok: true }>('/me', { method: 'DELETE' }),
 };

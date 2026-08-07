@@ -19,6 +19,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { color, radius, space, type } from '@/lib/theme';
 import type { CupMarker } from '@/lib/api';
+import { Eyebrow } from '@/components/Eyebrow';
 
 type Props = {
   photoUri: string;
@@ -109,7 +110,7 @@ export function CupOverlay({
       {/* Seçili bölgenin konum anlamı. Fal metnine değil, geleneksel şemaya dayanır. */}
       {active ? (
         <Animated.View entering={FadeIn.duration(180)} style={styles.caption}>
-          <Text style={styles.captionKey}>{REGION_TR[active.region] ?? active.region}</Text>
+          <Eyebrow style={styles.captionKey}>{REGION_TR[active.region] ?? active.region}</Eyebrow>
           <Text style={styles.captionVal}>{SIDE_TR[active.side] ?? active.side}</Text>
         </Animated.View>
       ) : (

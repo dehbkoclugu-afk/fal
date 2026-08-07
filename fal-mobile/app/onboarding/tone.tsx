@@ -6,6 +6,7 @@ import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { useDraft, type Tone } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
+import { Eyebrow } from '@/components/Eyebrow';
 
 /**
  * Ton seçimi.
@@ -28,7 +29,7 @@ export default function ToneScreen() {
 
   return (
     <Screen scroll>
-      <Text style={styles.eyebrow}>Nasıl konuşayım</Text>
+      <Eyebrow style={styles.eyebrow}>Nasıl konuşayım</Eyebrow>
       <Text style={styles.q}>Hangi ses sana yakın?</Text>
 
       <View style={{ gap: space.md, marginTop: space.xl }}>

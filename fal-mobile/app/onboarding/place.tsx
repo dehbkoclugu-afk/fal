@@ -14,40 +14,37 @@ import { color, space, type } from '@/lib/theme';
  * gömülü liste olarak yeterli — hedef pazar TR. Uluslararası pazara açılınca
  * Nominatim (ücretsiz, rate limitli) veya Photon eklenir.
  */
-const CITIES: { name: string; lat: number; lon: number }[] = [
-  { name: 'İstanbul', lat: 41.0082, lon: 28.9784 },
-  { name: 'Ankara', lat: 39.9334, lon: 32.8597 },
-  { name: 'İzmir', lat: 38.4237, lon: 27.1428 },
-  { name: 'Bursa', lat: 40.1826, lon: 29.0665 },
-  { name: 'Antalya', lat: 36.8969, lon: 30.7133 },
-  { name: 'Adana', lat: 37.0, lon: 35.3213 },
-  { name: 'Konya', lat: 37.8746, lon: 32.4932 },
-  { name: 'Gaziantep', lat: 37.0662, lon: 37.3833 },
-  { name: 'Kayseri', lat: 38.7312, lon: 35.4787 },
-  { name: 'Trabzon', lat: 41.0027, lon: 39.7168 },
-  { name: 'Diyarbakır', lat: 37.9144, lon: 40.2306 },
-  { name: 'Samsun', lat: 41.2867, lon: 36.33 },
-  { name: 'Eskişehir', lat: 39.7767, lon: 30.5206 },
-  { name: 'Erzurum', lat: 39.9, lon: 41.27 },
-  { name: 'Van', lat: 38.4891, lon: 43.4089 },
-  // TODO: 81 ilin tamamını data/cities.json olarak ekle
-];
+import citiesData from '@/data/cities.json';
+import { Eyebrow } from '@/components/Eyebrow';
+
+type City = { name: string; lat: number; lon: number };
+const CITIES = citiesData as City[];
+
+// İlk açılışta gösterilen kısayollar — nüfusa göre, arama yapmadan seçilebilsin.
+const POPULER = ['İstanbul', 'Ankara', 'İzmir', 'Bursa', 'Antalya', 'Adana'];
+const ONE_CIKANLAR = POPULER.map((n) => CITIES.find((c) => c.name === n)!).filter(Boolean);
 
 export default function Place() {
   const router = useRouter();
   const set = useDraft((s) => s.set);
   const [q, setQ] = useState('');
-  const [picked, setPicked] = useState<(typeof CITIES)[number] | null>(null);
+  const [picked, setPicked] = useState<City | null>(null);
 
   const results = useMemo(() => {
-    if (!q.trim()) return CITIES.slice(0, 6);
-    const n = q.toLocaleLowerCase('tr');
-    return CITIES.filter((c) => c.name.toLocaleLowerCase('tr').startsWith(n)).slice(0, 8);
+    if (!q.trim()) return ONE_CIKANLAR;
+    const n = q.trim().toLocaleLowerCase('tr');
+    // Önce baştan eşleşenler, sonra içinde geçenler: "maraş" yazan kullanıcı
+    // Kahramanmaraş'ı bulabilmeli.
+    const bas = CITIES.filter((c) => c.name.toLocaleLowerCase('tr').startsWith(n));
+    const ic = CITIES.filter(
+      (c) => !bas.includes(c) && c.name.toLocaleLowerCase('tr').includes(n),
+    );
+    return [...bas, ...ic].slice(0, 8);
   }, [q]);
 
   return (
     <Screen>
-      <Text style={styles.eyebrow}>2 / 3 · doğum verisi</Text>
+      <Eyebrow style={styles.eyebrow}>2 / 3 · doğum verisi</Eyebrow>
       <Text style={styles.q}>Nerede doğdun?</Text>
       <Text style={styles.sub}>Yükselen burcun doğduğun yerin enlemine göre değişiyor.</Text>
 
@@ -69,7 +66,7 @@ export default function Place() {
           keyExtractor={(c) => c.name}
           keyboardShouldPersistTaps="handled"
           style={{ marginTop: space.md }}
-          renderItem={({ item }) => (
+          renderItem={({ item }: { item: City }) => (
             <Pressable onPress={() => setPicked(item)} style={styles.item}>
               <Text style={styles.itemName}>{item.name}</Text>
               <Text style={styles.itemCoord}>

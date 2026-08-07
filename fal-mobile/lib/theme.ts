@@ -65,10 +65,16 @@ export const type = {
   // Defter kaydı
   data: { fontFamily: font.monoRegular, fontSize: 13, lineHeight: 20 },
   dataStrong: { fontFamily: font.monoMedium, fontSize: 13, lineHeight: 20 },
-  // Küçük büyük harf etiketler — bölüm ayırıcı olarak, süs olarak değil
+  // Küçük büyük harf etiketler — bölüm ayırıcı olarak, süs olarak değil.
+  //
+  // DİKKAT: textTransform:'uppercase' KULLANILMIYOR. Hem CSS hem JS varsayılan
+  // büyütmesi Türkçe'de yanlış: "Hilal" → "HILAL" (olması gereken "HİLAL"),
+  // "ilişki" → "ILIŞKI" (olması gereken "İLİŞKİ"). Nokta gerçek bir harf
+  // farkı, kozmetik değil — Türk kullanıcıya doğrudan yanlış görünüyor.
+  // Büyütme <Eyebrow> bileşeninde trUpper() ile, tr yerel ayarıyla yapılıyor.
   eyebrow: {
     fontFamily: font.monoRegular, fontSize: 11, lineHeight: 14,
-    letterSpacing: 1.4, textTransform: 'uppercase' as const,
+    letterSpacing: 1.4,
   },
   figure: { fontFamily: font.monoMedium, fontSize: 40, lineHeight: 44 },
 } as const;

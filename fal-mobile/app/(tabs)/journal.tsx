@@ -21,6 +21,7 @@ import { PredictionRow } from '@/components/PredictionRow';
 import { TelveRing } from '@/components/TelveRing';
 import { api } from '@/lib/api';
 import { color, space, type } from '@/lib/theme';
+import { Eyebrow } from '@/components/Eyebrow';
 
 const TOPIC_TR: Record<string, string> = {
   ask: 'aşk', para: 'para', kariyer: 'kariyer', aile: 'aile', kendim: 'kendim', genel: 'genel',
@@ -56,7 +57,7 @@ export default function Journal() {
         <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={color.bakir} />
       }
     >
-      <Text style={styles.eyebrow}>kader günlüğü</Text>
+      <Eyebrow style={styles.eyebrow}>kader günlüğü</Eyebrow>
 
       {/* İsabet paneli */}
       <View style={styles.panel}>
@@ -83,7 +84,7 @@ export default function Journal() {
       {/* Konu kırılımı — hangi alanda isabet yüksek */}
       {!!data?.by_topic?.length && (
         <>
-          <Text style={styles.sectionLabel}>konuya göre</Text>
+          <Eyebrow style={styles.sectionLabel}>konuya göre</Eyebrow>
           <View style={styles.topics}>
             {data.by_topic.map((t) => {
               const pct = t.total ? Math.round((t.hits / t.total) * 100) : 0;
@@ -105,7 +106,7 @@ export default function Journal() {
       {/* Cevap bekleyenler */}
       {!!data?.awaiting_verdict?.length && (
         <>
-          <Text style={styles.sectionLabel}>cevabını bekliyorum</Text>
+          <Eyebrow style={styles.sectionLabel}>cevabını bekliyorum</Eyebrow>
           {data.awaiting_verdict.map((p) => (
             <PredictionRow
               key={p.id}

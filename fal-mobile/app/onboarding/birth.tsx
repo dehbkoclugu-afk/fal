@@ -6,6 +6,7 @@ import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { useDraft } from '@/lib/store';
 import { color, space, type } from '@/lib/theme';
+import { Eyebrow } from '@/components/Eyebrow';
 
 /**
  * Doğum tarihi + saat.
@@ -46,14 +47,14 @@ export default function Birth() {
 
   return (
     <Screen>
-      <Text style={styles.eyebrow}>1 / 3 · doğum verisi</Text>
+      <Eyebrow style={styles.eyebrow}>1 / 3 · doğum verisi</Eyebrow>
       <Text style={styles.q}>Ne zaman doğdun?</Text>
       <Text style={styles.sub}>
         Gezegen konumlarını gerçek gökyüzü verisinden hesaplıyorum, o yüzden tarih ve
         saat gerekiyor.
       </Text>
 
-      <Text style={styles.label}>Tarih</Text>
+      <Eyebrow style={styles.label}>Tarih</Eyebrow>
       <TextInput
         value={date}
         onChangeText={maskDate}
@@ -64,7 +65,7 @@ export default function Birth() {
         style={styles.input}
       />
 
-      <Text style={styles.label}>Saat</Text>
+      <Eyebrow style={styles.label}>Saat</Eyebrow>
       <TextInput
         value={unknown ? '' : time}
         onChangeText={maskTime}
