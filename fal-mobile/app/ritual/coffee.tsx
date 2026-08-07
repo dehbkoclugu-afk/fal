@@ -53,10 +53,7 @@ export default function Coffee() {
     return (
       <View style={[styles.root, styles.center, { padding: space.lg }]}>
         <Text style={styles.permTitle}>{t('kahve.izinBaslik')}</Text>
-        <Text style={styles.permBody}>
-          Fincanı okuyabilmem için fotoğrafını çekmem gerek. Fotoğraf 24 saat içinde
-          siliniyor, kalıcı olarak saklanmıyor.
-        </Text>
+        <Text style={styles.permBody}>{t('kahve.izinAciklama')}</Text>
         <Button label={t('kahve.izinVer')} onPress={requestPerm} style={{ marginTop: space.xl }} />
         <Button label={t('ortak.vazgec')} variant="ghost" onPress={() => router.back()} style={{ marginTop: space.md }} />
       </View>

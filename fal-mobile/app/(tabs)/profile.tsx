@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { Screen } from '@/components/Screen';
 import { api } from '@/lib/api';
@@ -9,7 +10,7 @@ import { resetAnonId } from '@/lib/anon';
 import { useDraft } from '@/lib/store';
 import { color, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
-import { t } from '@/lib/i18n';
+import { DILLER, aktifDil, dilSec, t, uygulaYon } from '@/lib/i18n';
 
 const GIZLILIK_URL = 'https://telve.app/gizlilik';
 
@@ -23,7 +24,7 @@ export default function Profile() {
   const { data: me } = useQuery({ queryKey: ['me'], queryFn: api.me });
 
   const rows = [
-    { k: 'ad', v: me?.first_name ?? draft.firstName ?? '—' },
+    { k: t('profil.ad'), v: me?.first_name ?? draft.firstName ?? '—' },
     { k: t('profil.dogum'), v: draft.birthDate ?? '—' },
     { k: t('profil.saat'), v: draft.timeKnown ? draft.birthTime ?? '—' : t('profil.bilinmiyor') },
     { k: t('profil.yer'), v: draft.placeName ?? '—' },
@@ -31,6 +32,33 @@ export default function Profile() {
     { k: t('profil.jetonSatir'), v: me?.entitlement ? t('ana.sinirsiz') : String(me?.coins ?? 0) },
     { k: t('profil.seri'), v: t('profil.seriGun', { n: me?.streak?.count ?? 0 }) },
   ];
+
+  /**
+   * Dil değişimi.
+   *
+   * Üç yere birden yazılıyor ve üçü de gerekli: cihaza (açılışta okunuyor),
+   * i18n katmanına (ekrandaki metin) ve SUNUCUYA (guardrail'in kriz
+   * kaynakları oradan seçiliyor). Sunucuya yazmayı atlamak, kullanıcının
+   * arayacağı acil yardım numarasını yanlış ülkeninki bırakır.
+   *
+   * RTL'e geçişte native'de yeniden başlatma gerekiyor — I18nManager
+   * değişikliği çizilmiş ağaca uygulanmıyor. Kullanıcıya bunu söylüyoruz,
+   * sessizce yarım dönmüş bir düzen bırakmak yerine.
+   */
+  const dilDegistir = async (kod: string) => {
+    if (kod === aktifDil().code) return;
+    const d = dilSec(kod);
+    await AsyncStorage.setItem('dil', d.code);
+    const yenidenBaslat = uygulaYon(d.rtl);
+    try {
+      await api.saveProfile({ locale: d.code });
+    } catch {
+      // Sunucuya yazılamadıysa cihazdaki seçim duruyor; bir sonraki profil
+      // kaydında tekrar denenecek (saveProfile dili her zaman gönderiyor).
+    }
+    qc.invalidateQueries({ queryKey: ['me'] });
+    if (yenidenBaslat) Alert.alert(t('profil.dil'), t('profil.dilYenidenBaslat'));
+  };
 
   /**
    * KVKK silme akışı. Çalışır durumda olmak zorunda — "sonra ekleriz"
@@ -81,6 +109,33 @@ export default function Profile() {
         ))}
       </View>
 
+      {/* Dil seçici yalnızca gerçekten seçenek varken görünüyor. Tek dilli
+          kurulumda tek satırlık bir liste göstermek, kullanıcıya işe yaramaz
+          bir ayar sunmak olurdu. */}
+      {DILLER.length > 1 && (
+        <View style={styles.diller}>
+          <Eyebrow style={styles.dilBaslik}>{t('profil.dil')}</Eyebrow>
+          <View style={styles.dilSatir}>
+            {DILLER.map((d) => {
+              const secili = d.code === aktifDil().code;
+              return (
+                <Pressable
+                  key={d.code}
+                  onPress={() => dilDegistir(d.code)}
+                  style={[styles.dilRozet, secili && styles.dilRozetOn]}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: secili }}
+                >
+                  <Text style={[styles.dilAd, secili && { color: color.bakir }]}>
+                    {d.native}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
       {/* Hesap bağlama: değer gösterildikten SONRA öneriliyor, onboarding'de değil */}
       <Pressable style={styles.link}>
         <Text style={styles.linkText}>{t('profil.googleBagla')}</Text>
@@ -88,10 +143,7 @@ export default function Profile() {
       </Pressable>
 
       <View style={styles.legal}>
-        <Text style={styles.legalText}>
-          Uygulamadaki tüm yorumlar eğlence amaçlıdır. Tıbbi, hukuki veya finansal
-          tavsiye yerine geçmez.
-        </Text>
+        <Text style={styles.legalText}>{t('profil.yasalMetin')}</Text>
         <Pressable onPress={sil} disabled={busy}>
           <Text style={[styles.legalLink, { color: color.kiremit }]}>
             {busy ? t('profil.siliniyor') : t('profil.verileriSil')}
@@ -117,6 +169,18 @@ const styles = StyleSheet.create({
   },
   k: { ...type.data, color: color.kulKoyu },
   v: { ...type.dataStrong, color: color.porselen },
+  diller: { marginTop: space.xl },
+  dilBaslik: { ...type.eyebrow, color: color.kulKoyu },
+  dilSatir: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm },
+  dilRozet: {
+    paddingVertical: space.sm,
+    paddingHorizontal: space.md,
+    borderWidth: 1,
+    borderColor: color.cizgi,
+    borderRadius: 999,
+  },
+  dilRozetOn: { borderColor: color.bakir, backgroundColor: color.cezveUst },
+  dilAd: { ...type.data, color: color.kul },
   link: { marginTop: space.xl, paddingVertical: space.md },
   linkText: { ...type.bodyStrong, color: color.bakir },
   linkNote: { ...type.data, color: color.kulKoyu, fontSize: 11, marginTop: 2 },

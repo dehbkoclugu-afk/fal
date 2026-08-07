@@ -79,12 +79,28 @@ const METIN_OZNITELIK = /\b(label|placeholder|title|accessibilityLabel|accessibi
 /**
  * JSX metin düğümü: `<Text>Defter boş</Text>`.
  *
- * İçeride ifade olabiliyor — `<Text>çıkan sembol · {symbol}</Text>` gibi.
- * Bu karışık düğümler ilk sürümde kaçtı (regex `{` görünce eşleşmiyordu),
- * o yüzden önce ifadeleri söküp kalan metne bakıyoruz.
+ * İki tuzağı var, ikisi de gerçek kaçaklar üretti:
+ *
+ * 1. İÇERİDE İFADE OLABİLİYOR — `<Text>çıkan sembol · {symbol}</Text>`.
+ *    İlk sürüm `{` görünce eşleşmiyordu; önce ifadeleri söküyoruz.
+ *
+ * 2. DÜĞÜM SATIRA SIĞMAYABİLİYOR. Profildeki yasal metin üç satıra
+ *    yayılmıştı ve satır satır bakan tarayıcı için hiçbir satır tek başına
+ *    "metin düğümü" gibi görünmüyordu. Bu yüzden bu tarama satır değil
+ *    DOSYA üzerinde çalışıyor; karakter sınıfı `\n` içeriyor.
  */
 const JSX_METIN = />([^<>]+)</g;
 const JSX_IFADE = /\{[^{}]*\}/g;
+
+/**
+ * Kod artığı ayıklayıcı.
+ *
+ * Dosya genelinde `>` ile `<` arasına bakınca, iki JSX etiketi ARASINDAKİ
+ * kod da yakalanıyor (`{pending && (` gibi). Gerçek bir metin düğümünde bu
+ * karakterler bulunmuyor; düzyazıda `(` `)` `=` `;` `&` `{` `}` geçmiyor.
+ * Kalanında bunlardan biri varsa metin değil, koddur.
+ */
+const KOD_IZI = /[{}()=;&|[\]$`"<>]/;
 
 /** İç içe süslü parantezleri (`${...}` gibi) bitene kadar söker. */
 function ifadeleriSok(metin) {
@@ -103,7 +119,11 @@ for (const dizin of ['app', 'components']) {
     let yorumda = false;
     let atla = false;
     let atlaSonraki = false;
+    // Taramanın dışında kalan satırlar (yorum ve i18n-ignore). Dosya
+    // genelindeki JSX taraması da bunlara saygı duymak zorunda.
+    const atlanan = new Set();
     satirlar.forEach((satir, i) => {
+      const disari = () => atlanan.add(i);
       // `i18n-ignore` yorumu izleyen SATIRI taramadan çıkarıyor: çeviri
       // metni olmayan ama Türkçe harf içeren diziler (şehir adları gibi
       // arama anahtarları, marka adı) için.
@@ -111,17 +131,22 @@ for (const dizin of ['app', 'components']) {
       // `i18n-ignore-blok` ise `];` / `};` görene kadar sürüyor. Blok
       // varsayılan değil: kapanışı kaçırıp yarım ekranı sessizce taramanın
       // dışında bırakıyordu.
-      if (satir.includes('i18n-ignore-blok')) { atla = true; return; }
-      if (atla) { if (satir.includes('];') || satir.includes('};')) atla = false; return; }
-      if (satir.includes('i18n-ignore')) { atlaSonraki = true; return; }
-      if (atlaSonraki) { atlaSonraki = false; return; }
+      if (satir.includes('i18n-ignore-blok')) { atla = true; disari(); return; }
+      if (atla) {
+        disari();
+        if (satir.includes('];') || satir.includes('};')) atla = false;
+        return;
+      }
+      if (satir.includes('i18n-ignore')) { atlaSonraki = true; disari(); return; }
+      if (atlaSonraki) { atlaSonraki = false; disari(); return; }
       const kirp = satir.trim();
       if (kirp.startsWith('/*')) yorumda = true;
       if (yorumda) {
+        disari();
         if (kirp.includes('*/')) yorumda = false;
         return;
       }
-      if (kirp.startsWith('//') || kirp.startsWith('*')) return;
+      if (kirp.startsWith('//') || kirp.startsWith('*')) { disari(); return; }
       const bildir = (d) =>
         kacanlar.push(`${dosya.replace(KOK + '/', '')}:${i + 1}  '${d.slice(0, 50)}'`);
 
@@ -134,18 +159,25 @@ for (const dizin of ['app', 'components']) {
       }
       // b) metin taşıyan öznitelikler — Türkçe harf şartı aranmıyor
       for (const m of satir.matchAll(METIN_OZNITELIK)) bildir(m[2]);
-      // c) JSX metin düğümleri
-      for (const m of satir.matchAll(JSX_METIN)) {
-        const ham = m[1];
-        // `=>` okunun sağ tarafı metin düğümü değil, kod.
-        if (satir.slice(0, m.index).endsWith('=')) continue;
-        const d = ifadeleriSok(ham).trim();
-        if (d.length < 3) continue;
-        if (!/[A-Za-zÇĞİÖŞÜçğıöşü]{3,}/.test(d)) continue;
-        if (d.startsWith('//') || d.startsWith('*')) continue;
-        bildir(d);
-      }
     });
+
+    // c) JSX metin düğümleri — satır değil DOSYA üzerinde, çünkü düğüm
+    //    birden fazla satıra yayılabiliyor. Taramanın dışında kalan
+    //    satırlar boşaltılıyor ki satır numaraları kaymasın.
+    const govde = satirlar
+      .map((s, i) => (atlanan.has(i) ? '' : s))
+      .join('\n');
+
+    for (const m of govde.matchAll(JSX_METIN)) {
+      // `=>` okunun sağ tarafı metin düğümü değil, kod.
+      if (govde[m.index - 1] === '=') continue;
+      const d = ifadeleriSok(m[1]).replace(/\s+/g, ' ').trim();
+      if (d.length < 3) continue;
+      if (!/[A-Za-zÇĞİÖŞÜçğıöşü]{3,}/.test(d)) continue;
+      if (KOD_IZI.test(d)) continue;
+      const satirNo = govde.slice(0, m.index).split('\n').length;
+      kacanlar.push(`${dosya.replace(KOK + '/', '')}:${satirNo}  '${d.slice(0, 50)}'`);
+    }
   }
 }
 

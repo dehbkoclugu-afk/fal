@@ -60,10 +60,7 @@ export default function Natal() {
     <Screen scroll>
       <Eyebrow style={styles.eyebrow}>{t('natal.eyebrow')}</Eyebrow>
       <Text style={styles.title}>{t('natal.baslik')}</Text>
-      <Text style={styles.lead}>
-        Haritan doğum anındaki gerçek gökyüzünden hesaplandı. Seçtiğin eksen,
-        yorumun hangi gezegen ve evlere ağırlık vereceğini belirler.
-      </Text>
+      <Text style={styles.lead}>{t('natal.aciklama')}</Text>
 
       <View style={styles.list}>
         {ODAKLAR.map((o, i) => {

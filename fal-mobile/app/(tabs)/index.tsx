@@ -163,7 +163,7 @@ export default function Home() {
           <View style={{ flex: 1 }}>
             <Eyebrow style={styles.scoreLabel}>{t('ana.isabetOranin')}</Eyebrow>
             <Text style={styles.scoreValue}>
-              %{acc.overall.score} · {acc.overall.total} tahmin
+              {t('ana.isabetOzet', { score: acc.overall.score ?? 0, total: acc.overall.total })}
             </Text>
           </View>
           <Text style={styles.scoreArrow}>{t('ana.defterOk')}</Text>
@@ -174,7 +174,7 @@ export default function Home() {
           güveni azaltıyor — bu yüzden kasıtlı olarak sessiz. */}
       {(me?.streak?.count ?? 0) > 1 && (
         <Text style={styles.streak}>
-          {me!.streak.count} gündür buradasın
+          {t('ana.seri', { n: me!.streak.count })}
           {[7, 30, 100].includes(me!.streak.count) ? t('ana.seriOdul') : ''}
         </Text>
       )}

@@ -103,10 +103,7 @@ export default function ReadingScreen() {
       <Screen>
         <Eyebrow style={styles.eyebrow}>{t('sonuc.olmadi')}</Eyebrow>
         <Text style={styles.failTitle}>{t('sonuc.okuyamadim')}</Text>
-        <Text style={styles.failBody}>
-          Fotoğrafı yukarıdan, fincanın içi net görünecek şekilde tekrar çekelim.
-          Jetonun geri yüklendi.
-        </Text>
+        <Text style={styles.failBody}>{t('sonuc.okuyamadimAciklama')}</Text>
         <View style={{ flex: 1 }} />
         <Button label={t('kahve.yenidenCek')} onPress={() => router.replace('/ritual/coffee')} />
       </Screen>

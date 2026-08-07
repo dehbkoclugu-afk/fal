@@ -54,6 +54,8 @@ export const tr = {
   // ABD'de aa/gg/yyyy olmalı.
   'ob.dogum.tarihOrnek': '14.06.1993',
   'ob.dogum.saatOrnek': '04:30',
+  'ob.dogum.neden':
+    'Gezegen konumlarını gerçek gökyüzü verisinden hesaplıyorum, o yüzden tarih ve saat gerekiyor.',
   'ob.dogum.saatNeden':
     'Doğum saati yükselen burcunu belirliyor. Bilmiyorsan da devam edebilirsin.',
 
@@ -66,6 +68,8 @@ export const tr = {
 
   // Halka ortasında iki satır olarak duruyor; satır sonu metnin parçası.
   'ob.reveal.hesaplaniyor': 'haritan\nçiziliyor',
+  'ob.reveal.saatYokUyari':
+    'Doğum saatini bilmediğin için yükselen tahmini. Sonradan profilinden ekleyebilirsin.',
   'ob.reveal.yukselen': 'Yükselen',
   'ob.reveal.yukselenNot': 'dışa dönük yüzün',
   'ob.reveal.gunes': 'Güneş',
@@ -230,7 +234,10 @@ export const tr = {
   'gunluk.cevabiniBekliyorum': 'cevabını bekliyorum',
   'gunluk.ozet': '{total} tahmin · {hits} tuttu · {partials} kısmen',
   'gunluk.defterBos': 'Defter boş',
-  'gunluk.henuzYok': 'Henüz doğrulanmış tahmin yok.',
+  'gunluk.henuzYok':
+    'Henüz değerlendirilmiş tahmin yok. İlk falından sonra burası dolmaya başlar.',
+  'gunluk.defterBosMetin':
+    'Her fal, süresi belli olan iddialar üretiyor. Süre dolunca sana soruyorum: tuttu mu? Cevapların burada birikiyor ve tutmayanlar da silinmiyor.',
   'gunluk.aciklama':
     'Yorumlar eğlence amaçlıdır. İsabet oranı senin kendi değerlendirmelerine dayanır.',
 
@@ -246,6 +253,8 @@ export const tr = {
   'profil.seriGun': '{n} gün',
   'profil.bilinmiyor': 'bilinmiyor',
   'profil.dil': 'dil',
+  'profil.dilYenidenBaslat':
+    'Yazı yönü değişti. Düzenin tam oturması için uygulamayı kapatıp açman gerekiyor.',
   'profil.googleBagla': 'Google ile hesabımı bağla',
   'profil.googleBaglaNot': 'Telefonunu değiştirdiğinde geçmişin kaybolmaz.',
   'profil.yasalMetin':

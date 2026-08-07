@@ -107,10 +107,7 @@ export default function Reveal() {
           {teaser && (
             <Animated.View entering={FadeInDown.delay(1100).duration(520)}>
               {!draft.timeKnown && (
-                <Text style={styles.warn}>
-                  Doğum saatini bilmediğin için yükselen tahmini. Sonradan profilinden
-                  ekleyebilirsin.
-                </Text>
+                <Text style={styles.warn}>{t('ob.reveal.saatYokUyari')}</Text>
               )}
               <Button
                 label={t('ortak.devam')}

@@ -50,10 +50,7 @@ export default function Birth() {
     <Screen>
       <Eyebrow style={styles.eyebrow}>{t('ob.dogum.eyebrow')}</Eyebrow>
       <Text style={styles.q}>{t('ob.dogum.soru')}</Text>
-      <Text style={styles.sub}>
-        Gezegen konumlarını gerçek gökyüzü verisinden hesaplıyorum, o yüzden tarih ve
-        saat gerekiyor.
-      </Text>
+      <Text style={styles.sub}>{t('ob.dogum.neden')}</Text>
 
       <Eyebrow style={styles.label}>{t('ob.dogum.tarih')}</Eyebrow>
       <TextInput

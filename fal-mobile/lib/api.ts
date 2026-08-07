@@ -3,7 +3,7 @@
  */
 import Constants from 'expo-constants';
 import { getAnonId } from './anon';
-import { hataMetni } from './i18n';
+import { aktifDil, hataMetni } from './i18n';
 
 // Öncelik: build zamanı env → app.json extra → Android emülatör varsayılanı.
 // EXPO_PUBLIC_API_URL, dev/staging/prod'u tek app.json ile ayırmayı sağlıyor;
@@ -141,10 +141,19 @@ export type NextTransit = {
 // ---------------------------------------------------------------- uçlar
 
 export const api = {
+  /**
+   * Dil her zaman gönderiliyor — çağıranın hatırlamasına bırakılmıyor.
+   *
+   * Sunucudaki guardrail kriz kaynaklarını (acil yardım numaraları) kayıtlı
+   * dilden okuyor. Alan boş kalırsa varsayılana, yani Türkiye'nin
+   * numaralarına düşüyor: ikinci dil açıldığı gün başka ülkedeki kullanıcı
+   * arayacağı numarayı yanlış görür. Tek bir unutulmuş alan, katmanın
+   * tamamını sessizce işlevsiz bırakıyor.
+   */
   saveProfile: (p: Record<string, unknown>) =>
     request<{ ok: true; teaser: Teaser | null }>('/profile', {
       method: 'PUT',
-      body: JSON.stringify(p),
+      body: JSON.stringify({ locale: aktifDil().code, ...p }),
     }),
 
   coffee: (photoUri: string, question: string, handleAngle: number) => {

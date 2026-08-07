@@ -76,10 +76,7 @@ export default function NotificationsScreen() {
         )}
       </View>
 
-      <Text style={styles.body}>
-        Böyle günler yaklaştığında haber vereyim mi? Günde en fazla iki bildirim
-        gönderiyorum, gece hiç göndermiyorum.
-      </Text>
+      <Text style={styles.body}>{t('ob.bildirim.aciklama')}</Text>
 
       <View style={styles.spacer} />
       <Button label={t('ob.bildirim.haberVer')} loading={busy} onPress={ask} />

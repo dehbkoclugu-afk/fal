@@ -67,9 +67,7 @@ export function CoinGate({ kind }: Props) {
   return (
     <View style={styles.kutu}>
       <Eyebrow style={styles.baslik}>{t('kapi.baslik')}</Eyebrow>
-      <Text style={styles.metin}>
-        Bu ritüel {gerekli} jeton. Şu an {mevcut} jetonun var.
-      </Text>
+      <Text style={styles.metin}>{t('kapi.metin', { gerekli, mevcut })}</Text>
 
       {reklamVar && (
         <Pressable onPress={izle} disabled={busy} style={styles.birincil}>

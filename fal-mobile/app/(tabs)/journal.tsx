@@ -94,15 +94,13 @@ export default function Journal() {
             <>
               <Text style={styles.figure}>%{score}</Text>
               <Text style={styles.figureNote}>
-                {o!.total} tahmin · {o!.hits} tuttu · {o!.partials} kısmen
+                {t('gunluk.ozet', { total: o!.total, hits: o!.hits, partials: o!.partials })}
               </Text>
             </>
           ) : (
             <>
               <Text style={styles.figureEmpty}>—</Text>
-              <Text style={styles.figureNote}>
-                Henüz değerlendirilmiş tahmin yok. İlk falından sonra burası dolmaya başlar.
-              </Text>
+              <Text style={styles.figureNote}>{t('gunluk.henuzYok')}</Text>
             </>
           )}
         </View>
@@ -150,10 +148,7 @@ export default function Journal() {
       {answered === 0 && !data?.awaiting_verdict?.length && (
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>{t('gunluk.defterBos')}</Text>
-          <Text style={styles.emptyBody}>
-            Her fal, süresi belli olan iddialar üretiyor. Süre dolunca sana soruyorum:
-            tuttu mu? Cevapların burada birikiyor ve tutmayanlar da silinmiyor.
-          </Text>
+          <Text style={styles.emptyBody}>{t('gunluk.defterBosMetin')}</Text>
         </View>
       )}
 
