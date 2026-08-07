@@ -1,0 +1,51 @@
+name: EAS Preview APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/eas-preview.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eas-preview-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fal-mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: fal-mobile/package-lock.json
+
+      - run: npm ci
+
+      - name: EAS token kontrolü
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::GitHub Actions secret EXPO_TOKEN bulunamadı."
+            exit 1
+          fi
+
+      - name: EAS projesini bağla
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx --yes eas-cli@21.6.0 init --force --non-interactive
+
+      - name: Android preview APK build başlat
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx --yes eas-cli@21.6.0 build --platform android --profile preview --non-interactive --no-wait
