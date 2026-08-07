@@ -30,22 +30,59 @@ Aşağıdaki üçü pazarlama süsü değil, mağazaya giriş koşulu.
 3. **Hafızası olan** — kullanıcının anlattığı kişiler ve olaylar uzun süreli
    hafızaya yazılır, sonraki yorumlarda referans verilir. → `memories` tablosu
 
+## Çalıştır
+
+```bash
+scripts/dev.sh          # Postgres + Redis + API + worker
+```
+
+LLM anahtarı gerekmiyor: `LLM_API_KEY` tanımlı değilse `scripts/fake_llm.py`
+devreye giriyor ve tüm akış (fal üretimi, kuyruk, vision etiketleme, tahmin
+ayıklama) para harcamadan uçtan uca çalışıyor. Gerçek modele geçmek için
+`LLM_API_KEY=... scripts/dev.sh`.
+
+Mobil:
+
+```bash
+cd fal-mobile && npm install
+EXPO_PUBLIC_API_URL=http://10.0.2.2:8000 npx expo start   # Android emülatör
+```
+
+Testler:
+
+```bash
+cd fal-backend
+python -m pytest                                    # DB'siz çalışanlar
+TEST_DATABASE_URL=postgresql://localhost/fal_test python -m pytest   # tamamı
+```
+
 ## Durum
 
 | Parça | Durum |
 |---|---|
-| Ephemeris / natal harita / transit motoru | yazıldı, **gerçek harita ile doğrulanmadı** |
-| Kahve falı vision hattı | yazıldı, sentetik testte geçti, gerçek fotoğrafla kalibre edilmedi |
-| Tarot (78 kart, deterministik) | ✓ test edildi |
-| Guardrail (kriz/yaş/sağlık) | ✓ test edildi |
-| Hibrit blok üretimi (maliyet) | yazıldı, kütüphane boş — `seed_blocks.py` çalıştırılacak |
-| Mobil: onboarding + ritüel + defter | yazıldı, cihazda çalıştırılmadı |
-| Paylaşım kartı, ödüllü reklam, RevenueCat çağrısı | eksik |
+| Ephemeris / natal harita / transit motoru | ✓ bağımsız astronomik formüllerle doğrulandı (sapma < 0,007°), TR yaz saati regresyonu dahil |
+| Kahve falı vision hattı | ✓ uçtan uca çalışıyor; eşikler **gerçek fotoğrafla kalibre edilmedi** |
+| Tarot (78 kart, deterministik) | ✓ |
+| Guardrail (kriz / yaş / sağlık) | ✓ |
+| Hibrit blok üretimi (maliyet) | ✓ yol çalışıyor; kütüphane **doldurulmadı** (`scripts/seed_blocks.py`) |
+| Tahmin doğrulama + isabet paneli | ✓ uçtan uca |
+| Mobil: onboarding → harita → ritüeller → defter | ✓ tarayıcıda gerçek backend'e karşı çalıştırıldı |
+| Paylaşım kartı / RevenueCat / KVKK silme | ✓ yazıldı, **cihazda denenmedi** |
+| Ödüllü reklam (AppLovin/AdMob) | ✗ yok |
+| Push gönderimi (OneSignal) | ✓ kod var, **anahtarla denenmedi** |
 
-**İlk iş:** `cd fal-backend && python -m app.core.astro` — kendi doğum haritanı
-hesapla ve bilinen bir kaynakla karşılaştır. Yükselen 30° kayıyorsa timezone
-zinciri bozuktur (1990'lar Türkiye DST'si buranın klasik tuzağı). Bu doğrulanmadan
-üstüne bir şey inşa etme.
+Test: 156 test geçiyor (`fal-backend/tests`).
+
+### Sırada ne var
+
+1. **Gerçek cihazda çalıştır.** Tarayıcı doğrulaması native'i garanti etmez —
+   kamera, Skia, RevenueCat ve push yalnızca cihazda denenebilir.
+2. **`scripts/seed_blocks.py`'yi çalıştır** (~302 anahtar, tek seferlik 15-40 $).
+   Kütüphane boşken ücretsiz kullanıcı günlük yorumu alamaz.
+3. **`cup_vision.py` eşiklerini kalibre et** — 100-200 gerçek fincan fotoğrafı.
+   Ayrıntı: `fal-backend/README.md` bölüm 7.
+4. **Kendi doğum haritanı doğrula:** `python -m app.core.astro`. Yükselen bilinen
+   bir kaynaktan 30° kayıyorsa timezone zinciri bozuktur.
 
 ## Uyarı
 

@@ -148,6 +148,27 @@ python -m app.core.astro         # natal harita + bugünün transitleri
 python -m app.core.blocks        # anahtar sayısı
 ```
 
+### Testler
+
+```bash
+python -m pytest                 # DB gerektirmeyenler (astro, tarot, guardrail, vision)
+createdb fal_test
+TEST_DATABASE_URL=postgresql://localhost/fal_test python -m pytest    # tamamı
+```
+
+`tests/test_astro.py` motoru **bağımsız astronomik formüllere** karşı doğruluyor
+(USNO güneş boylamı, GMST, yükselen/MC kapalı formu; ölçülen sapma < 0,007°).
+Yayınlanmış harita değerlerini koda yazmak yerine bu yol seçildi: elle yazılan
+bir referans yanlış hatırlanırsa hatayı teste gömer.
+
+Türkiye yaz saati regresyonu ayrıca test ediliyor (`test_turkiye_dst_*`) —
+1990'larda doğmuş kullanıcıların yükseleni bu zincir bozulunca 15-45° kayıyor.
+
+### Tek komutla ayağa kaldırma
+
+Kök dizinden `scripts/dev.sh`. LLM anahtarı yoksa `scripts/fake_llm.py`
+devreye girer ve tüm akış para harcamadan çalışır.
+
 ---
 
 ## 5. Mobil taraf (Expo)
@@ -254,9 +275,17 @@ zeminini ve KVKK yükümlülüklerini bir avukatla netleştir — ürünü kurma
 
 ## 9. Bilinen eksikler (bilerek bırakıldı)
 
-- `push()` içinde OneSignal REST çağrısı TODO
-- Geocoding (şehir → lat/lon) client tarafında; `timezonefinder` ile tz çözümü eklenecek
+- **Blok kütüphanesi boş.** `scripts/seed_blocks.py` çalıştırılmadan ücretsiz
+  kullanıcının günlük yorumu boş çıkar. 302 anahtar × 4 varyant, tek seferlik
+  ~15-40 $. Şu an tek tek çağrı yapıyor; batch API'ye geçirilmeli.
+- **`cup_vision.py` eşikleri gerçek fotoğrafla kalibre edilmedi** (bkz. bölüm 7).
+- OneSignal gönderimi yazıldı ama gerçek anahtarla denenmedi
+  (`ONESIGNAL_APP_ID` / `ONESIGNAL_API_KEY` boşsa sessizce atlanıyor).
+- Geocoding (şehir → lat/lon) client tarafında, 81 il gömülü; uluslararası
+  pazarda Nominatim + `timezonefinder` gerekecek.
 - `data/tarot_corpus.json` (uzun kart anlamları) henüz yok — RAG için doldurulacak
 - Web2app hunisi (Next.js + Stripe) ayrı repo
 - Semantic cache (`pgvector` üzerinden) kurulu değil; trafik artınca ekle
-- Blok kütüphanesi batch API yerine tek tek çağrı yapıyor; 300+ anahtarda batch'e geçir
+- `reading_assets` tablosuna hiç yazılmıyor: fincan fotoğrafı Redis'te 24 saat
+  TTL ile duruyor ve işlendikten hemen sonra siliniyor. Tablo, R2/S3'e geçilirse
+  kullanılacak; `purge_assets` şimdilik yalnızca Redis artıklarını topluyor.
