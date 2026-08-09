@@ -63,7 +63,7 @@ jobs:
           grep -E '^(org.gradle.jvmargs|org.gradle.workers.max)=' android/gradle.properties
 
       - name: Preview APK derle
-        run: cd android && ./gradlew assembleRelease --no-daemon
+        run: cd android && ./gradlew assembleRelease --no-daemon --stacktrace --info
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
