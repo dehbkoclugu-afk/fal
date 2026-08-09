@@ -56,6 +56,12 @@ jobs:
           sed -i 's/^reactNativeArchitectures=.*/reactNativeArchitectures=arm64-v8a,x86_64/' android/gradle.properties
           grep reactNativeArchitectures android/gradle.properties
 
+      - name: Gradle belleğini ayarla
+        run: |
+          sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g/' android/gradle.properties
+          echo 'org.gradle.workers.max=2' >> android/gradle.properties
+          grep -E '^(org.gradle.jvmargs|org.gradle.workers.max)=' android/gradle.properties
+
       - name: Preview APK derle
         run: cd android && ./gradlew assembleRelease --no-daemon
 
