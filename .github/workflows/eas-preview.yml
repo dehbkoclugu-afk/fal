@@ -59,11 +59,11 @@ jobs:
       - name: Gradle belleğini ayarla
         run: |
           sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g/' android/gradle.properties
-          echo 'org.gradle.workers.max=2' >> android/gradle.properties
+          printf '\\norg.gradle.workers.max=2\\n' >> android/gradle.properties
           grep -E '^(org.gradle.jvmargs|org.gradle.workers.max)=' android/gradle.properties
 
       - name: Preview APK derle
-        run: cd android && ./gradlew assembleRelease --no-daemon --stacktrace --info
+        run: cd android && ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
