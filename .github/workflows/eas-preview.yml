@@ -59,7 +59,7 @@ jobs:
       - name: Gradle belleğini ayarla
         run: |
           sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g/' android/gradle.properties
-          printf '\\norg.gradle.workers.max=2\\n' >> android/gradle.properties
+          printf '\norg.gradle.workers.max=2\n' >> android/gradle.properties
           grep -E '^(org.gradle.jvmargs|org.gradle.workers.max)=' android/gradle.properties
 
       - name: Preview APK derle
