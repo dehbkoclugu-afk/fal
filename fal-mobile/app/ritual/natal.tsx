@@ -22,6 +22,8 @@ import { Screen } from '@/components/Screen';
 import { api, ApiError } from '@/lib/api';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { ArtSlot } from '@/components/ArtSlot';
+import { artForKey } from '@/lib/artAssets';
 import { t } from '@/lib/i18n';
 
 // `key` sunucuya `focus` olarak gidiyor ve orada Literal ile doğrulanıyor:
@@ -78,6 +80,7 @@ export default function Natal() {
                 }}
                 style={[styles.row, on && styles.rowOn]}
               >
+                <ArtSlot id={artForKey(o.key, 'topic')} strength="strong" />
                 <View style={styles.rowText}>
                   <Text style={[styles.rowTitle, on && { color: color.porselen }]}>
                     {t(o.title)}
@@ -111,9 +114,14 @@ const styles = StyleSheet.create({
   lead: { ...type.body, color: color.kul, marginTop: space.md },
   list: { marginTop: space.xl },
   row: {
+    position: 'relative',
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: space.md,
+    paddingHorizontal: space.md,
+    borderRadius: radius.sm,
+    marginBottom: space.xs,
     borderBottomWidth: 1,
     borderBottomColor: color.cizgi,
   },

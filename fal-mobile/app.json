@@ -5,7 +5,7 @@
     "scheme": "telve",
     "version": "0.1.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "android": {
       "package": "com.telve.app",
       "adaptiveIcon": {

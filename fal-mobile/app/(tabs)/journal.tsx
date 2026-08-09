@@ -24,6 +24,8 @@ import { TelveRing } from '@/components/TelveRing';
 import { api } from '@/lib/api';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { ArtSlot } from '@/components/ArtSlot';
+import { artForKey } from '@/lib/artAssets';
 import { t } from '@/lib/i18n';
 
 // Backend sabit dağarcığa indirgiyor (core/pricing.TOPICS); buradaki
@@ -98,6 +100,7 @@ export default function Journal() {
       {/* Doğrulama sonrası karşılık */}
       {yorum ? (
         <Pressable onPress={() => setYorum(null)} style={styles.yorumKutu}>
+          <ArtSlot id="verify" strength="strong" />
           <Eyebrow style={styles.yorumLabel}>{t('gunluk.cevabinIcin')}</Eyebrow>
           <Text style={styles.yorumMetin}>{yorum}</Text>
           <Text style={styles.yorumKapat}>{t('ortak.kapat')}</Text>
@@ -106,6 +109,7 @@ export default function Journal() {
 
       {/* İsabet paneli */}
       <View style={styles.panel}>
+        <ArtSlot id="ledger" strength="strong" />
         <TelveRing size={92} value={(score ?? 0) / 100} mode="ledger" breathing={false} />
         <View style={styles.panelText}>
           {score != null ? (
@@ -133,6 +137,7 @@ export default function Journal() {
               const pct = t.total ? Math.round((t.hits / t.total) * 100) : 0;
               return (
                 <View key={t.topic} style={styles.topicRow}>
+                  <ArtSlot id={artForKey(t.topic, 'topic')} strength="strong" />
                   <Text style={styles.topicName}>{konuAdi(t.topic)}</Text>
                   <View style={styles.barTrack}>
                     <View style={[styles.barFill, { width: `${pct}%` }]} />
@@ -168,6 +173,7 @@ export default function Journal() {
 
       {answered === 0 && !data?.awaiting_verdict?.length && (
         <View style={styles.empty}>
+          <ArtSlot id="daily" strength="strong" />
           <Text style={styles.emptyTitle}>{t('gunluk.defterBos')}</Text>
           <Text style={styles.emptyBody}>{t('gunluk.defterBosMetin')}</Text>
         </View>
@@ -180,6 +186,8 @@ export default function Journal() {
 
 const styles = StyleSheet.create({
   yorumKutu: {
+    position: 'relative',
+    overflow: 'hidden',
     marginTop: space.lg,
     padding: space.lg,
     borderRadius: radius.md,
@@ -194,11 +202,14 @@ const styles = StyleSheet.create({
   eyebrow: { ...type.eyebrow, color: color.kul },
 
   panel: {
+    position: 'relative',
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.lg,
     marginTop: space.lg,
-    paddingVertical: space.lg,
+    padding: space.lg,
+    borderRadius: radius.md,
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: color.cizgi,
@@ -211,14 +222,20 @@ const styles = StyleSheet.create({
   sectionLabel: { ...type.eyebrow, color: color.kulKoyu, marginTop: space.xxl, marginBottom: space.md },
 
   topics: { gap: space.md },
-  topicRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  topicRow: {
+    position: 'relative', overflow: 'hidden', flexDirection: 'row',
+    alignItems: 'center', gap: space.md, padding: space.md, borderRadius: radius.sm,
+  },
   topicName: { ...type.data, color: color.porselen, width: 62 },
   barTrack: { flex: 1, height: 3, backgroundColor: color.cizgi },
   barFill: { height: 3, backgroundColor: color.cini },
   topicPct: { ...type.dataStrong, color: color.porselen, width: 40, textAlign: 'right' },
   topicCount: { ...type.data, color: color.kulKoyu, width: 24, textAlign: 'right', fontSize: 11 },
 
-  empty: { marginTop: space.xxl },
+  empty: {
+    position: 'relative', overflow: 'hidden', marginTop: space.xxl,
+    padding: space.lg, borderRadius: radius.md,
+  },
   emptyTitle: { ...type.title, color: color.porselen, fontSize: 22 },
   emptyBody: { ...type.body, color: color.kul, marginTop: space.md },
 

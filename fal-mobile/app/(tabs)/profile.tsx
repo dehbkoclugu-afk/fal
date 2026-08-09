@@ -8,8 +8,10 @@ import { Screen } from '@/components/Screen';
 import { api } from '@/lib/api';
 import { resetAnonId } from '@/lib/anon';
 import { useDraft } from '@/lib/store';
-import { color, space, type } from '@/lib/theme';
+import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { ArtSlot } from '@/components/ArtSlot';
+import { artForKey } from '@/lib/artAssets';
 import { DILLER, aktifDil, dilSec, t, uygulaYon } from '@/lib/i18n';
 
 /**
@@ -114,6 +116,7 @@ export default function Profile() {
       <View style={styles.table}>
         {rows.map((r) => (
           <View key={r.k} style={styles.row}>
+            <ArtSlot id={artForKey(r.k, 'topic')} strength="strong" />
             <Text style={styles.k}>{r.k}</Text>
             <Text style={styles.v}>{r.v}</Text>
           </View>
@@ -169,9 +172,14 @@ const styles = StyleSheet.create({
   eyebrow: { ...type.eyebrow, color: color.kul },
   table: { marginTop: space.lg },
   row: {
+    position: 'relative',
+    overflow: 'hidden',
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: space.md,
+    paddingHorizontal: space.md,
+    borderRadius: radius.sm,
+    marginBottom: space.xs,
     borderBottomWidth: 1,
     borderBottomColor: color.cizgi,
   },

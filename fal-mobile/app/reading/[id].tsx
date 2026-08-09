@@ -23,6 +23,8 @@ import { api } from '@/lib/api';
 import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { ArtSlot } from '@/components/ArtSlot';
+import { artForKey, ritualArt } from '@/lib/artAssets';
 import { t } from '@/lib/i18n';
 
 // Anahtarlar modül düzeyinde, METİN render anında.
@@ -162,6 +164,7 @@ export default function ReadingScreen() {
 
       {out.bolumler?.map((b, i) => (
         <View key={i} style={styles.section}>
+          <ArtSlot id={artForKey(`${id}:${b.baslik}:${i}`)} strength="strong" />
           <Eyebrow style={styles.sectionTitle}>{b.baslik}</Eyebrow>
           <Text style={styles.sectionBody}>{b.metin}</Text>
         </View>
@@ -169,6 +172,7 @@ export default function ReadingScreen() {
 
       {!!out.tavsiye && (
         <View style={styles.adviceBox}>
+          <ArtSlot id={ritualArt[data.kind] ?? 'daily'} strength="strong" />
           <Eyebrow style={styles.adviceLabel}>{t('sonuc.neYapmali')}</Eyebrow>
           <Text style={styles.advice}>{out.tavsiye}</Text>
         </View>
@@ -181,6 +185,7 @@ export default function ReadingScreen() {
           <Eyebrow style={styles.predLabel}>{t('sonuc.defteryeYazildi')}</Eyebrow>
           {out.tahminler.map((t, i) => (
             <View key={i} style={styles.predRow}>
+              <ArtSlot id={artForKey(`${id}:${t.iddia}:${i}`, 'topic')} strength="strong" />
               <Text style={styles.predWindow}>{t.pencere_gun}g</Text>
               <Text style={styles.predClaim}>{t.iddia}</Text>
             </View>
@@ -218,11 +223,16 @@ const styles = StyleSheet.create({
 
   lead: { ...type.oracleLead, color: color.porselen, marginTop: space.xl },
 
-  section: { marginTop: space.xl },
+  section: {
+    position: 'relative', overflow: 'hidden', marginTop: space.xl,
+    padding: space.lg, borderRadius: radius.md,
+  },
   sectionTitle: { ...type.eyebrow, color: color.bakir },
   sectionBody: { ...type.oracle, color: color.porselen, marginTop: space.sm },
 
   adviceBox: {
+    position: 'relative',
+    overflow: 'hidden',
     marginTop: space.xl,
     padding: space.lg,
     borderRadius: radius.md,
@@ -235,7 +245,10 @@ const styles = StyleSheet.create({
 
   predBox: { marginTop: space.xxl, borderTopWidth: 1, borderTopColor: color.cizgi, paddingTop: space.lg },
   predLabel: { ...type.eyebrow, color: color.cini },
-  predRow: { flexDirection: 'row', gap: space.md, marginTop: space.md },
+  predRow: {
+    position: 'relative', overflow: 'hidden', flexDirection: 'row', gap: space.md,
+    marginTop: space.md, padding: space.md, borderRadius: radius.sm,
+  },
   predWindow: { ...type.dataStrong, color: color.kulKoyu, width: 32 },
   predClaim: { ...type.data, color: color.porselen, flex: 1 },
   predNote: { ...type.data, color: color.kulKoyu, fontSize: 11, marginTop: space.lg },

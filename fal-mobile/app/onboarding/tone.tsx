@@ -7,6 +7,8 @@ import { Screen } from '@/components/Screen';
 import { useDraft, type Tone } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { ArtSlot } from '@/components/ArtSlot';
+import { artForKey } from '@/lib/artAssets';
 import { t } from '@/lib/i18n';
 
 /**
@@ -48,6 +50,7 @@ export default function ToneScreen() {
               accessibilityRole="radio"
               accessibilityState={{ selected: on }}
             >
+              <ArtSlot id={artForKey(secenek.key, 'topic')} strength="strong" />
               <Text style={[styles.cardTitle, on && { color: color.bakir }]}>
                 {t(secenek.title)}
               </Text>
@@ -73,6 +76,8 @@ const styles = StyleSheet.create({
   eyebrow: { ...type.eyebrow, color: color.kul, marginTop: space.xl },
   q: { ...type.title, color: color.porselen, marginTop: space.sm },
   card: {
+    position: 'relative',
+    overflow: 'hidden',
     padding: space.lg,
     borderRadius: radius.md,
     borderWidth: 1,

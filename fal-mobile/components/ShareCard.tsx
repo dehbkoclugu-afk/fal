@@ -20,6 +20,8 @@ import * as Haptics from 'expo-haptics';
 
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { ArtSlot } from '@/components/ArtSlot';
+import { ritualArt } from '@/lib/artAssets';
 import { t } from '@/lib/i18n';
 
 type Props = {
@@ -83,6 +85,7 @@ export function ShareCard({ line, symbol, kind, photoUri }: Props) {
       {/* Yakalanan alan. Ekranda da görünüyor: kullanıcı ne paylaşacağını
           önceden görmezse paylaşma oranı düşüyor. */}
       <View ref={cardRef} collapsable={false} style={styles.card}>
+        <ArtSlot id={ritualArt[kind] ?? 'daily'} strength="strong" />
         {photoUri ? (
           <Image source={{ uri: photoUri }} style={styles.photo} contentFit="cover" />
         ) : (
@@ -128,7 +131,7 @@ const styles = StyleSheet.create({
   },
   photo: { width: '100%', flex: 1.15 },
   photoFallback: {
-    backgroundColor: color.cezveUst,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -23,7 +23,9 @@ import { api } from '@/lib/api';
 import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { ArtSlot } from '@/components/ArtSlot';
 import { t, tarih } from '@/lib/i18n';
+import { artForKey, ritualArt } from '@/lib/artAssets';
 
 // Fiyatlar sunucudan (/v1/me → prices) geliyor; buradakiler sadece sunucu
 // yanıtı gelmeden önceki gösterim. Sabit fiyat yazmak, fiyat değiştiğinde
@@ -101,6 +103,7 @@ export default function Home() {
       {/* 1. Bekleyen doğrulama */}
       {pending && (
         <View style={styles.verifyBox}>
+          <ArtSlot id="verify" strength="strong" />
           <Eyebrow style={styles.verifyLabel}>{t('ana.hesabiSorulacak')}</Eyebrow>
           <Text style={styles.verifyClaim}>{pending.claim}</Text>
           <View style={styles.verifyActions}>
@@ -125,6 +128,7 @@ export default function Home() {
         onPress={() => today && router.push(`/reading/${today.id}`)}
         accessibilityRole="button"
       >
+        <ArtSlot id="daily" strength="strong" />
         <TelveRing size={250} value={today ? 1 : 0.25} mode="ritual" breathing={!today} />
         <View style={styles.cupInner} pointerEvents="none">
           <Eyebrow style={styles.cupLabel}>{t('ana.bugun')}</Eyebrow>
@@ -147,6 +151,7 @@ export default function Home() {
               onPress={() => r.route && router.push(r.route as any)}
               style={({ pressed }) => [styles.tile, pressed && styles.tilePressed, off && styles.tileOff]}
             >
+              <ArtSlot id={ritualArt[r.key]} strength="card" />
               <Text style={styles.tileTitle}>{t(r.title)}</Text>
               <Text style={styles.tileNote}>{t(r.note)}</Text>
               {!off && (
@@ -174,6 +179,7 @@ export default function Home() {
               onPress={() => router.push(`/reading/${r.id}`)}
               style={({ pressed }) => [styles.gecmisSatir, pressed && styles.gecmisBasili]}
             >
+              <ArtSlot id={artForKey(r.id)} strength="strong" />
               <Text style={styles.gecmisOzet} numberOfLines={1}>{r.ozet}</Text>
               <Text style={styles.gecmisTarih}>{tarih(r.created_at)}</Text>
             </Pressable>
@@ -184,6 +190,7 @@ export default function Home() {
       {/* 5. İsabet özeti — defter kaydına köprü */}
       {acc?.overall?.score != null && (
         <Pressable style={styles.scoreRow} onPress={() => router.push('/(tabs)/journal')}>
+          <ArtSlot id="ledger" strength="strong" />
           <TelveRing size={44} value={(acc.overall.score ?? 0) / 100} mode="ledger" breathing={false} />
           <View style={{ flex: 1 }}>
             <Eyebrow style={styles.scoreLabel}>{t('ana.isabetOranin')}</Eyebrow>
@@ -213,6 +220,8 @@ const styles = StyleSheet.create({
   coins: { ...type.data, color: color.bakir },
 
   verifyBox: {
+    position: 'relative',
+    overflow: 'hidden',
     marginTop: space.lg,
     padding: space.lg,
     borderRadius: radius.md,
@@ -232,7 +241,11 @@ const styles = StyleSheet.create({
   },
   verifyBtnText: { ...type.dataStrong, color: color.porselen, fontSize: 12 },
 
-  cup: { alignItems: 'center', justifyContent: 'center', marginTop: space.xl },
+  cup: {
+    alignItems: 'center', justifyContent: 'center', marginTop: space.xl,
+    width: 250, height: 250, alignSelf: 'center', borderRadius: radius.full,
+    overflow: 'hidden', backgroundColor: color.cezve,
+  },
   cupInner: { position: 'absolute', width: 170, alignItems: 'center' },
   cupLabel: { ...type.eyebrow, color: color.kul },
   cupText: { ...type.oracle, color: color.porselen, textAlign: 'center', fontSize: 15, lineHeight: 24 },
@@ -247,10 +260,15 @@ const styles = StyleSheet.create({
     marginBottom: space.sm,
   },
   gecmisSatir: {
+    position: 'relative',
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.md,
     paddingVertical: space.md,
+    paddingHorizontal: space.md,
+    borderRadius: radius.sm,
+    marginBottom: space.xs,
     borderBottomWidth: 1,
     borderBottomColor: color.cizgi,
   },
@@ -259,6 +277,8 @@ const styles = StyleSheet.create({
   gecmisTarih: { ...type.data, color: color.kulKoyu, fontSize: 11 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },
   tile: {
+    position: 'relative',
+    overflow: 'hidden',
     width: '47.5%',
     padding: space.lg,
     borderRadius: radius.md,
@@ -282,6 +302,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   scoreRow: {
+    position: 'relative',
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.md,
