@@ -10,6 +10,7 @@ import { Screen } from '@/components/Screen';
 import { api } from '@/lib/api';
 import { color, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { ArtSlot } from '@/components/ArtSlot';
 import { t, tarih } from '@/lib/i18n';
 
 
@@ -67,6 +68,7 @@ export default function NotificationsScreen() {
       <Text style={styles.q}>{t('ob.bildirim.baslik')}</Text>
 
       <View style={styles.card}>
+        <ArtSlot id="natal" strength="strong" />
         {transit ? (
           <>
             <Eyebrow style={styles.date}>{tarih(transit.exact_at)}</Eyebrow>
@@ -100,8 +102,10 @@ const styles = StyleSheet.create({
   eyebrow: { ...type.eyebrow, color: color.kul, marginTop: space.xl },
   q: { ...type.title, color: color.porselen, marginTop: space.sm },
   card: {
+    position: 'relative',
+    overflow: 'hidden',
     marginTop: space.xl,
-    paddingVertical: space.lg,
+    padding: space.lg,
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: color.cizgi,

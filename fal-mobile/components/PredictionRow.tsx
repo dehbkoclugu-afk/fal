@@ -11,6 +11,8 @@ import * as Haptics from 'expo-haptics';
 
 import { color, hitStyle, space, type, type Verdict } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { ArtSlot } from '@/components/ArtSlot';
+import { artForKey } from '@/lib/artAssets';
 import { t } from '@/lib/i18n';
 
 type Props = {
@@ -52,6 +54,7 @@ export function PredictionRow({ claim, topic, dueAt, verdict, vurgulu, onVerdict
 
   return (
     <View style={[styles.row, vurgulu && styles.rowVurgulu]}>
+      <ArtSlot id={artForKey(`${topic}:${claim}:${dueAt}`, 'topic')} strength="strong" />
       <View style={styles.meta}>
         <Text style={styles.date}>{shortDate(dueAt)}</Text>
         <Eyebrow style={styles.topic}>
@@ -85,7 +88,12 @@ export function PredictionRow({ claim, topic, dueAt, verdict, vurgulu, onVerdict
 
 const styles = StyleSheet.create({
   row: {
+    position: 'relative',
+    overflow: 'hidden',
+    paddingHorizontal: space.md,
     paddingVertical: space.md,
+    borderRadius: 6,
+    marginBottom: space.xs,
     borderBottomWidth: 1,
     borderBottomColor: color.cizgi,
   },

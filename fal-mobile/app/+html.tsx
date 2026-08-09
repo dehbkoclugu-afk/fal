@@ -28,7 +28,7 @@ export default function Root({ children }: PropsWithChildren) {
         />
 
         <meta name="theme-color" content="#16100E" />
-        <meta name="color-scheme" content="dark" />
+        <meta name="color-scheme" content="dark light" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="icon" href="/icon-192.png" />

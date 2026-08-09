@@ -18,6 +18,8 @@ import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Eyebrow } from '@/components/Eyebrow';
+import { ArtSlot } from '@/components/ArtSlot';
+import { ritualArt } from '@/lib/artAssets';
 import { api } from '@/lib/api';
 import * as ads from '@/lib/ads';
 import { color, radius, space, type } from '@/lib/theme';
@@ -66,6 +68,7 @@ export function CoinGate({ kind }: Props) {
 
   return (
     <View style={styles.kutu}>
+      <ArtSlot id={ritualArt[kind]} strength="strong" />
       <Eyebrow style={styles.baslik}>{t('kapi.baslik')}</Eyebrow>
       <Text style={styles.metin}>{t('kapi.metin', { gerekli, mevcut })}</Text>
 
@@ -90,6 +93,8 @@ export function CoinGate({ kind }: Props) {
 
 const styles = StyleSheet.create({
   kutu: {
+    position: 'relative',
+    overflow: 'hidden',
     marginTop: space.lg,
     padding: space.lg,
     borderRadius: radius.md,

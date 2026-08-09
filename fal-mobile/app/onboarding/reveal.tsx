@@ -22,6 +22,8 @@ import { api, ApiError, type Teaser } from '@/lib/api';
 import { useDraft } from '@/lib/store';
 import { color, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { ArtSlot } from '@/components/ArtSlot';
+import { artForKey } from '@/lib/artAssets';
 import { t } from '@/lib/i18n';
 
 export default function Reveal() {
@@ -97,6 +99,7 @@ export default function Reveal() {
                 entering={FadeInDown.delay(i * 320).duration(520)}
                 style={styles.row}
               >
+                <ArtSlot id={artForKey(r.key, 'topic')} strength="strong" />
                 <Eyebrow style={styles.rowKey}>{r.key}</Eyebrow>
                 <Text style={styles.rowValue}>{r.value}</Text>
                 <Text style={styles.rowNote}>{r.note}</Text>
@@ -129,7 +132,10 @@ const styles = StyleSheet.create({
   phase: { ...type.eyebrow, color: color.bakir, textAlign: 'center' },
 
   list: { marginTop: space.xxl, gap: space.lg },
-  row: { borderTopWidth: 1, borderTopColor: color.cizgi, paddingTop: space.md },
+  row: {
+    position: 'relative', overflow: 'hidden', borderTopWidth: 1,
+    borderTopColor: color.cizgi, padding: space.md, borderRadius: 6,
+  },
   rowKey: { ...type.eyebrow, color: color.kul },
   rowValue: { ...type.title, color: color.porselen, marginTop: 2 },
   rowNote: { ...type.data, color: color.kulKoyu, fontSize: 11 },

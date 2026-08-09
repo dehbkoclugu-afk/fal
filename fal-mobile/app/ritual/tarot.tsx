@@ -17,6 +17,8 @@ import { Screen } from '@/components/Screen';
 import { api, ApiError } from '@/lib/api';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { ArtSlot } from '@/components/ArtSlot';
+import { artForKey } from '@/lib/artAssets';
 import { t } from '@/lib/i18n';
 
 // `key` API'ye gidiyor ve SABİT kalmak zorunda; `title` ekranda görünüyor
@@ -144,6 +146,7 @@ function TarotCard({
           picked && styles.cardPicked,
         ]}
       >
+        <ArtSlot id={artForKey(`tarot-card-${index}`)} strength={picked ? 'soft' : 'card'} />
         {/* Kart arkası deseni: fincan kenarındaki çini motifinin sadeleşmiş hâli */}
         <View style={styles.cardMotif} />
       </Pressable>
@@ -166,6 +169,8 @@ const styles = StyleSheet.create({
   instruction: { ...type.oracle, color: color.porselen, marginTop: space.xl },
   deck: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.lg },
   card: {
+    position: 'relative',
+    overflow: 'hidden',
     borderRadius: radius.sm,
     backgroundColor: color.cezve,
     borderWidth: 1,

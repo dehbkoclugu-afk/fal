@@ -10,6 +10,8 @@ import * as purchases from '@/lib/purchases';
 import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { ArtSlot } from '@/components/ArtSlot';
+import { artForKey } from '@/lib/artAssets';
 import { t } from '@/lib/i18n';
 
 /**
@@ -158,6 +160,7 @@ export default function Paywall() {
           const on = plan === p.key;
           return (
             <Pressable key={p.key} onPress={() => setPlan(p.key)} style={[styles.plan, on && styles.planOn]}>
+              <ArtSlot id={artForKey(`plan:${p.key}`, 'topic')} strength="strong" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.planTitle}>{p.title}</Text>
                 <Text style={styles.planPer}>{p.per}</Text>
@@ -197,6 +200,8 @@ const styles = StyleSheet.create({
   itemText: { ...type.body, color: color.porselen },
   plans: { marginTop: space.xl, gap: space.md },
   plan: {
+    position: 'relative',
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.md,

@@ -24,6 +24,8 @@ import { Screen } from '@/components/Screen';
 import { api } from '@/lib/api';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
+import { ArtSlot } from '@/components/ArtSlot';
+import { artForKey } from '@/lib/artAssets';
 import { t, tarih } from '@/lib/i18n';
 
 /** Ritüel adı — sonuç ekranındaki etiketlerle aynı kalmalı. */
@@ -53,6 +55,7 @@ export default function Gecmis() {
 
       {!isLoading && !isError && data?.length === 0 && (
         <View style={styles.bos}>
+          <ArtSlot id="daily" strength="strong" />
           <Text style={styles.bosBaslik}>{t('gecmis.bos')}</Text>
           <Text style={styles.bosMetin}>{t('gecmis.bosMetin')}</Text>
           <Button
@@ -69,6 +72,7 @@ export default function Gecmis() {
           onPress={() => router.push(`/reading/${r.id}`)}
           style={({ pressed }) => [styles.satir, pressed && styles.satirBasili]}
         >
+          <ArtSlot id={artForKey(r.id)} strength="strong" />
           <View style={styles.ust}>
             <Eyebrow style={styles.tur}>{ritualAdi(r.kind)}</Eyebrow>
             <Text style={styles.tarih}>{tarih(r.created_at)}</Text>
@@ -88,11 +92,16 @@ const styles = StyleSheet.create({
   eyebrow: { ...type.eyebrow, color: color.kul, marginTop: space.lg },
   hata: { ...type.data, color: color.kiremit, marginTop: space.lg, fontSize: 12 },
 
-  bos: { marginTop: space.xxl, alignItems: 'flex-start' },
+  bos: {
+    position: 'relative', overflow: 'hidden', marginTop: space.xxl,
+    alignItems: 'flex-start', padding: space.lg, borderRadius: radius.md,
+  },
   bosBaslik: { ...type.title, color: color.porselen, fontSize: 22 },
   bosMetin: { ...type.body, color: color.kul, marginTop: space.sm },
 
   satir: {
+    position: 'relative',
+    overflow: 'hidden',
     marginTop: space.md,
     padding: space.lg,
     borderRadius: radius.md,
