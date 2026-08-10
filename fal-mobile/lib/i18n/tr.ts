@@ -31,6 +31,7 @@ export const tr = {
   'hata.no_birth_data': 'Önce doğum bilgilerini tamamla.',
   'hata.reward_cap': 'Bugünlük ödül hakkın doldu.',
   'hata.unsupported_locale': 'Bu dil henüz desteklenmiyor.',
+  'hata.network_timeout': 'Bağlantı uzun sürdü. Tekrar dener misin?',
   'hata.unknown': 'Bir şeyler ters gitti. Tekrar dene.',
   'ortak.jeton': '{n} jeton',
   'ortak.baglantiHatasi': 'Bağlantını kontrol edip tekrar dener misin?',

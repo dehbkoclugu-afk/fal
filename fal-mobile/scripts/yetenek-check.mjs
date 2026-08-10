@@ -102,7 +102,7 @@ if (/127\.0\.0\.1|localhost|10\.0\.2\.2/.test(api)) {
 }
 
 if (!hata) {
-  console.log('\n\x1b[2mKapalı yetenekler hata değil — anahtarlar geldiğinde açılırlar.\x1b[0m');
+  console.log('\n\x1b[2mAppLovin ve PostHog v1 için bilinçli olarak kapalıdır.\x1b[0m');
 }
 
 process.exit(hata ? 1 : 0);
