@@ -50,3 +50,19 @@ built-in `real[]` type and continue to be compared in Python.
 - [ ] **Step 3: Change the embedding column to `real[]`, remove codec/dependency, and call `ensure_schema()` before pool creation.**
 - [ ] **Step 4: Run targeted tests, backend tests, and `compileall`; expect success.**
 - [ ] **Step 5: Publish all files in one commit** with message `fix: boot backend on standard Railway Postgres`.
+
+### Task 3: Align Railway commands with the configured root directory
+
+**Files:**
+- Modify: `railway.json`
+- Modify: `railpack.json`
+
+**Interfaces:**
+- Consumes: Railway Root Directory `/fal-backend`
+- Produces: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+
+- [ ] **Step 1: Reproduce the failure** from Deploy Logs: `cd: fal-backend: No such file or directory`.
+- [ ] **Step 2: Verify both config files contain the duplicated `cd fal-backend`.**
+- [ ] **Step 3: Remove only the duplicated directory change from both start commands.**
+- [ ] **Step 4: Parse both JSON files and assert neither command contains `cd fal-backend`.**
+- [ ] **Step 5: Publish one commit** with message `fix: respect Railway backend root directory`.
