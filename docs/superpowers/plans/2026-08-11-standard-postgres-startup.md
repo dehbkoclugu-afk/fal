@@ -66,3 +66,19 @@ built-in `real[]` type and continue to be compared in Python.
 - [ ] **Step 3: Remove only the duplicated directory change from both start commands.**
 - [ ] **Step 4: Parse both JSON files and assert neither command contains `cd fal-backend`.**
 - [ ] **Step 5: Publish one commit** with message `fix: respect Railway backend root directory`.
+
+### Task 4: Point mobile releases at the live Railway API
+
+**Files:**
+- Modify: `fal-mobile/eas.json`
+- Modify: `.github/workflows/eas-preview.yml`
+
+**Interfaces:**
+- Consumes: `https://fal-production-7ec6.up.railway.app`
+- Produces: preview APK and production AAB builds using the live API
+
+- [ ] **Step 1: Reproduce the failure** by locating `api-staging.telve.app` and `api.telve.app` in release configuration.
+- [ ] **Step 2: Verify `/health` returns HTTP 200 from the Railway domain.**
+- [ ] **Step 3: Replace preview, production, and CI API URLs with the verified domain.**
+- [ ] **Step 4: Parse `eas.json` and assert no `telve.app` API hostname remains.**
+- [ ] **Step 5: Publish one commit** and let the default-branch APK workflow run.
