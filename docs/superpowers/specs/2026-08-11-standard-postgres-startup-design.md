@@ -18,6 +18,8 @@ requiring pgvector, and initialize an empty database automatically.
   connected and the schema is ready.
 - Railway already sets the service root directory to `/fal-backend`; deployment
   commands therefore run `uvicorn` directly and never `cd fal-backend` again.
+- Preview and production mobile builds use the generated Railway public domain;
+  no unowned `telve.app` hostname remains in a release profile.
 
 ## Error Handling
 
