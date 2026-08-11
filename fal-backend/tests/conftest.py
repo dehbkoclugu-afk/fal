@@ -3,7 +3,7 @@ Test altyapısı.
 
 İki şeyi sağlar:
   1. Gerçek bir Postgres şeması üzerinde çalışan izole test veritabanı.
-     Şema testi ediyoruz çünkü bulunan hataların çoğu (vector codec'i,
+     Şema testi ediyoruz çünkü bulunan hataların çoğu (dizi codec'i,
      date/time argüman tipleri, ON CONFLICT çıkarımı) sadece gerçek sürücü
      ve gerçek Postgres karşısında ortaya çıkıyor — mock'la görünmezler.
   2. LLM taklidi. Gerçek API çağrısı yapmadan boru hattını uçtan uca
@@ -39,7 +39,7 @@ async def db():
     conn = await asyncpg.connect(TEST_DB_URL)
     await conn.execute("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;")
     await conn.execute(SCHEMA.read_text())
-    # Üretimdeki bağlantı kurulumunun aynısı (pgvector + jsonb codec'leri).
+    # Üretimdeki bağlantı kurulumunun aynısı (json/jsonb codec'leri).
     # Testler bunu atlarsa gerçek sürücü davranışını doğrulamamış olur —
     # zaten bulunan hataların çoğu tam olarak burada ortaya çıktı.
     await init_connection(conn)

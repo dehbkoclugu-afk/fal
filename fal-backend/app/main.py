@@ -42,6 +42,7 @@ state: dict = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await dbmod.ensure_schema()
     state["db"] = await dbmod.create_pool()
     state["redis"] = await aioredis.from_url(REDIS_URL)
     import redis as sync_redis
