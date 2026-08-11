@@ -1,7 +1,6 @@
 -- Fal uygulaması — başlangıç şeması (Postgres 15+)
--- pgvector: anti-tekrar kontrolü ve semantic cache için
+-- Anti-tekrar embeddingleri uygulama içinde karşılaştırılır; standart dizi yeterli.
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-CREATE EXTENSION IF NOT EXISTS vector;
 
 -- blocks.py'nin ANY($2::block_ref[]) sorgusu için bileşik tip
 DO $$ BEGIN
@@ -71,7 +70,7 @@ CREATE TABLE readings (
   extra_json    jsonb,                              -- cup analizi, kart çekimi, transitler
   model         text,
   cost_usd      numeric(10,6) DEFAULT 0,
-  embedding     vector(384),                        -- MiniLM boyutu; modeli değiştirirsen güncelle
+  embedding     real[],                             -- MiniLM boyutu; benzerlik Python'da hesaplanır
   eta_seconds   int DEFAULT 120,
   created_at    timestamptz DEFAULT now(),
   delivered_at  timestamptz
