@@ -274,7 +274,7 @@ async def generate_reading(db, user_id: str, reading_id: str, kind: str,
         """SELECT embedding FROM readings
            WHERE user_id=$1 AND status='done' AND embedding IS NOT NULL
            ORDER BY created_at DESC LIMIT 10""", user_id)
-    # pgvector codec ndarray[float32] döner; cosine() saf float listesiyle çalışır.
+    # PostgreSQL real[] listesini cosine() için saf float listesine normalleştir.
     recent_vecs = [[float(x) for x in r["embedding"]] for r in recent]
 
     max_tokens = 2400 if tier == "paid" else 900
