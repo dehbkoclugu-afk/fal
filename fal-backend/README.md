@@ -76,7 +76,7 @@ FastAPI ──202──► Redis Queue ──► RQ Worker
    │                                 ├─ anti-tekrar (embedding)
    │                                 └─ tahmin ayıklama → predictions
    ▼                                 │
-Postgres + pgvector ◄────────────────┘
+Postgres (real[] embedding) ◄────────┘
         │
    push (Expo Push Service) → "Falın hazır"
 ```
@@ -107,9 +107,8 @@ değer kazanması, LLM yükünün düzleşmesi.
 ## 4. Kurulum
 
 ```bash
-# Postgres 15+ (pgvector ile) ve Redis kurulu olsun
+# Postgres 15+ ve Redis kurulu olsun
 sudo apt install postgresql postgresql-contrib redis-server
-sudo apt install postgresql-15-pgvector    # veya kaynaktan
 
 createdb fal
 psql fal < sql/001_init.sql
@@ -342,7 +341,7 @@ zeminini ve KVKK yükümlülüklerini bir avukatla netleştir — ürünü kurma
 - Geocoding (şehir → lat/lon) client tarafında, 81 il gömülü; uluslararası
   pazarda Nominatim + `timezonefinder` gerekecek.
 - Web2app hunisi (Next.js + Stripe) ayrı repo
-- Semantic cache (`pgvector` üzerinden) kurulu değil; trafik artınca ekle
+- Semantic cache kurulu değil; trafik artınca ölçüp ekle
 - `reading_assets` tablosuna hiç yazılmıyor: fincan fotoğrafı Redis'te 24 saat
   TTL ile duruyor ve işlendikten hemen sonra siliniyor. Tablo, R2/S3'e geçilirse
   kullanılacak; `purge_assets` şimdilik yalnızca Redis artıklarını topluyor.
