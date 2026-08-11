@@ -16,6 +16,8 @@ requiring pgvector, and initialize an empty database automatically.
   plus the version insert in one transaction so a failed setup rolls back fully.
 - Keep `/health` unchanged. It becomes reachable only after the database is
   connected and the schema is ready.
+- Railway already sets the service root directory to `/fal-backend`; deployment
+  commands therefore run `uvicorn` directly and never `cd fal-backend` again.
 
 ## Error Handling
 
