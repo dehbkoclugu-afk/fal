@@ -2,6 +2,6 @@
   "$schema": "https://schema.railpack.com",
   "provider": "python",
   "deploy": {
-    "startCommand": "cd fal-backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    "startCommand": "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
   }
 }
