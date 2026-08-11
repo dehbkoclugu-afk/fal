@@ -116,7 +116,7 @@ psql fal < sql/001_init.sql
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-cp .env.example .env    # LLM_API_KEY'i doldur
+cp .env.example .env    # GEMINI_API_KEY'i doldur
 
 # Ephemeris dosyaları (opsiyonel, ~30 MB — koymazsan Moshier kullanılır, ürün için yeterli)
 # sepl_18.se1 ve semo_18.se1 dosyalarını bir klasöre koy, SWE_EPHE_PATH'e yaz

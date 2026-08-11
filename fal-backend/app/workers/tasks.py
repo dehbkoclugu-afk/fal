@@ -107,6 +107,12 @@ async def _run_reading(reading_id: str, kind: str, inputs: dict):
         # "fotoğrafı tekrar çekelim" demek anlamsız bir mesaj.
         await push(db, str(row["user_id"]),
                    _HATA_PUSH.get(kind, _HATA_PUSH["_"]), e.message, {})
+    except Exception:  # sağlayıcı/bağlantı hatası kullanıcıyı sonsuz bekletmesin
+        log.exception("fal üretimi beklenmedik biçimde başarısız (reading=%s)", reading_id)
+        await db.execute(
+            "UPDATE readings SET status='failed', block_reason='provider_error' WHERE id=$1",
+            reading_id)
+        await refund(db, str(row["user_id"]), kind)
     finally:
         r.delete(f"cupimg:{reading_id}")
         await db.close()
