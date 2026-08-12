@@ -26,6 +26,7 @@ import { Eyebrow } from '@/components/Eyebrow';
 import { ArtSlot } from '@/components/ArtSlot';
 import { artForKey, ritualArt } from '@/lib/artAssets';
 import { t } from '@/lib/i18n';
+import { TarotReveal } from '@/components/TarotReveal';
 
 // Anahtarlar modül düzeyinde, METİN render anında.
 //
@@ -158,6 +159,10 @@ export default function ReadingScreen() {
             onSelect={setMarker}
           />
         </View>
+      )}
+
+      {data.kind === 'tarot' && data.extra_json?.draw && (
+        <TarotReveal draw={data.extra_json.draw} />
       )}
 
       <Text style={styles.lead}>{out.ozet}</Text>

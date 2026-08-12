@@ -198,6 +198,7 @@ export const tr = {
   'tarot.acilimiOku': 'Açılımı oku · {n} jeton',
   'tarot.kartSec': 'Desteden {n} kart seç. Aklındaki soruyu düşün.',
   'tarot.kartNo': '{n}. kart',
+  'tarot.ters': 'ters',
 
   // --- natal ritüeli
   'natal.eyebrow': 'doğum haritası',

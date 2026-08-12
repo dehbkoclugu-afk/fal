@@ -82,6 +82,20 @@ export type CupMarker = {
   side: string;
 };
 
+export type TarotDrawCard = {
+  position: string;
+  key: import('./tarotAtlas').TarotCardKey;
+  name_tr: string;
+  reversed: boolean;
+};
+
+export type TarotDraw = {
+  spread: string;
+  seed: string;
+  selections?: number[] | null;
+  cards: TarotDrawCard[];
+};
+
 export type Reading = {
   id: string;
   kind: 'coffee' | 'tarot' | 'natal' | 'dream' | 'daily';
@@ -92,7 +106,7 @@ export type Reading = {
     overlay?: CupMarker[];
     /** cup_vision'ın işlediği görüntünün boyutu — overlay ölçeklemesi buna dayanır. */
     cup?: { quality?: { width: number; height: number }; coverage?: number };
-    draw?: any;
+    draw?: TarotDraw;
     transits?: any[];
   } | null;
   eta_seconds: number;
@@ -167,10 +181,10 @@ export const api = {
     });
   },
 
-  tarot: (spread: string, question: string) =>
+  tarot: (spread: string, question: string, seed: string, selections: number[]) =>
     request<{ reading_id: string; eta_seconds: number }>('/readings/tarot', {
       method: 'POST',
-      body: JSON.stringify({ spread, question }),
+      body: JSON.stringify({ spread, question, seed, selections }),
     }),
 
   reading: (id: string) => request<Reading>(`/readings/${id}`),
