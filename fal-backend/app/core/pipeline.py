@@ -193,7 +193,11 @@ async def generate_reading(db, user_id: str, reading_id: str, kind: str,
         extra = {"cup": cup.to_dict(), "overlay": cup.overlay}
 
     elif kind == "tarot":
-        drawn = tarot.draw(inputs.get("spread", "three_card"), inputs.get("seed"))
+        drawn = tarot.draw(
+            inputs.get("spread", "three_card"),
+            inputs.get("seed"),
+            selections=inputs.get("selections"),
+        )
         user_msg = prompts.tarot_prompt(tarot.llm_context(drawn), user_ctx, memory, question)
         extra = {"draw": drawn}
 

@@ -24,4 +24,18 @@ if (unregistered.length) {
   process.exit(1);
 }
 
-console.log(`✓ ${ids.length} kimlik / ${ids.length * 2} yerel art varyantı tamam`);
+const tarotAtlas = join(root, 'assets', 'tarot', 'rws-atlas.webp');
+if (!existsSync(tarotAtlas)) {
+  console.error(`Tarot atlası eksik: ${tarotAtlas}`);
+  process.exit(1);
+}
+
+const tarotRegistry = readFileSync(join(root, 'lib', 'tarotAtlas.ts'), 'utf8');
+for (const marker of ['TAROT_ATLAS_COLUMNS = 13', 'TAROT_ATLAS_ROWS = 6']) {
+  if (!tarotRegistry.includes(marker)) {
+    console.error(`Tarot atlas geometrisi eksik: ${marker}`);
+    process.exit(1);
+  }
+}
+
+console.log(`✓ ${ids.length} kimlik / ${ids.length * 2} yerel art varyantı + 78 kartlık tarot atlası tamam`);

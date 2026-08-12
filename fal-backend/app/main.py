@@ -20,12 +20,12 @@ from typing import Literal
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from redis import asyncio as aioredis
 from rq import Queue
 
 from .core import db as dbmod
-from .core import locales
+from .core import locales, tarot as tarot_core
 
 DB_URL = dbmod.DB_URL
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -129,6 +129,22 @@ class TarotIn(BaseModel):
                     "love_five", "celtic_cross"] = "three_card"
     question: str = Field("", max_length=1000)
     seed: str | None = Field(None, max_length=64)
+    selections: list[int] | None = Field(None, max_length=10)
+
+    @model_validator(mode="after")
+    def validate_selections(self):
+        if self.selections is None:
+            return self
+        expected = len(tarot_core.SPREADS[self.spread])
+        if len(self.selections) != expected:
+            raise ValueError(f"Bu açılım için {expected} kart seçilmeli.")
+        if len(set(self.selections)) != len(self.selections):
+            raise ValueError("Aynı deste konumu iki kez seçilemez.")
+        if any(index < 0 or index >= 12 for index in self.selections):
+            raise ValueError("Kart seçimi 0 ile 11 arasında olmalı.")
+        if not self.seed:
+            raise ValueError("Kart seçimleri bir deste seed'i gerektirir.")
+        return self
 
 
 class NatalIn(BaseModel):
@@ -325,12 +341,15 @@ async def tarot_reading(body: TarotIn, user=Depends(get_user)):
     db = state["db"]
     await _charge(db, user["id"], "tarot")
     rid = str(uuid.uuid4())
+    veri = body.model_dump()
+    if not veri.get("seed"):
+        veri["seed"] = tarot_core.new_seed()
     await db.execute(
         """INSERT INTO readings (id, user_id, kind, input_json, eta_seconds)
            VALUES ($1,$2,'tarot',$3,90)""",
-        rid, user["id"], body.model_dump())
+        rid, user["id"], veri)
     state["queue"].enqueue("app.workers.tasks.run_reading", rid, "tarot",
-                           body.model_dump())
+                           veri)
     return {"reading_id": rid, "eta_seconds": 90, "status": "queued"}
 
 

@@ -134,7 +134,8 @@ def new_seed() -> str:
 
 
 def draw(spread: str = "three_card", seed: str | None = None,
-         reversal_chance: float = 0.35) -> dict:
+         reversal_chance: float = 0.35,
+         selections: list[int] | None = None) -> dict:
     """Deterministik çekim. Aynı seed → aynı kartlar (kullanıcı arşivi için şart)."""
     import random
 
@@ -144,7 +145,18 @@ def draw(spread: str = "three_card", seed: str | None = None,
     rng = random.Random(seed)
 
     positions = SPREADS[spread]
-    idxs = rng.sample(range(len(DECK)), len(positions))
+    if selections is not None:
+        if (len(selections) != len(positions) or
+                len(set(selections)) != len(selections) or
+                any(i < 0 or i >= 12 for i in selections)):
+            raise ValueError("Geçersiz tarot kartı seçimleri")
+        # Görülen 12 kapalı kart, seed ile karılmış 78'lik destenin ilk 12
+        # konumudur. Dokunulan konum gerçekten çıkan kartı belirler.
+        deck_order = list(range(len(DECK)))
+        rng.shuffle(deck_order)
+        idxs = [deck_order[i] for i in selections]
+    else:
+        idxs = rng.sample(range(len(DECK)), len(positions))
     cards = []
     for pos, i in zip(positions, idxs):
         c = DECK[i]
@@ -164,7 +176,7 @@ def draw(spread: str = "three_card", seed: str | None = None,
             "keywords": (rev_kw or f"tersi: {c.keywords}") if rev else c.keywords,
             "element": c.element,
         })
-    return {"spread": spread, "seed": seed, "cards": cards}
+    return {"spread": spread, "seed": seed, "selections": selections, "cards": cards}
 
 
 def llm_context(drawn: dict) -> dict:

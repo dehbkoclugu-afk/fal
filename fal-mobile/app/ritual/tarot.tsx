@@ -32,6 +32,10 @@ const SPREADS = [
 
 const DECK_SIZE = 12; // görsel deste; gerçek çekim sunucuda 78 karttan yapılır
 
+function newDeckSeed() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
+
 export default function Tarot() {
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -40,6 +44,7 @@ export default function Tarot() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jetonYok, setJetonYok] = useState(false);
+  const [deckSeed, setDeckSeed] = useState(newDeckSeed);
 
   const cardW = (width - space.lg * 2 - space.sm * 3) / 4;
   const done = picked.length === spread.count;
@@ -54,7 +59,7 @@ export default function Tarot() {
     setBusy(true);
     setError(null);
     try {
-      const r = await api.tarot(spread.key, '');
+      const r = await api.tarot(spread.key, '', deckSeed, picked);
       router.replace(`/reading/${r.reading_id}`);
     } catch (e) {
       const err = e as ApiError;
@@ -82,6 +87,7 @@ export default function Tarot() {
               onPress={() => {
                 setSpread(s);
                 setPicked([]);
+                setDeckSeed(newDeckSeed());
               }}
               style={[styles.spreadChip, on && styles.spreadChipOn]}
             >
