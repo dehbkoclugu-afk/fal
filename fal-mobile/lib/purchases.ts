@@ -23,6 +23,8 @@ export type Plan = {
 type PurchasesModule = typeof import('react-native-purchases');
 
 let mod: PurchasesModule | null | undefined;
+let configured = false;
+let configuring: Promise<boolean> | null = null;
 
 function load(): PurchasesModule | null {
   if (mod !== undefined) return mod;
@@ -36,24 +38,36 @@ function load(): PurchasesModule | null {
 }
 
 export function available(): boolean {
-  return load() !== null;
+  return load() !== null && configured;
 }
 
-export async function configure(anonId: string): Promise<void> {
-  const P = load();
-  if (!P) return;
-  const extra = Constants.expoConfig?.extra as any;
-  const key = Platform.OS === 'ios' ? extra?.rcIosKey : extra?.rcAndroidKey;
-  if (!key) return;
-  // appUserID = anon_id: RevenueCat webhook'u backend'e bu kimlikle geliyor
-  // (main.rc_webhook, users.anon_id ile eşleştiriyor). Farklı bir kimlik
-  // kullanılırsa satın alma hiçbir kullanıcıya bağlanmaz.
-  await P.default.configure({ apiKey: key, appUserID: anonId });
+export function configure(anonId: string): Promise<boolean> {
+  if (configuring) return configuring;
+  configuring = (async () => {
+    const P = load();
+    if (!P) return false;
+    const extra = Constants.expoConfig?.extra as any;
+    const key = Platform.OS === 'ios'
+      ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? extra?.rcIosKey
+      : process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? extra?.rcAndroidKey;
+    if (!key) return false;
+    try {
+      // appUserID = anon_id: RevenueCat webhook'u backend'e bu kimlikle geliyor
+      // (main.rc_webhook, users.anon_id ile eşleştiriyor). Farklı bir kimlik
+      // kullanılırsa satın alma hiçbir kullanıcıya bağlanmaz.
+      await P.default.configure({ apiKey: key, appUserID: anonId });
+      configured = true;
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  return configuring;
 }
 
 export async function getPlans(): Promise<Plan[]> {
   const P = load();
-  if (!P) return [];
+  if (!P || !configured) return [];
   try {
     const offerings = await P.default.getOfferings();
     const pkgs = offerings.current?.availablePackages ?? [];
@@ -73,7 +87,7 @@ export type PurchaseResult =
 
 export async function purchase(identifier: string): Promise<PurchaseResult> {
   const P = load();
-  if (!P) {
+  if (!P || !configured) {
     return { ok: false, cancelled: false, message: 'Satın alma bu sürümde kullanılamıyor.' };
   }
   try {
@@ -101,7 +115,7 @@ export async function purchase(identifier: string): Promise<PurchaseResult> {
 
 export async function restore(): Promise<boolean> {
   const P = load();
-  if (!P) return false;
+  if (!P || !configured) return false;
   try {
     const info = await P.default.restorePurchases();
     return Object.keys(info.entitlements.active).length > 0;

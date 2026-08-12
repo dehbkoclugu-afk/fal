@@ -109,7 +109,9 @@ KURALLAR
 - Parçaların ANLAMINI koru, içeriğine yeni kehanet ekleme.
 - Tekrar eden fikirleri birleştir, geçiş cümleleri kur.
 - Kullanıcının adını en fazla bir kez kullan.
-- Sonuna 1 kısa tavsiye ve 1 doğrulanabilir tahmin ekle.
+- Sonuna 1 kısa tavsiye ve 1 doğrulanabilir tahmin ekle. Tahmin tek başına
+  evet/hayır/kısmen diye değerlendirilebilen gözlenebilir bir olay olsun;
+  "bir plan", "bir adım", "bir haber" gibi her şeye uyan belirsiz ifade kullanma.
 - Çıktı SADECE şu JSON: {"ozet": "...", "metin": "...", "tavsiye": "...",
   "tahmin": {"konu": "...", "iddia": "...", "pencere_gun": 7, "guven": "orta"}}"""
 

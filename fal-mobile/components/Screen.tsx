@@ -7,16 +7,20 @@ import { color, space } from '@/lib/theme';
 export function Screen({
   children,
   scroll = false,
+  safeTop = true,
+  safeBottom = true,
   style,
 }: {
   children: React.ReactNode;
   scroll?: boolean;
+  safeTop?: boolean;
+  safeBottom?: boolean;
   style?: ViewStyle;
 }) {
   const insets = useSafeAreaInsets();
   const pad = {
-    paddingTop: insets.top + space.lg,
-    paddingBottom: insets.bottom + space.xl,
+    paddingTop: (safeTop ? insets.top : 0) + space.lg,
+    paddingBottom: (safeBottom ? insets.bottom : 0) + space.xl,
     paddingHorizontal: space.lg,
   };
 

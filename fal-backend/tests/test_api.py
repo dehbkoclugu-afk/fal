@@ -263,10 +263,42 @@ async def test_buyuk_fotograf_reddediliyor(client, db, anon):
     assert r.status_code == 413
 
 
-async def test_kahve_fali_fotografi_redise_yaziyor(client, db, anon, queue):
+async def test_gecersiz_fincan_jeton_dusmeden_reddediliyor(
+    client, db, anon, queue, monkeypatch,
+):
     from app import main
+    from app.core.cup_vision import CupAnalysis
+
     await client.put("/v1/profile", json=PROFIL, headers=H(anon))
     await coin_ver(db, anon, 10)
+    monkeypatch.setattr(
+        main, "analyze_cup",
+        lambda *_args, **_kw: CupAnalysis(ok=False, reason="cup_not_found"),
+    )
+
+    r = await client.post(
+        "/v1/readings/coffee",
+        files={"photo": ("street.jpg", b"sahte-jpeg", "image/jpeg")},
+        data={"question": "", "handle_angle": "0"},
+        headers=H(anon),
+    )
+
+    assert r.status_code == 422
+    assert r.json()["detail"]["code"] == "invalid_cup_photo"
+    assert await db.fetchval("SELECT count(*) FROM coin_ledger WHERE delta<0") == 0
+    assert queue.jobs == []
+
+
+async def test_kahve_fali_fotografi_redise_yaziyor(
+    client, db, anon, queue, monkeypatch,
+):
+    from app import main
+    from app.core.cup_vision import CupAnalysis
+
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    await coin_ver(db, anon, 10)
+    cup = CupAnalysis(ok=True, quality={"width": 900, "height": 900})
+    monkeypatch.setattr(main, "analyze_cup", lambda *_args, **_kw: cup)
     r = await client.post("/v1/readings/coffee",
                           files={"photo": ("cup.jpg", b"sahte-jpeg", "image/jpeg")},
                           data={"question": "ne görüyorsun", "handle_angle": "0"},
@@ -275,6 +307,7 @@ async def test_kahve_fali_fotografi_redise_yaziyor(client, db, anon, queue):
     rid = r.json()["reading_id"]
     assert f"cupimg:{rid}" in main.state["redis"].store
     assert len(queue.jobs) == 1
+    assert queue.jobs[0][1][2]["cup_analysis"] is cup
 
 
 # ------------------------------------------------------ fal durumu ve geçmişi

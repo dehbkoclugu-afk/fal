@@ -17,6 +17,7 @@ const DURUMLAR = [
   { key: 'iliskide', label: 'ob.tani.iliskiVar' },
   { key: 'evli', label: 'ob.tani.evli' },
   { key: 'karisik', label: 'ob.tani.karisik' },
+  { key: 'belirtmek_istemiyor', label: 'ob.tani.belirtmekIstemiyorum' },
 ] as const;
 const ODAKLAR = [
   { key: 'ask', label: 'konu.ask' },
@@ -36,6 +37,7 @@ export default function AboutYou() {
     <Screen scroll>
       <Eyebrow style={styles.eyebrow}>{t('ob.tani.eyebrow')}</Eyebrow>
       <Text style={styles.q}>{t('ob.tani.soru')}</Text>
+      <Text style={styles.why}>{t('ob.tani.neden')}</Text>
 
       <Eyebrow style={styles.label}>{t('ob.tani.iliskiDurumu')}</Eyebrow>
       <View style={styles.chips}>
@@ -46,6 +48,7 @@ export default function AboutYou() {
       </View>
 
       <Eyebrow style={styles.label}>{t('ob.tani.merak')}</Eyebrow>
+      <Text style={styles.choiceHint}>{t('ob.tani.tekSecim')}</Text>
       <View style={styles.chips}>
         {ODAKLAR.map((o) => (
           <Chip key={o.key} label={t(o.label)} on={focus === o.key}
@@ -68,7 +71,13 @@ export default function AboutYou() {
 
 function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={[styles.chip, on && styles.chipOn]} accessibilityRole="button">
+    <Pressable
+      onPress={onPress}
+      style={[styles.chip, on && styles.chipOn]}
+      accessibilityRole="radio"
+      accessibilityState={{ selected: on }}
+    >
+      {on && <Text style={styles.check}>✓</Text>}
       <Text style={[styles.chipText, on && styles.chipTextOn]}>{label}</Text>
     </Pressable>
   );
@@ -77,9 +86,14 @@ function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () 
 const styles = StyleSheet.create({
   eyebrow: { ...type.eyebrow, color: color.kul, marginTop: space.xl },
   q: { ...type.title, color: color.porselen, marginTop: space.sm },
+  why: { ...type.body, color: color.kul, marginTop: space.md },
   label: { ...type.eyebrow, color: color.kulKoyu, marginTop: space.xl, marginBottom: space.md },
+  choiceHint: { ...type.data, color: color.kul, fontSize: 11, marginBottom: space.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
     paddingHorizontal: space.lg,
     paddingVertical: space.md,
     borderRadius: radius.full,
@@ -89,4 +103,5 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: color.cezveUst, borderColor: color.bakir },
   chipText: { ...type.body, color: color.kul },
   chipTextOn: { color: color.porselen },
+  check: { ...type.bodyStrong, color: color.bakir },
 });

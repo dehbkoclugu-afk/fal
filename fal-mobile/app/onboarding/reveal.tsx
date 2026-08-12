@@ -73,9 +73,9 @@ export default function Reveal() {
     : [];
 
   return (
-    <Screen>
+    <Screen scroll>
       <View style={styles.ringWrap}>
-        <TelveRing size={220} value={progress} mode="ritual" breathing={!teaser} />
+        <TelveRing size={200} value={progress} mode="ritual" breathing={!teaser} />
         <View style={styles.ringCenter} pointerEvents="none">
           {teaser ? (
             <Eyebrow style={styles.phase}>{teaser.ay_fazi}</Eyebrow>

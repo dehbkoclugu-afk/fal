@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import * as Notifications from 'expo-notifications';
@@ -8,6 +8,7 @@ import Constants from 'expo-constants';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { api } from '@/lib/api';
+import { useDraft } from '@/lib/store';
 import { color, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
 import { ArtSlot } from '@/components/ArtSlot';
@@ -30,12 +31,23 @@ import { t, tarih } from '@/lib/i18n';
 export default function NotificationsScreen() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const setPushRegistered = useDraft((s) => s.setPushRegistered);
+  const projectId = Constants.expoConfig?.extra?.eas?.projectId
+    ?? Constants.easConfig?.projectId;
+  const pushAvailable = Platform.OS !== 'web' && !!projectId;
+
+  // Teknik taşıma kapalıysa kullanıcıdan izin istemek ve değer vaadi
+  // göstermek yanıltıcı olur. Adımı görünmeden geç.
+  useEffect(() => {
+    if (!pushAvailable) router.replace('/onboarding/paywall');
+  }, [pushAvailable, router]);
 
   // Gerçek transit: bu ekranın ikna gücü verinin gerçek olmasından geliyor.
   const { data } = useQuery({
     queryKey: ['next-transit'],
     queryFn: api.nextTransit,
     retry: 1,
+    enabled: pushAvailable,
   });
   const transit = data?.transit;
 
@@ -48,19 +60,22 @@ export default function NotificationsScreen() {
         // göndereceğini bilemez.
         // projectId tokenı EAS projesine sabitler; hesap adı/proje taşıması
         // tokenı değiştirmez. EAS bağlanmadan push yolu doğal olarak kapalıdır.
-        const projectId = Constants.expoConfig?.extra?.eas?.projectId
-          ?? Constants.easConfig?.projectId;
-        if (!projectId) throw new Error('EAS projectId yok');
         const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
         await api.registerPush(token, new Date().getHours());
+        setPushRegistered(true);
+      } else {
+        setPushRegistered(false);
       }
     } catch {
       // İzin/token alınamazsa akış durmaz — onboarding'i tıkamak daha pahalı.
+      setPushRegistered(false);
     } finally {
       setBusy(false);
       router.push('/onboarding/paywall');
     }
   };
+
+  if (!pushAvailable) return null;
 
   return (
     <Screen>

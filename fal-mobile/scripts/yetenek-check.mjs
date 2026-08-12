@@ -25,6 +25,8 @@ let hata = 0;
 
 const app = JSON.parse(await readFile(join(KOK, 'app.json'), 'utf8')).expo;
 const pkg = JSON.parse(await readFile(join(KOK, 'package.json'), 'utf8'));
+const rootLayout = await readFile(join(KOK, 'app/_layout.tsx'), 'utf8');
+const paywall = await readFile(join(KOK, 'app/onboarding/paywall.tsx'), 'utf8');
 const bagimliliklar = { ...pkg.dependencies, ...pkg.devDependencies };
 const extra = app.extra ?? {};
 
@@ -35,7 +37,7 @@ const YETENEKLER = [
     ad: 'Abonelik (RevenueCat)',
     paket: 'react-native-purchases',
     anahtarlar: ['rcAndroidKey', 'rcIosKey'],
-    kapaliysa: 'abonelik satın alınamaz; paywall boş plan listesi gösterir',
+    kapaliysa: 'abonelik satın alınamaz; paywall ödeme CTA\'sını kapalı tutar',
   },
   {
     ad: 'Ödüllü reklam (AppLovin MAX)',
@@ -78,6 +80,14 @@ for (const y of YETENEKLER) {
   console.log(`  ${KAPALI} ${y.ad} — kapalı: ${eksik.join(', ')} eksik`);
   console.log(`      Sonuç: ${y.kapaliysa}`);
 }
+
+console.log('\n\x1b[1mAbonelik güven kapısı\x1b[0m\n');
+const rcKokte = rootLayout.includes('purchases.configure');
+const fiyatKapisi = paywall.includes("disabled={hazirDurum !== 'ready' || !plan}");
+console.log(`  ${rcKokte ? OK : NO} RevenueCat uygulama kökünde yapılandırılıyor`);
+console.log(`  ${fiyatKapisi ? OK : NO} Gerçek fiyat gelmeden satın alma CTA kapalı`);
+if (!rcKokte) hata++;
+if (!fiyatKapisi) hata++;
 
 const pushProjectId = extra.eas?.projectId;
 if (pushProjectId) {
