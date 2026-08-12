@@ -190,8 +190,9 @@ async def test_tarot_gorsel_secimleri_kuyruga_aynen_gidiyor(client, db, anon, qu
     body = {"spread": "three_card", "seed": "mobil-masa-42", "selections": [2, 8, 11]}
     r = await client.post("/v1/readings/tarot", json=body, headers=H(anon))
     assert r.status_code == 202
-    assert queue.jobs[0].args[2]["seed"] == "mobil-masa-42"
-    assert queue.jobs[0].args[2]["selections"] == [2, 8, 11]
+    _, job_args = queue.jobs[0]
+    assert job_args[2]["seed"] == "mobil-masa-42"
+    assert job_args[2]["selections"] == [2, 8, 11]
 
 
 async def test_tarot_gorsel_secim_sayisi_jeton_dusmeden_reddediliyor(client, db, anon):
