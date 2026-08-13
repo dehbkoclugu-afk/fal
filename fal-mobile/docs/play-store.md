@@ -25,7 +25,7 @@ değişmeli — özellikle Veri Güvenliği (Data Safety) formu.
 | 8 | `npm run release:check` | ⬜ |
 
 **`yetenek:check` neyi yakalıyor:** bu projede birkaç özellik iki yere birden
-bağlı — `app.json`'daki anahtar ve `package.json`'daki paket. Biri eksikse
+bağlı — Expo ortam anahtarı ve `package.json`'daki paket. Biri eksikse
 özellik sessizce kapalı kalıyor; sarmalayıcı hatayı yutuyor ve arayüz butonu
 hiç göstermiyor. En sinsi hâli anahtarın dolu, paketin eksik olması:
 yapılandırmaya bakan herkes "açık" sanıyor, kullanıcı özelliği hiç görmüyor.
@@ -257,8 +257,8 @@ ekranından kullanım koşullarına bağlantı var.
 > **"Hayır, reklam içermiyor"** işaretlenmeli — olmayan reklamı beyan etmek
 > de yanlış beyan.
 >
-> Reklamı açmak istediğinde: `app.json` → `extra.maxSdkKey` ve rewarded unit
-> kimliklerini doldur,
+> Reklamı açmak istediğinde: `app.config.ts` üzerinden `extra.maxSdkKey` ve
+> rewarded unit kimliklerini production ortamından doldur,
 > `npm run yetenek:check` yeşile dönsün, sonra bu bölümü ve Play Console
 > ayarını güncelle. `yetenek:check` anahtar dolu / paket eksik durumunu
 > hata olarak yakalıyor.

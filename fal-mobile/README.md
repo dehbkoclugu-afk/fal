@@ -110,7 +110,7 @@ görünür, güveni öldürür.
 ```bash
 npm install
 
-# API adresi build zamanında gömülüyor (app.json > extra.apiUrl varsayılan).
+# API adresi build zamanında gömülüyor (app.config.ts > extra.apiUrl varsayılan).
 EXPO_PUBLIC_API_URL=http://10.0.2.2:8000 npx expo start   # Android emülatör
 EXPO_PUBLIC_API_URL=http://127.0.0.1:8000 npx expo start --web
 
@@ -144,11 +144,11 @@ Newsreader ve JetBrains Mono'da sorunsuz. Cihazda bir kez daha gözle bak.
 | Eksik | Nerede | Not |
 |---|---|---|
 | Gerçek cihazda çalıştırma | — | Tarayıcıda doğrulandı; kamera, Skia, RevenueCat, reklam ve push yalnızca cihazda denenebilir |
-| Reklam servisi | `lib/ads.ts` | Kod ve SDK hazır; `app.json > extra` anahtarları girilince devreye giriyor, anahtar yokken seçenek gösterilmiyor |
+| Reklam servisi | `lib/ads.ts` | Kod ve SDK hazır; `app.config.ts > extra` anahtarları girilince devreye giriyor, anahtar yokken seçenek gösterilmiyor |
 | İlçe hassasiyeti | `data/cities.json` | 81 il merkezi var; büyük illerde ilçe farkı yükseleni ~1° kaydırabilir |
 | Yasal sayfaların alan adına yayını | `public/` | Dosyalar hazır; gerçek `telve.app` yayını ve sahip bilgileri dış ortam gerektiriyor |
 
-### Anahtar girilecek yerler (`app.json > extra`)
+### Anahtar girilecek yerler (`app.config.ts > extra` / build ortamı)
 
 Hepsi `null` iken uygulama çalışıyor; ilgili özellik sessizce kapalı kalıyor.
 
@@ -197,14 +197,14 @@ tam. Bildirimler çalışmıyor — web push ayrı bir iş.
 ## 6b. Derleme (EAS)
 
 ```bash
-npx eas init                 # projectId'yi app.json'a yazar
+npx eas init                 # EAS projectId'yi üretir; EAS_PROJECT_ID ortamına ekle
 eas build -p android --profile preview      # paylaşılabilir APK
 eas build -p android --profile production   # Play için .aab
 ```
 
 `eas.json` üç profil taşıyor ve API adresini her profil için ayrı veriyor
 (`EXPO_PUBLIC_API_URL`): `development` emülatöre, `preview` staging'e,
-`production` canlıya bakıyor. Tek app.json ile üç ortam bu yüzden mümkün.
+`production` canlıya bakıyor. Tek dinamik Expo yapılandırmasıyla üç ortam bu yüzden mümkün.
 
 ## 7. Ölçülmesi gereken ilk üç şey
 

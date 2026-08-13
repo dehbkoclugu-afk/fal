@@ -5,9 +5,9 @@ import Constants from 'expo-constants';
 import { getAnonId } from './anon';
 import { aktifDil, hataMetni } from './i18n';
 
-// Öncelik: build zamanı env → app.json extra → Android emülatör varsayılanı.
-// EXPO_PUBLIC_API_URL, dev/staging/prod'u tek app.json ile ayırmayı sağlıyor;
-// adresi app.json'a gömmek her ortam için ayrı build demek.
+// Öncelik: build zamanı env → Expo extra → Android emülatör varsayılanı.
+// EXPO_PUBLIC_API_URL, dev/staging/prod'u tek dinamik yapılandırmayla ayırıyor;
+// adresi sabit gömmek her ortam için ayrı kaynak dalı demek.
 const BASE =
   process.env.EXPO_PUBLIC_API_URL ??
   (Constants.expoConfig?.extra as any)?.apiUrl ??

@@ -2,7 +2,7 @@
  * Yetenek kontrolü — hangi özellik gerçekten çalışıyor?
  *
  * Bu projede birkaç özellik "yazılmış ama çalışmıyor" durumunda kalabiliyor,
- * çünkü iki ayrı yere bağlılar: `app.json` içindeki anahtar ve `package.json`
+ * çünkü iki ayrı yere bağlılar: Expo yapılandırmasındaki anahtar ve `package.json`
  * içindeki paket. Biri eksikse özellik SESSİZCE kapalı kalıyor — sarmalayıcı
  * kodu hatayı yutuyor ve arayüz butonu hiç göstermiyor. Uygulama çalışıyor
  * görünüyor, sadece o özellik yok.
@@ -23,7 +23,7 @@ const KAPALI = '\x1b[33m○\x1b[0m';
 const NO = '\x1b[31m✗\x1b[0m';
 let hata = 0;
 
-const app = JSON.parse(await readFile(join(KOK, 'app.json'), 'utf8')).expo;
+const app = JSON.parse(await readFile(join(KOK, 'app.base.json'), 'utf8')).expo;
 const pkg = JSON.parse(await readFile(join(KOK, 'package.json'), 'utf8'));
 const rootLayout = await readFile(join(KOK, 'app/_layout.tsx'), 'utf8');
 const paywall = await readFile(join(KOK, 'app/onboarding/paywall.tsx'), 'utf8');
@@ -101,7 +101,7 @@ if (pushProjectId) {
 console.log('\n\x1b[1mAPI adresi\x1b[0m\n');
 const api = extra.apiUrl ?? '';
 if (/127\.0\.0\.1|localhost|10\.0\.2\.2/.test(api)) {
-  console.error(`  ${NO} app.json'daki apiUrl yerel adres: ${api}`);
+  console.error(`  ${NO} Expo yapılandırmasındaki apiUrl yerel adres: ${api}`);
   console.error('      Yayın derlemesi hiçbir sunucuya ulaşamaz.');
   hata++;
 } else if (!api.startsWith('https://')) {
