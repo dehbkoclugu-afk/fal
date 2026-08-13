@@ -41,6 +41,11 @@ export default function OnboardingLayout() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.telve },
   track: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 2,
     height: 2,
     marginHorizontal: space.lg,
     backgroundColor: color.cizgi,

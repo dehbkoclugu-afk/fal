@@ -138,6 +138,34 @@ async def test_llm_e_gercek_gezegen_pozisyonu_gidiyor(db, user_with_chart,
     assert "Yükselen" in prompt or "yukselen" in prompt.lower()
 
 
+async def test_kahve_onceden_dogrulanmis_analizi_yeniden_kullaniyor(
+    db, user_id, fake_llm, fake_embed, monkeypatch,
+):
+    from app.core.cup_vision import CupAnalysis
+
+    cup = CupAnalysis(
+        ok=True,
+        quality={"width": 900, "height": 900},
+        coverage=0.2,
+        overlay=[],
+    )
+    monkeypatch.setattr(
+        pipeline, "analyze_cup",
+        lambda *_args, **_kw: pytest.fail("fincan ikinci kez analiz edilmemeli"),
+    )
+    rid = await _reading(db, user_id, "coffee")
+
+    out = await pipeline.generate_reading(
+        db,
+        user_id,
+        rid,
+        "coffee",
+        {"image_bytes": b"jpeg", "cup_analysis": cup, "handle_angle": 0},
+    )
+
+    assert out["ozet"]
+
+
 # --------------------------------------------------------------- tahmin ayıklama
 
 async def test_tahminler_deftere_yaziliyor(db, user_with_chart, fake_llm, fake_embed):

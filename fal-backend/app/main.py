@@ -10,6 +10,7 @@ mobilde "fincanın okunuyor" ritüeli oynar, bitince push gider. Böylece
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -26,6 +27,7 @@ from rq import Queue
 
 from .core import db as dbmod
 from .core import locales, tarot as tarot_core
+from .core.cup_vision import REJECT_MESSAGES_TR, analyze_cup
 
 DB_URL = dbmod.DB_URL
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -324,6 +326,20 @@ async def coffee(photo: UploadFile = File(...), question: str = Form(""),
     raw = await photo.read()
     if len(raw) > MAX_UPLOAD_MB * 1024 * 1024:
         raise HTTPException(413, "Fotoğraf çok büyük.")
+
+    # Güven sınırı burada: fincan olmayan/bulanık görüntü için kullanıcıdan
+    # jeton düşme ve sonra iade etme. CPU işi event loop'u bloklamasın.
+    cup = await asyncio.to_thread(analyze_cup, raw, handle_angle)
+    if not cup.ok:
+        raise HTTPException(422, {
+            "code": "invalid_cup_photo",
+            "reason": cup.reason,
+            "message": REJECT_MESSAGES_TR.get(
+                cup.reason,
+                "Fincanın içini okuyamadım. Fotoğrafı yukarıdan yeniden çek.",
+            ),
+        })
+
     db = state["db"]
     await _charge(db, user["id"], "coffee")
     rid = str(uuid.uuid4())
@@ -334,7 +350,8 @@ async def coffee(photo: UploadFile = File(...), question: str = Form(""),
     # Görüntü Redis'te geçici tutulur (24 saat TTL) — kalıcı depoya yazmıyoruz
     await state["redis"].setex(f"cupimg:{rid}", 86400, raw)
     state["queue"].enqueue("app.workers.tasks.run_reading", rid, "coffee",
-                           {"question": question, "handle_angle": handle_angle})
+                           {"question": question, "handle_angle": handle_angle,
+                            "cup_analysis": cup})
     return {"reading_id": rid, "eta_seconds": 150, "status": "queued"}
 
 

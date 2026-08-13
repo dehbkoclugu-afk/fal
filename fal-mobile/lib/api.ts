@@ -31,14 +31,21 @@ export class ApiError extends Error {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const anon = await getAnonId();
   const isForm = init.body instanceof FormData;
-  const res = await fetch(`${BASE}/v1${path}`, {
-    ...init,
-    headers: {
-      'x-anon-id': anon,
-      ...(isForm ? {} : { 'content-type': 'application/json' }),
-      ...(init.headers ?? {}),
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/v1${path}`, {
+      ...init,
+      headers: {
+        'x-anon-id': anon,
+        ...(isForm ? {} : { 'content-type': 'application/json' }),
+        ...(init.headers ?? {}),
+      },
+    });
+  } catch {
+    // React Native'in "Network request failed" gibi geliştirici metinleri
+    // kullanıcıya sızmasın. Bütün API çağrıları tek sınırdan geçiyor.
+    throw new ApiError(0, 'network', hataMetni('network'));
+  }
   if (!res.ok) {
     let code = 'unknown';
     let sunucuMetni: string | undefined;
@@ -223,9 +230,18 @@ export const api = {
       body: JSON.stringify({ locale: aktifDil().code, ...p }),
     }),
 
-  coffee: (photoUri: string, question: string, handleAngle: number) => {
+  coffee: async (photoUri: string, question: string, handleAngle: number) => {
+    // RN 0.86 FormData artık `{ uri, name, type } as any` nesnesini her ağ
+    // katmanında kabul etmiyor. Yerel URI'yi gerçek Blob'a çevirince standart
+    // FormDataPart üretiliyor ve Android native köprüsü dosyayı taşıyabiliyor.
+    let photo: Blob;
+    try {
+      photo = await (await fetch(photoUri)).blob();
+    } catch {
+      throw new ApiError(0, 'photo_unreadable', hataMetni('photo_unreadable'));
+    }
     const form = new FormData();
-    form.append('photo', { uri: photoUri, name: 'cup.jpg', type: 'image/jpeg' } as any);
+    form.append('photo', photo, 'cup.jpg');
     form.append('question', question);
     form.append('handle_angle', String(handleAngle));
     return request<{ reading_id: string; eta_seconds: number }>('/readings/coffee', {

@@ -35,6 +35,53 @@ class CrisisIntercept(Exception):
         super().__init__("crisis")
 
 
+def _text(value: Any) -> str:
+    return value.strip() if isinstance(value, str) else ""
+
+
+def _normalize_output(data: dict) -> dict:
+    """Her tamamlanmış falın görünür ve paylaşılabilir metni olsun."""
+    normalized = dict(data or {})
+
+    sections = []
+    for raw in normalized.get("bolumler") or []:
+        if not isinstance(raw, dict):
+            continue
+        body = _text(raw.get("metin"))
+        if not body:
+            continue
+        sections.append({**raw, "baslik": _text(raw.get("baslik")) or "Yorum",
+                         "metin": body})
+
+    advice = _text(normalized.get("tavsiye"))
+    summary = _text(normalized.get("ozet"))
+    if not summary:
+        summary = sections[0]["metin"] if sections else advice
+    if not summary:
+        raise ReadingRejected(
+            "empty_output",
+            "Yorum boş döndü; kullanıcıya tamamlanmış sonuç gösterilemez.",
+        )
+
+    predictions = []
+    for raw in normalized.get("tahminler") or []:
+        if not isinstance(raw, dict):
+            continue
+        claim = _text(raw.get("iddia"))
+        if claim:
+            predictions.append({**raw, "iddia": claim})
+
+    normalized.update({
+        "ozet": summary,
+        "bolumler": sections,
+        "tahminler": predictions,
+        "tavsiye": advice,
+        "sembol": _text(normalized.get("sembol")),
+        "paylasim_cumlesi": _text(normalized.get("paylasim_cumlesi")) or summary[:140],
+    })
+    return normalized
+
+
 # ------------------------------------------------------------ bağlam toplayıcı
 
 async def build_user_ctx(db, user_id: str) -> dict:
@@ -184,7 +231,12 @@ async def generate_reading(db, user_id: str, reading_id: str, kind: str,
 
     if kind == "coffee":
         img_bytes = inputs["image_bytes"]
-        cup = analyze_cup(img_bytes, handle_angle_deg=inputs.get("handle_angle", 0.0))
+        # HTTP sınırı jeton düşmeden önce doğrular ve sonucu worker'a taşır.
+        # Eski/elle oluşturulmuş işler için görüntüyü burada analiz etmeye
+        # devam et; böylece kuyruktaki işler deploy sırasında bozulmaz.
+        cup = inputs.get("cup_analysis") or analyze_cup(
+            img_bytes, handle_angle_deg=inputs.get("handle_angle", 0.0),
+        )
         if not cup.ok:
             raise ReadingRejected(
                 cup.reason, REJECT_MESSAGES_TR.get(cup.reason, "Fotoğrafı tekrar çeker misin?"))
@@ -303,6 +355,7 @@ async def generate_reading(db, user_id: str, reading_id: str, kind: str,
     max_tokens = 2400 if tier == "paid" else 900
     total_cost = 0.0
     data = None
+    empty_only = True
     for attempt in range(MAX_REGEN + 1):
         res = await complete(system=sys, user=user_msg,
                              tier="large" if tier == "paid" else "small",
@@ -311,7 +364,13 @@ async def generate_reading(db, user_id: str, reading_id: str, kind: str,
         total_cost += res.cost_usd
         if not res.data:
             continue
-        flat = _flatten(res.data)
+        try:
+            candidate = _normalize_output(res.data)
+        except ReadingRejected:
+            user_msg += "\n\nÖNCEKİ DENEME görünür bir yorum üretmedi. Dolu özet, bölüm veya tavsiye yaz."
+            continue
+        empty_only = False
+        flat = _flatten(candidate)
         if bad := guardrail.scan_output(flat, locale=loc.code):
             user_msg += f"\n\nÖNCEKİ DENEME REDDEDİLDİ ({', '.join(bad)}). Bu ihlali yapmadan yeniden yaz."
             continue
@@ -320,13 +379,13 @@ async def generate_reading(db, user_id: str, reading_id: str, kind: str,
             user_msg += ("\n\nÖNCEKİ DENEME kullanıcının geçmiş yorumlarına çok benziyordu. "
                          "Tamamen farklı imge ve açıdan yaz.")
             continue
-        data = res.data
+        data = candidate
         data["_embedding"] = vec
         break
 
     if data is None:
-        raise ReadingRejected("generation_failed",
-                              "Şu an yorum üretemedim, birazdan tekrar dene.")
+        code = "empty_output" if empty_only else "generation_failed"
+        raise ReadingRejected(code, "Şu an yorum üretemedim, birazdan tekrar dene.")
     return await _finalize(db, user_id, reading_id, kind, data, extra,
                            cost=total_cost, tier=tier)
 
@@ -356,6 +415,7 @@ def _flatten(data: dict) -> str:
 async def _finalize(db, user_id: str, reading_id: str, kind: str, data: dict,
                     extra: dict, cost: float, tier: str) -> dict:
     """Kaydet + tahminleri ayıkla + hafızayı güncelle."""
+    data = _normalize_output(data)
     vec = data.pop("_embedding", None)
 
     await db.execute(

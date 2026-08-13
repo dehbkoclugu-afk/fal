@@ -11,7 +11,15 @@
  * yönüne getirmezse konum semantiği bozulur ve yorum yanlış tarafa atıf yapar.
  */
 import React, { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Image } from 'expo-image';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -88,12 +96,12 @@ export default function Coffee() {
       rememberCupPhoto(r.reading_id, durablePhoto);
       router.replace(`/reading/${r.reading_id}`);
     } catch (e) {
-      const err = e as ApiError;
-      if (err.code === 'insufficient_coins') {
+      const err = e instanceof ApiError ? e : null;
+      if (err?.code === 'insufficient_coins') {
         setJetonYok(true);       // CoinGate göster: reklam veya abonelik
         setError(null);
       } else {
-        setError(err.message);
+        setError(err?.message ?? t('ortak.baglantiHatasi'));
       }
     } finally {
       setBusy(false);
@@ -103,7 +111,19 @@ export default function Coffee() {
   // --- Önizleme + soru
   if (shot) {
     return (
-      <View style={[styles.root, { paddingTop: insets.top + space.lg, paddingHorizontal: space.lg }]}>
+      <ScrollView
+        style={styles.root}
+        contentContainerStyle={[
+          styles.previewContent,
+          {
+            paddingTop: insets.top + space.lg,
+            paddingBottom: insets.bottom + space.xl,
+            paddingHorizontal: space.lg,
+          },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <Eyebrow style={styles.eyebrow}>{t('kahve.hazir')}</Eyebrow>
         <View style={[styles.preview, { height: guide }]}>
           <Image source={{ uri: shot }} style={StyleSheet.absoluteFill} contentFit="cover" />
@@ -124,14 +144,18 @@ export default function Coffee() {
         {jetonYok && <CoinGate kind="coffee" />}
 
         <View style={styles.spacer} />
-        <Button label={t('kahve.oku')} loading={busy} onPress={submit} />
+        <Button
+          label={error ? t('ortak.tekrarDeneButon') : t('kahve.oku')}
+          loading={busy}
+          onPress={submit}
+        />
         <Button
           label={t('kahve.yenidenCek')}
           variant="ghost"
           style={{ marginTop: space.md }}
           onPress={() => setShot(null)}
         />
-      </View>
+      </ScrollView>
     );
   }
 
@@ -173,6 +197,7 @@ export default function Coffee() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.telve },
+  previewContent: { flexGrow: 1 },
   center: { alignItems: 'center', justifyContent: 'center' },
 
   permTitle: { ...type.title, color: color.porselen, textAlign: 'center' },

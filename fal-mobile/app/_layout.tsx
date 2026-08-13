@@ -16,7 +16,9 @@ import { Karla_400Regular, Karla_500Medium, Karla_700Bold } from '@expo-google-f
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { dilSec, uygulaYon } from '@/lib/i18n';
+import { getAnonId } from '@/lib/anon';
 import { bildirimleriKur, useBildirimYonlendirme } from '@/lib/notifications';
+import * as purchases from '@/lib/purchases';
 import { hydrateDraft, useDraft } from '@/lib/store';
 import {
   JetBrainsMono_400Regular,
@@ -62,6 +64,12 @@ export default function RootLayout() {
   // boyunca onboarding'e düşer.
   useEffect(() => {
     hydrateDraft();
+  }, []);
+
+  // Mağaza SDK'sı paywall açılmadan hazır olsun. Anahtar/modül yoksa
+  // configure false döner; paywall gerçek fiyat gelmeden CTA'yı açmaz.
+  useEffect(() => {
+    getAnonId().then(purchases.configure).catch(() => false);
   }, []);
   const hydrated = useDraft((s) => s.hydrated);
 

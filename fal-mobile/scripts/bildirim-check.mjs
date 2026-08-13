@@ -99,6 +99,10 @@ const sunucu = await readFile(join(KOK, '../fal-backend/app/workers/tasks.py'), 
 const zamanlayici = await readFile(join(KOK, '../fal-backend/app/workers/scheduler.py'), 'utf8');
 k('Expo token EAS projectId ile alınıyor',
   izin.includes('getExpoPushTokenAsync({ projectId })') && izin.includes('Constants.easConfig?.projectId'));
+k('bildirim vaadi yalnız sunucu kaydından sonra açılıyor',
+  izin.indexOf('await api.registerPush') < izin.indexOf('setPushRegistered(true)'));
+k('EAS projesi yoksa izin ekranı gösterilmiyor',
+  izin.includes('if (!pushAvailable) return null'));
 k('Expo token Expo Push Service\'e gönderiliyor',
   sunucu.includes('https://exp.host/--/api/v2/push/send'));
 k('başka sağlayıcının token alanına Expo token verilmiyor',

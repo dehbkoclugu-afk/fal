@@ -55,6 +55,7 @@ export function ShareCard({ line, symbol, kind, photoUri, computedDetail }: Prop
   const cardRef = useRef<View>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const safeLine = line.trim();
 
   const share = async () => {
     if (busy) return;
@@ -72,7 +73,7 @@ export function ShareCard({ line, symbol, kind, photoUri, computedDetail }: Prop
       await Share.share(
         Platform.OS === 'ios'
           ? { url: uri }
-          : { message: line, url: uri },
+          : { message: safeLine, url: uri },
       );
     } catch {
       setError(t('paylas.hata'));
@@ -80,6 +81,8 @@ export function ShareCard({ line, symbol, kind, photoUri, computedDetail }: Prop
       setBusy(false);
     }
   };
+
+  if (!safeLine) return null;
 
   return (
     <View style={styles.wrap}>
@@ -98,7 +101,7 @@ export function ShareCard({ line, symbol, kind, photoUri, computedDetail }: Prop
         <View style={styles.body}>
           <Eyebrow style={styles.eyebrow}>{baslik(kind)}</Eyebrow>
           <Text style={styles.line} numberOfLines={4}>
-            {line}
+            {safeLine}
           </Text>
           {!!symbol && photoUri ? (
             <Text style={styles.symbol}>{t('paylas.cikanSembol', { sembol: symbol })}</Text>

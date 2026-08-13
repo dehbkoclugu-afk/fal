@@ -18,19 +18,19 @@ export const color = {
   telve: '#16100E',        // en dip zemin
   cezve: '#241A16',        // yükseltilmiş kart
   cezveUst: '#30231D',     // basılı / seçili hâl
-  cizgi: '#3C2C24',        // hairline
+  cizgi: '#7D6254',        // hairline — koyu zeminde 3.36:1, kontrol sınırı görünür
 
   // Aksanlar
   bakir: '#C87942',        // birincil — bakır. CTA, streak, aktif durum.
   bakirSolgun: '#8A5430',
-  cini: '#3A6EA5',         // ikincil — fincan kenarının çini mavisi.
+  cini: '#6599CA',         // ikincil — fincan kenarının çini mavisi.
                            // Sadece "tuttu" ve veri bağlamında kullanılır.
-  kiremit: '#B04A34',      // "tutmadı" ve hata
+  kiremit: '#D36B54',      // "tutmadı" ve hata
 
   // Metin
   porselen: '#EFE7DA',     // birincil metin
-  kul: '#9A897D',          // ikincil metin
-  kulKoyu: '#6B5C52',      // üçüncül / devre dışı
+  kul: '#B0A095',          // ikincil metin — telve üzerinde 7.45:1
+  kulKoyu: '#927F73',      // üçüncül metin — telve üzerinde 4.94:1
 } as const;
 
 export const font = {
