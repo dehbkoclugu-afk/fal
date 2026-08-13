@@ -32,6 +32,7 @@ export const tr = {
   'hata.reward_cap': 'Bugünlük ödül hakkın doldu.',
   'hata.unsupported_locale': 'Bu dil henüz desteklenmiyor.',
   'hata.network': 'Bağlantını kontrol edip tekrar dener misin?',
+  'hata.network_timeout': 'Bağlantı uzun sürdü. Tekrar dener misin?',
   'hata.photo_unreadable': 'Fotoğrafı cihazdan okuyamadım. Yeniden çeker misin?',
   'hata.invalid_cup_photo':
     'Fincanın içi seçilemiyor. Fincanı ortalayıp yukarıdan, net biçimde yeniden çek.',

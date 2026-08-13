@@ -31,33 +31,45 @@ export class ApiError extends Error {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const anon = await getAnonId();
   const isForm = init.body instanceof FormData;
-  let res: Response;
+  const controller = new AbortController();
+  const callerAbort = () => controller.abort();
+  if (init.signal?.aborted) controller.abort();
+  else init.signal?.addEventListener('abort', callerAbort, { once: true });
+  const timer = setTimeout(() => controller.abort(), 30_000);
   try {
-    res = await fetch(`${BASE}/v1${path}`, {
+    const res = await fetch(`${BASE}/v1${path}`, {
       ...init,
+      signal: controller.signal,
       headers: {
         'x-anon-id': anon,
         ...(isForm ? {} : { 'content-type': 'application/json' }),
         ...(init.headers ?? {}),
       },
     });
-  } catch {
+    if (!res.ok) {
+      let code = 'unknown';
+      let sunucuMetni: string | undefined;
+      try {
+        const body = await res.json();
+        const d = body?.detail ?? body;
+        code = d?.code ?? code;
+        sunucuMetni = d?.message ?? (typeof d === 'string' ? d : undefined);
+      } catch {}
+      throw new ApiError(res.status, code, hataMetni(code, sunucuMetni), sunucuMetni);
+    }
+    return res.status === 204 ? (undefined as T) : res.json();
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new ApiError(0, 'network_timeout', hataMetni('network_timeout'));
+    }
+    if (error instanceof ApiError) throw error;
     // React Native'in "Network request failed" gibi geliştirici metinleri
     // kullanıcıya sızmasın. Bütün API çağrıları tek sınırdan geçiyor.
     throw new ApiError(0, 'network', hataMetni('network'));
+  } finally {
+    clearTimeout(timer);
+    init.signal?.removeEventListener('abort', callerAbort);
   }
-  if (!res.ok) {
-    let code = 'unknown';
-    let sunucuMetni: string | undefined;
-    try {
-      const body = await res.json();
-      const d = body?.detail ?? body;
-      code = d?.code ?? code;
-      sunucuMetni = d?.message ?? (typeof d === 'string' ? d : undefined);
-    } catch {}
-    throw new ApiError(res.status, code, hataMetni(code, sunucuMetni), sunucuMetni);
-  }
-  return res.status === 204 ? (undefined as T) : res.json();
 }
 
 // ---------------------------------------------------------------- tipler

@@ -18,7 +18,7 @@ değişmeli — özellikle Veri Güvenliği (Data Safety) formu.
 | 1 | Yasal sayfalardaki yer tutucuları doldur (`npm run yasal:check` yeşile dönene kadar) | ⬜ |
 | 2 | Yasal sayfaları `telve.app` alan adında yayınla, tarayıcıda aç ve doğrula | ⬜ |
 | 3 | Bir avukata gizlilik politikası ve kullanım koşullarını inceletin | ⬜ |
-| 4 | `app.json` içindeki `extra` anahtarlarını doldur (RevenueCat, PostHog, MAX) | ⬜ |
+| 4 | Production ortamında RevenueCat Android anahtarını doldur; PostHog ve MAX anahtarlarını boş bırak | ⬜ |
 | 5 | `npm run yetenek:check` — hangi özelliğin kapalı olduğunu gör, bilerek karar ver | ⬜ |
 | 6 | EAS projesini bağla; production profili `autoIncrement` ile sürümü yönetsin | ⬜ |
 | 7 | EAS/FCM v1 push kimlik bilgilerini oluştur ve gerçek cihazda test et | ⬜ |
@@ -62,25 +62,27 @@ Play'in kendi kategori adlarıyla. **Toplanan** = sunucumuza gidiyor,
 |---|---|---|---|---|
 | Ad (Name) | Evet | Evet¹ | Zorunlu | Uygulama işlevi, kişiselleştirme |
 | E-posta | **Hayır** | Hayır | — | Toplanmıyor |
-| Kullanıcı kimlikleri (User IDs) | Evet | Evet² | Zorunlu | Uygulama işlevi, analitik |
+| Kullanıcı kimlikleri (User IDs) | Evet | Evet² | Zorunlu | Uygulama işlevi, abonelik doğrulama |
 | Fotoğraflar | **Evet** | **Evet¹** | İsteğe bağlı³ | Uygulama işlevi |
 | Diğer kullanıcı içeriği (soru ve rüya metni) | Evet | Evet¹ | İsteğe bağlı | Uygulama işlevi |
 | Cihaz/diğer kimlikler | Reklam açıksa⁴ | Reklam açıksa⁴ | İsteğe bağlı | Reklam |
 | Uygulama etkileşimleri | Analitik açıksa⁵ | Analitik açıksa⁵ | İsteğe bağlı | Analitik |
-| Satın alma geçmişi | Abonelik açıksa⁶ | Abonelik açıksa⁶ | Zorunlu | Uygulama işlevi |
+| Satın alma geçmişi | **Evet (v1)**⁶ | **Evet (v1)**⁶ | Zorunlu | Uygulama işlevi |
 | Konum | **Hayır** | Hayır | — | Cihaz konumu HİÇ okunmuyor; doğum yeri kullanıcının elle seçtiği şehir |
 | Kişiler, takvim, SMS, dosyalar | **Hayır** | Hayır | — | Toplanmıyor |
 | Sağlık ve fitness | **Hayır** | Hayır | — | Toplanmıyor |
 
-¹ Anthropic (yorum üretimi) · ² RevenueCat, PostHog — açıksa · ³ Yalnızca
+¹ Anthropic (yorum üretimi) · ² RevenueCat; PostHog yalnızca analitik açıksa · ³ Yalnızca
 kahve falı ritüelini kullanırsan · ⁴ AppLovin MAX · ⁵ PostHog · ⁶ RevenueCat,
 Google Play
 
-> **Son üç satır YAPILANDIRMAYA BAĞLI ve şu anda üçü de KAPALI.** AppLovin SDK
-> paketi kurulu ancak reklam birimi/SDK anahtarları boş; PostHog ve RevenueCat
-> anahtarları da boş. Bu hâliyle
-> yayına çıkarsan üçünü de **"Hayır"** olarak beyan etmelisin — toplanmayan
-> veriyi beyan etmek de yanlış beyan.
+> **Bu üç satır YAPILANDIRMAYA BAĞLI. Onaylı v1 kapsamı:** RevenueCat ve Google
+> Play satın almaları **AÇIK**; PostHog analitiği ve AppLovin reklamları
+> **KAPALI**. Production derlemesinde RevenueCat Android anahtarı bulunmalı;
+> PostHog, MAX ve reklam birimi anahtarları boş kalmalı. Bu nedenle v1 Data
+> Safety formunda satın alma geçmişini **"Evet"**, cihaz/reklam kimlikleri ile
+> uygulama etkileşimlerini **"Hayır"** olarak beyan et. Gelecekte analitik veya
+> reklam açılırsa ilgili koşullu satırları ve Play beyanını birlikte güncelle.
 >
 > `npm run yetenek:check` hangisinin açık olduğunu söylüyor. Formu doldurmadan
 > önce çalıştır ve çıktısına göre işaretle; bu tablo neyin mümkün olduğunu
