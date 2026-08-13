@@ -1,0 +1,8 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "provider": "python",
+  "deploy": {
+    "aptPackages": ["libsqlite3-0"],
+    "startCommand": "sh -c 'rq worker --url \"$REDIS_URL\" readings & exec uvicorn app.main:app --host 0.0.0.0 --port \"$PORT\"'"
+  }
+}

@@ -18,18 +18,20 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { TelveRing } from '@/components/TelveRing';
-import { api, ApiError, type Teaser } from '@/lib/api';
+import { api, ApiError, type NatalChart, type Teaser } from '@/lib/api';
 import { useDraft } from '@/lib/store';
 import { color, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
 import { ArtSlot } from '@/components/ArtSlot';
 import { artForKey } from '@/lib/artAssets';
 import { t } from '@/lib/i18n';
+import { NatalChartWheel } from '@/components/NatalChartWheel';
 
 export default function Reveal() {
   const router = useRouter();
   const draft = useDraft((s) => s.draft);
   const [teaser, setTeaser] = useState<Teaser | null>(null);
+  const [chart, setChart] = useState<NatalChart | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0.15);
 
@@ -54,6 +56,7 @@ export default function Reveal() {
         if (!alive) return;
         setProgress(1);
         setTeaser(r.teaser);
+        setChart(r.chart);
       })
       .catch((e: ApiError) => alive && setError(e.message))
       .finally(() => clearInterval(tick));
@@ -73,17 +76,20 @@ export default function Reveal() {
     : [];
 
   return (
-    <Screen>
-      <View style={styles.ringWrap}>
-        <TelveRing size={220} value={progress} mode="ritual" breathing={!teaser} />
-        <View style={styles.ringCenter} pointerEvents="none">
-          {teaser ? (
-            <Eyebrow style={styles.phase}>{teaser.ay_fazi}</Eyebrow>
-          ) : (
+    <Screen scroll>
+      {!chart ? (
+        <View style={styles.ringWrap}>
+          <TelveRing size={220} value={progress} mode="ritual" breathing={!teaser} />
+          <View style={styles.ringCenter} pointerEvents="none">
             <Text style={styles.calc}>{t('ob.reveal.hesaplaniyor')}</Text>
-          )}
+          </View>
         </View>
-      </View>
+      ) : (
+        <Animated.View entering={FadeInDown.duration(520)}>
+          <NatalChartWheel chart={chart} compact />
+          <Eyebrow style={styles.phase}>{teaser?.ay_fazi}</Eyebrow>
+        </Animated.View>
+      )}
 
       {error ? (
         <View style={styles.errorBox}>

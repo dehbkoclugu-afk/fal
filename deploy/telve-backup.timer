@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the Telve PostgreSQL backup daily
+
+[Timer]
+OnCalendar=*-*-* 04:15:00
+Persistent=true
+RandomizedDelaySec=9m
+Unit=telve-backup.service
+
+[Install]
+WantedBy=timers.target

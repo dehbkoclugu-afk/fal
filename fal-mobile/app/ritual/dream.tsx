@@ -34,7 +34,12 @@ const EN_AZ = 20;
 function isoGun(oncekiGun: number): string {
   const d = new Date();
   d.setDate(d.getDate() - oncekiGun);
-  return d.toISOString().slice(0, 10);
+  // UTC'ye çevirmek Türkiye'de gece yarısı–03:00 arasında tarihi bir gün
+  // daha geriye atar. Kullanıcının seçtiği gece yerel takvim günüdür.
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 const NE_ZAMAN = [

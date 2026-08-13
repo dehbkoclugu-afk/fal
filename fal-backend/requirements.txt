@@ -8,7 +8,6 @@ python-multipart==0.0.20
 asyncpg==0.30.0
 redis==5.2.1
 rq==2.1.0
-pgvector==0.3.6
 
 # --- Astroloji (deterministik çekirdek)
 pyswisseph==2.10.3.2

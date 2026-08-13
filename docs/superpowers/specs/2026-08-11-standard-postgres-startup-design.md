@@ -1,0 +1,32 @@
+# Standard PostgreSQL Startup Design
+
+## Goal
+
+Start the FastAPI service on Railway's standard PostgreSQL service without
+requiring pgvector, and initialize an empty database automatically.
+
+## Design
+
+- Store the 384-value embedding as PostgreSQL `real[]`. The application already
+  loads recent embeddings and performs similarity checks in Python, so no SQL
+  vector operator or index is lost.
+- Remove the pgvector connection codec. Keep the existing JSON/JSONB codecs.
+- Before creating the application pool, run `sql/001_init.sql` exactly once.
+  Record migration version `001` in `schema_migrations` and execute schema setup
+  plus the version insert in one transaction so a failed setup rolls back fully.
+- Keep `/health` unchanged. It becomes reachable only after the database is
+  connected and the schema is ready.
+- Railway already sets the service root directory to `/fal-backend`; deployment
+  commands therefore run `uvicorn` directly and never `cd fal-backend` again.
+- Preview and production mobile builds use the generated Railway public domain;
+  no unowned `telve.app` hostname remains in a release profile.
+
+## Error Handling
+
+Database connection or migration errors abort startup and remain visible in
+Railway deploy logs. A partial schema is never accepted as migrated.
+
+## Verification
+
+Unit-test the migration's first-run, already-applied, and rollback-safe call
+paths with a fake asyncpg connection; run backend tests and Python compilation.

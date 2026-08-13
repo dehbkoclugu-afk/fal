@@ -88,10 +88,11 @@ export default function Home() {
       ? t('ana.kalanFal', { n: ent.quota_left!, tier: ent.tier_tr })
       : ent.tier_tr;
   const pending = acc?.awaiting_verdict?.[0];
-  const today =
-    dailyReading?.status === 'done'
-      ? { id: dailyReading.id, ozet: dailyReading.output_json?.ozet ?? '' }
-      : null;
+  const dailySummary = dailyReading?.output_json?.ozet?.trim() ?? '';
+  const dailyEmpty = dailyReading?.status === 'done' && !dailySummary;
+  const today = dailyReading?.status === 'done' && dailySummary
+    ? { id: dailyReading.id, ozet: dailySummary }
+    : null;
 
   return (
     <Screen scroll>
@@ -129,11 +130,13 @@ export default function Home() {
         accessibilityRole="button"
       >
         <ArtSlot id="daily" strength="strong" />
-        <TelveRing size={250} value={today ? 1 : 0.25} mode="ritual" breathing={!today} />
+        <TelveRing size={220} value={today ? 1 : 0.25} mode="ritual" breathing={!today} />
         <View style={styles.cupInner} pointerEvents="none">
           <Eyebrow style={styles.cupLabel}>{t('ana.bugun')}</Eyebrow>
           <Text style={styles.cupText} numberOfLines={4}>
-            {today?.ozet ?? t('ana.gunlukHazirlaniyor')}
+            {today?.ozet ?? (dailyEmpty
+              ? t('ana.gunlukHazirlanamadi')
+              : t('ana.gunlukHazirlaniyor'))}
           </Text>
         </View>
       </Pressable>
@@ -179,7 +182,7 @@ export default function Home() {
               onPress={() => router.push(`/reading/${r.id}`)}
               style={({ pressed }) => [styles.gecmisSatir, pressed && styles.gecmisBasili]}
             >
-              <ArtSlot id={artForKey(r.id)} strength="strong" />
+              <ArtSlot id={ritualArt[r.kind] ?? artForKey(r.id)} strength="strong" />
               <Text style={styles.gecmisOzet} numberOfLines={1}>{r.ozet}</Text>
               <Text style={styles.gecmisTarih}>{tarih(r.created_at)}</Text>
             </Pressable>
@@ -243,7 +246,7 @@ const styles = StyleSheet.create({
 
   cup: {
     alignItems: 'center', justifyContent: 'center', marginTop: space.xl,
-    width: 250, height: 250, alignSelf: 'center', borderRadius: radius.full,
+    width: 220, height: 220, alignSelf: 'center', borderRadius: radius.full,
     overflow: 'hidden', backgroundColor: color.cezve,
   },
   cupInner: { position: 'absolute', width: 170, alignItems: 'center' },

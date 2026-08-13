@@ -26,6 +26,9 @@ import { Eyebrow } from '@/components/Eyebrow';
 import { ArtSlot } from '@/components/ArtSlot';
 import { artForKey, ritualArt } from '@/lib/artAssets';
 import { t } from '@/lib/i18n';
+import { TarotReveal } from '@/components/TarotReveal';
+import { NatalChartWheel } from '@/components/NatalChartWheel';
+import { DreamSkyPanel } from '@/components/DreamSkyPanel';
 
 // Anahtarlar modül düzeyinde, METİN render anında.
 //
@@ -46,11 +49,14 @@ const BEKLEME_ANAHTARLARI = [
   'sonuc.bekleme1', 'sonuc.bekleme2', 'sonuc.bekleme3', 'sonuc.bekleme4',
 ] as const;
 
+const SIGN_GLYPHS = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
+
 export default function ReadingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [marker, setMarker] = useState<string | null>(null);
   const cupPhotos = useDraft((s) => s.cupPhotos);
+  const pushRegistered = useDraft((s) => s.pushRegistered);
 
   const { data, isError } = useQuery({
     queryKey: ['reading', id],
@@ -75,14 +81,27 @@ export default function ReadingScreen() {
   // --- 1. Bekleme ritüeli
   if (!data || data.status === 'queued' || data.status === 'running') {
     const p = data?.progress ?? 0.05;
-    const line = t(BEKLEME_ANAHTARLARI[Math.min(
+    const stageIndex = Math.min(
       BEKLEME_ANAHTARLARI.length - 1,
-      Math.floor(p * BEKLEME_ANAHTARLARI.length))]);
+      Math.floor(p * BEKLEME_ANAHTARLARI.length),
+    );
+    const line = t(BEKLEME_ANAHTARLARI[stageIndex]);
+    const eta = data?.eta_seconds ?? 0;
+    const remaining = eta
+      ? Math.max(10, Math.ceil((eta * (1 - p)) / 10) * 10)
+      : 0;
     return (
       <Screen style={styles.waitRoot}>
-        <TelveRing size={280} value={Math.max(0.06, p)} mode="ritual" />
+        <TelveRing size={240} value={Math.max(0.06, p)} mode="ritual" />
         <Text style={styles.waitLine}>{line}</Text>
-        <Text style={styles.waitNote}>{t('sonuc.beklemeNot')}</Text>
+        <Text style={styles.waitStatus}>
+          {remaining
+            ? t('sonuc.beklemeDurumSureli', { adim: stageIndex + 1, sure: remaining })
+            : t('sonuc.beklemeDurum', { adim: stageIndex + 1 })}
+        </Text>
+        <Text style={styles.waitNote}>
+          {pushRegistered ? t('sonuc.beklemeNot') : t('sonuc.beklemePushYok')}
+        </Text>
         <Pressable onPress={() => router.replace('/(tabs)')} style={{ marginTop: space.xl }}>
           <Text style={styles.waitLink}>{t('ortak.anaEkranKucuk')}</Text>
         </Pressable>
@@ -128,6 +147,24 @@ export default function ReadingScreen() {
 
   // --- 3. Sonuç
   const out = data.output_json!;
+  const visibleText = (
+    out?.ozet
+    || out?.bolumler?.find((section) => section.metin?.trim())?.metin
+    || out?.tavsiye
+    || ''
+  ).trim();
+  if (!visibleText) {
+    return (
+      <Screen>
+        <Text style={styles.err}>{t('sonuc.bosSonuc')}</Text>
+        <Button label={t('ortak.anaEkran')} onPress={() => router.replace('/(tabs)')} />
+      </Screen>
+    );
+  }
+  const shareLine = (out.paylasim_cumlesi || out.ozet || '').trim();
+  const predictions = [...(out.tahminler ?? [])].sort(
+    (a, b) => Number(a.pencere_gun) - Number(b.pencere_gun),
+  );
   const markers = data.extra_json?.overlay ?? [];
 
   // Fotoğraf cihazda kalıyor: sunucu ham görüntüyü işledikten hemen sonra
@@ -160,6 +197,31 @@ export default function ReadingScreen() {
         </View>
       )}
 
+      {data.kind === 'tarot' && data.extra_json?.draw && (
+        <TarotReveal draw={data.extra_json.draw} />
+      )}
+
+      {data.kind === 'natal' && data.extra_json?.chart && (
+        <NatalChartWheel chart={data.extra_json.chart} />
+      )}
+
+      {data.kind === 'dream' && data.extra_json?.moon && data.extra_json?.dream_night && (
+        <DreamSkyPanel
+          moon={data.extra_json.moon}
+          transits={data.extra_json.transits ?? []}
+          night={data.extra_json.dream_night}
+        />
+      )}
+
+      {data.kind === 'daily' && data.extra_json?.moon && data.extra_json?.sky_date && (
+        <DreamSkyPanel
+          moon={data.extra_json.moon}
+          transits={data.extra_json.transits ?? []}
+          night={data.extra_json.sky_date}
+          mode="daily"
+        />
+      )}
+
       <Text style={styles.lead}>{out.ozet}</Text>
 
       {out.bolumler?.map((b, i) => (
@@ -180,10 +242,10 @@ export default function ReadingScreen() {
 
       {/* Tahminler defter kaydına geçiyor — kullanıcı burada "hesabı sorulacak"
           iddiaları görüyor. Ürünün ana farkının kullanıcıya göründüğü yer. */}
-      {out.tahminler?.length > 0 && (
+      {predictions.length > 0 && (
         <View style={styles.predBox}>
           <Eyebrow style={styles.predLabel}>{t('sonuc.defteryeYazildi')}</Eyebrow>
-          {out.tahminler.map((t, i) => (
+          {predictions.map((t, i) => (
             <View key={i} style={styles.predRow}>
               <ArtSlot id={artForKey(`${id}:${t.iddia}:${i}`, 'topic')} strength="strong" />
               <Text style={styles.predWindow}>{t.pencere_gun}g</Text>
@@ -196,12 +258,23 @@ export default function ReadingScreen() {
 
       {/* Paylaşım: viral döngünün tek mekanik parçası. Watermark'lı, Story
           ölçüsünde bir görsel üretiliyor — ekran görüntüsü almak yerine. */}
-      <ShareCard
-        line={out.paylasim_cumlesi || out.ozet}
-        symbol={out.sembol}
-        kind={data.kind}
-        photoUri={data.kind === 'coffee' ? cupPhoto : undefined}
-      />
+      {!!shareLine && (
+        <ShareCard
+          line={shareLine}
+          symbol={out.sembol}
+          kind={data.kind}
+          photoUri={data.kind === 'coffee' ? cupPhoto : undefined}
+          computedDetail={
+            data.kind === 'tarot'
+              ? data.extra_json?.draw?.cards?.[0]?.name_tr
+              : data.kind === 'dream' || data.kind === 'daily'
+                ? data.extra_json?.moon?.ozet
+                : data.kind === 'natal' && data.extra_json?.chart
+                  ? `${t('harita.yukselen')} · ${SIGN_GLYPHS[Math.floor(data.extra_json.chart.ascendant / 30)]} ${Math.floor(data.extra_json.chart.ascendant % 30)}°`
+                  : data.extra_json?.overlay?.[0]?.symbols?.[0]?.label
+          }
+        />
+      )}
 
       <Button
         label={t('sonuc.gunlugeGit')}
@@ -218,6 +291,7 @@ const styles = StyleSheet.create({
 
   waitRoot: { alignItems: 'center', justifyContent: 'center' },
   waitLine: { ...type.oracle, color: color.porselen, marginTop: space.xl },
+  waitStatus: { ...type.dataStrong, color: color.bakir, marginTop: space.sm },
   waitNote: { ...type.body, color: color.kul, marginTop: space.md, textAlign: 'center' },
   waitLink: { ...type.data, color: color.kulKoyu },
 
@@ -228,7 +302,8 @@ const styles = StyleSheet.create({
     padding: space.lg, borderRadius: radius.md,
   },
   sectionTitle: { ...type.eyebrow, color: color.bakir },
-  sectionBody: { ...type.oracle, color: color.porselen, marginTop: space.sm },
+  // Uzun yorum düz gövde kaydında; italik kâhin sesi özet/vurguda kalır.
+  sectionBody: { ...type.body, color: color.porselen, marginTop: space.sm, lineHeight: 25 },
 
   adviceBox: {
     position: 'relative',

@@ -1,24 +1,16 @@
-"""
-Veritabanı bağlantı kurulumu.
-
-Tek sorumluluğu: her bağlantıda pgvector codec'ini kaydetmek. Bu yapılmazsa
-`readings.embedding` (vector(384)) sütununa Python listesi yazılamaz — asyncpg
-bilinmeyen tipi `str` sanar ve her fal kaydı DataError ile düşer. Okurken de
-sütun `"[0.1,0.2,...]"` string'i olarak gelir; `list(...)` bunu karakterlere
-böler ve anti-tekrar kontrolü sessizce çöker.
-
-Bu yüzden DB'ye giden her yol (API pool'u ve worker bağlantısı) buradan geçer.
-"""
+"""Veritabanı bağlantısı ve tek seferlik başlangıç şeması."""
 
 from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 
 import asyncpg
-from pgvector.asyncpg import register_vector
 
 DB_URL = os.getenv("DATABASE_URL", "postgresql://localhost/fal")
+SCHEMA_PATH = Path(__file__).resolve().parents[2] / "sql" / "001_init.sql"
+SCHEMA_VERSION = "001"
 
 
 def _dumps(v) -> str:
@@ -29,8 +21,6 @@ def _dumps(v) -> str:
 
 
 async def init_connection(conn: asyncpg.Connection) -> None:
-    await register_vector(conn)
-
     # jsonb/json codec'i. Kaydedilmezse asyncpg bu sütunları düz METİN olarak
     # döndürür: /v1/readings/{id} yanıtında output_json bir JSON string'i olur,
     # istemcideki `reading.output_json.ozet` undefined döner ve fal ekranı boş
@@ -39,6 +29,30 @@ async def init_connection(conn: asyncpg.Connection) -> None:
     for tip in ("jsonb", "json"):
         await conn.set_type_codec(
             tip, encoder=_dumps, decoder=json.loads, schema="pg_catalog")
+
+
+async def ensure_schema() -> None:
+    """Boş Railway veritabanına şemayı atomik olarak bir kez uygula."""
+    conn = await asyncpg.connect(DB_URL)
+    try:
+        async with conn.transaction():
+            await conn.execute(
+                """CREATE TABLE IF NOT EXISTS schema_migrations (
+                     version text PRIMARY KEY,
+                     applied_at timestamptz NOT NULL DEFAULT now()
+                   )""")
+            applied = await conn.fetchval(
+                "SELECT 1 FROM schema_migrations WHERE version=$1",
+                SCHEMA_VERSION,
+            )
+            if not applied:
+                await conn.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
+                await conn.execute(
+                    "INSERT INTO schema_migrations (version) VALUES ($1)",
+                    SCHEMA_VERSION,
+                )
+    finally:
+        await conn.close()
 
 
 async def create_pool(min_size: int = 2, max_size: int = 10) -> asyncpg.Pool:

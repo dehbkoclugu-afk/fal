@@ -16,9 +16,9 @@ type ArtSlotProps = {
 export function ArtSlot({ id, strength = 'card' }: ArtSlotProps) {
   const scheme = useColorScheme() === 'light' ? 'light' : 'dark';
   const alpha = {
-    soft: scheme === 'light' ? 0.32 : 0.22,
-    card: scheme === 'light' ? 0.48 : 0.36,
-    strong: scheme === 'light' ? 0.58 : 0.48,
+    soft: scheme === 'light' ? 0.38 : 0.30,
+    card: scheme === 'light' ? 0.58 : 0.55,
+    strong: scheme === 'light' ? 0.70 : 0.68,
   }[strength];
 
   return (

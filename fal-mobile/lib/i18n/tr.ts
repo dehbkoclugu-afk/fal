@@ -31,6 +31,11 @@ export const tr = {
   'hata.no_birth_data': 'Önce doğum bilgilerini tamamla.',
   'hata.reward_cap': 'Bugünlük ödül hakkın doldu.',
   'hata.unsupported_locale': 'Bu dil henüz desteklenmiyor.',
+  'hata.network': 'Bağlantını kontrol edip tekrar dener misin?',
+  'hata.network_timeout': 'Bağlantı uzun sürdü. Tekrar dener misin?',
+  'hata.photo_unreadable': 'Fotoğrafı cihazdan okuyamadım. Yeniden çeker misin?',
+  'hata.invalid_cup_photo':
+    'Fincanın içi seçilemiyor. Fincanı ortalayıp yukarıdan, net biçimde yeniden çek.',
   'hata.unknown': 'Bir şeyler ters gitti. Tekrar dene.',
   'ortak.jeton': '{n} jeton',
   'ortak.baglantiHatasi': 'Bağlantını kontrol edip tekrar dener misin?',
@@ -74,13 +79,17 @@ export const tr = {
   'ob.reveal.ayNot': 'duygun',
 
   'ob.tani.eyebrow': 'Seni tanıyorum',
-  'ob.tani.soru': 'Şu an nerede duruyorsun?',
+  'ob.tani.soru': 'Seni biraz daha tanıyayım',
+  'ob.tani.neden':
+    'Bu iki seçim yalnızca yorumun bağlamını belirler. İlişki durumunu paylaşmak istemezsen “Belirtmek istemiyorum” seçeneğini kullanabilirsin.',
   'ob.tani.iliskiDurumu': 'İlişki durumu',
   'ob.tani.merak': 'En çok neyi merak ediyorsun?',
-  'ob.tani.iliskiYok': 'ilişkim yok',
-  'ob.tani.iliskiVar': 'ilişkim var',
-  'ob.tani.evli': 'evli',
-  'ob.tani.karisik': 'karışık',
+  'ob.tani.iliskiYok': 'Şu anda ilişkide değilim',
+  'ob.tani.iliskiVar': 'Bir ilişkim var',
+  'ob.tani.evli': 'Evliyim / hayat ortağım var',
+  'ob.tani.karisik': 'Durumum karmaşık',
+  'ob.tani.belirtmekIstemiyorum': 'Belirtmek istemiyorum',
+  'ob.tani.tekSecim': 'Yalnızca bir konu seç.',
 
   'ob.ton.eyebrow': 'Nasıl konuşayım',
   'ob.ton.soru': 'Hangi ses sana yakın?',
@@ -108,18 +117,23 @@ export const tr = {
 
   'ob.paywall.baslik': 'Falın hazır',
   'ob.paywall.altBaslik':
-    'Ücretsiz kullanmaya devam edebilirsin. Abone olursan bekleme ve jeton sınırı kalkar.',
+    'Ücretsiz kullanmaya devam edebilirsin. Abonelik kapsamı seçtiğin plana göre değişir.',
   'ob.paywall.sinirsizFal': 'Sınırsız kahve falı ve tarot',
   'ob.paywall.aylik10': 'Ayda 10 fal (kahve, tarot, harita)',
-  'ob.paywall.natal': 'Gerçek doğum haritası çözümü',
+  'ob.paywall.natal': 'Doğum verilerine göre kişisel harita yorumu',
   'ob.paywall.transit': 'Kişisel transit uyarıları',
   'ob.paywall.reklamsiz': 'Reklamsız',
   'ob.paywall.aboneOl': 'Abone ol',
+  'ob.paywall.magazaBaglaniliyor': 'Mağaza fiyatları yükleniyor…',
+  'ob.paywall.magazaHazirDegil':
+    'Abonelik şu anda kullanılamıyor. Ücretsiz devam edebilirsin.',
   'ob.paywall.ucretsizDevam': 'Ücretsiz devam et',
   'ob.paywall.geriYukle': 'Satın alımı geri yükle',
   'ob.paywall.geriYuklenemedi': 'Geri yüklenecek bir abonelik bulamadım.',
   'ob.paywall.sartlar':
-    'Abonelik otomatik yenilenir. Yenilemeden en az 24 saat önce Google Play hesabından iptal edebilirsin. Ücret onayladığın anda tahsil edilir. Fal içeriği eğlence amaçlıdır; tıbbi, hukuki veya finansal tavsiye yerine geçmez.',
+    'Abonelik otomatik yenilenir. Yenilemeden en az 24 saat önce mağaza hesabından iptal edebilirsin. Ücret onayladığın anda tahsil edilir. Fal içeriği eğlence amaçlıdır; tıbbi, hukuki veya finansal tavsiye yerine geçmez.',
+  'ob.paywall.jetonNot':
+    'Abone olmadan ritüeller jeton harcar. Jeton bakiyeni ana ekranda, her ritüelin ücretini başlamadan önce görebilirsin.',
   'ob.paywall.yillik': 'Yıllık',
   'ob.paywall.aylik': 'Aylık',
   'ob.paywall.haftalik': 'Haftalık',
@@ -135,6 +149,7 @@ export const tr = {
   'ana.kalanFal': '{n} fal · {tier}',
   'ana.bugun': 'bugün',
   'ana.gunlukHazirlaniyor': 'Günün yorumu hazırlanıyor. Birazdan burada olacak.',
+  'ana.gunlukHazirlanamadi': 'Günün yorumu hazırlanamadı. Biraz sonra yeniden dene.',
   'ana.ritueller': 'ritüeller',
   'ana.dahil': 'dahil',
   'ana.hesabiSorulacak': 'hesabı sorulacak',
@@ -176,7 +191,7 @@ export const tr = {
   // --- kahve ritüeli
   'kahve.izinBaslik': 'Kamera izni gerekiyor',
   'kahve.izinAciklama':
-    'Fincanı okuyabilmem için fotoğrafını çekmem gerek. Fotoğraf 24 saat içinde siliniyor, kalıcı olarak saklanmıyor.',
+    'Sunucu kopyası yorumdan sonra, en geç 24 saatte silinir. Geçmişte işaretleri göstermek için cihazındaki kopya en fazla 30 gün tutulur.',
   'kahve.izinVer': 'İzin ver',
   'kahve.adimBaslik': 'Fincanın içi',
   'kahve.adimIpucu':
@@ -198,6 +213,7 @@ export const tr = {
   'tarot.acilimiOku': 'Açılımı oku · {n} jeton',
   'tarot.kartSec': 'Desteden {n} kart seç. Aklındaki soruyu düşün.',
   'tarot.kartNo': '{n}. kart',
+  'tarot.ters': 'ters',
 
   // --- natal ritüeli
   'natal.eyebrow': 'doğum haritası',
@@ -217,6 +233,28 @@ export const tr = {
   'natal.yorumla': 'Haritamı yorumla',
   'natal.yorumlaJeton': 'Haritamı yorumla · {n} jeton',
 
+  // --- hesaplanmış gökyüzü görselleri
+  'harita.hesaplanmis': 'hesaplanmış doğum haritan',
+  'harita.erisilebilir': 'Gezegenleri, evleri ve açıları gösteren doğum haritası çemberi',
+  'harita.yukselen': 'YÜKSELEN',
+  'harita.retro': 'retro',
+  'harita.saatYok':
+    'Doğum saatin bilinmediği için yükselen ve ev çizgileri gösterilmiyor. Gezegen burçları ve açılar geçerlidir.',
+  'ruya.geceninGokyuzu': 'rüyayı gördüğün gecenin gökyüzü',
+  'ruya.aydinlik': 'aydınlık',
+  'ruya.etkinGostergeler': 'yoruma giren hesaplanmış göstergeler',
+  'ruya.transitYok': 'O gece sıkı bir kişisel transit yoktu; yorum Ay fazına bağlandı.',
+  'gezegen.sun': 'Güneş',
+  'gezegen.moon': 'Ay',
+  'gezegen.mercury': 'Merkür',
+  'gezegen.venus': 'Venüs',
+  'gezegen.mars': 'Mars',
+  'gezegen.jupiter': 'Jüpiter',
+  'gezegen.saturn': 'Satürn',
+  'gezegen.uranus': 'Uranüs',
+  'gezegen.neptune': 'Neptün',
+  'gezegen.pluto': 'Plüton',
+
   // --- sonuç ekranı
   'sonuc.kahveFali': 'kahve falı',
   'sonuc.tarot': 'tarot',
@@ -229,11 +267,16 @@ export const tr = {
     'Süre dolunca sana soracağım: tuttu mu? Cevabın Kader Günlüğü\'ne işlenecek.',
   'sonuc.gunlugeGit': 'Kader Günlüğü\'ne git',
   'sonuc.getirilemedi': 'Falı getiremedim. Bağlantını kontrol edip tekrar dene.',
+  'sonuc.bosSonuc': 'Bu yorum tamamlanamadı. Jetonun harcanmadı; daha sonra yeniden deneyebilirsin.',
   'sonuc.bekleme1': 'fincan çevriliyor',
   'sonuc.bekleme2': 'telve yerleşiyor',
   'sonuc.bekleme3': 'kenarlara bakılıyor',
   'sonuc.bekleme4': 'dibe iniliyor',
+  'sonuc.beklemeDurum': '{adim} / 4 · işleniyor',
+  'sonuc.beklemeDurumSureli': '{adim} / 4 · yaklaşık {sure} sn kaldı',
   'sonuc.beklemeNot': 'Hazır olduğunda haber vereceğim. Uygulamayı kapatabilirsin.',
+  'sonuc.beklemePushYok':
+    'Bu ekranda bekleyebilir veya ana ekrandan daha sonra tekrar kontrol edebilirsin.',
   'sonuc.krizBaslik': 'Bir dakika duralım',
   'sonuc.acilYardim': 'acil yardım',
   'sonuc.destekHatti': 'sosyal destek hattı, 7/24',
@@ -253,6 +296,7 @@ export const tr = {
   // --- kader günlüğü
   'gunluk.eyebrow': 'kader günlüğü',
   'gunluk.cevabinIcin': 'cevabın için',
+  'gunluk.bugununGokyuzu': 'bugünün hesaplanmış gökyüzü',
   'gunluk.konuyaGore': 'konuya göre',
   'gunluk.cevabiniBekliyorum': 'cevabını bekliyorum',
   'gunluk.ozet': '{total} tahmin · {hits} tuttu · {partials} kısmen',

@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { api } from '@/lib/api';
+import { getAnonId } from '@/lib/anon';
 import * as purchases from '@/lib/purchases';
 import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
@@ -24,19 +25,19 @@ import { t } from '@/lib/i18n';
  *
  * Fiyat ve süre bilgisi açıkça yazılı: hem mağaza kuralı hem iade önlemi.
  */
-// Yedek gösterim: mağaza fiyatları yüklenene kadar (veya Expo Go'da native
-// modül yokken) ekran boş kalmasın. Gerçek fiyat her zaman mağazadan gelir —
-// koda yazılmış fiyat mağaza kuralına aykırı ve TR'de zamla birlikte yanlış olur.
 // Paywall varyantı. Remote config'ten sürülebilir olmalı — kod deploy'u
 // gerektiren A/B test pratikte ölü A/B testtir (bkz. fal-mobile/README).
 const VARYANT = 'soft_yillik_one_v1';
 
 // Fonksiyon, sabit değil: modül düzeyinde t() çağırmak dili içe aktarma
 // anında dondurur (bkz. reading/[id].tsx'teki not).
-const yedekPlanlar = () => [
-  { key: 'yearly', title: t('ob.paywall.yillik'), price: '—', per: t('ob.paywall.yildaBir'), badge: t('ob.paywall.enAvantajli') },
-  { key: 'monthly', title: t('ob.paywall.aylik'), price: '—', per: t('ob.paywall.aydaBir'), badge: null },
-];
+type PaywallPlan = {
+  key: string;
+  title: string;
+  price: string;
+  per: string;
+  badge: string | null;
+};
 
 function planBasligi(period: string | null): { title: string; per: string } {
   if (period === 'P1Y') return { title: t('ob.paywall.yillik'), per: t('ob.paywall.yildaBir') };
@@ -57,18 +58,24 @@ const ortakKapsam = () => [
 
 /** Plan anahtarından kapsam satırlarını türetir. */
 function kapsam(key: string): string[] {
-  const yillik = /year|yil|yıl|annual/i.test(key);
-  const ust = yillik || /fate|kader|unlimited/i.test(key);
-  return [ust ? t('ob.paywall.sinirsizFal') : t('ob.paywall.aylik10'),
-          ...ortakKapsam()];
+  // Yıllık yalnız faturalama dönemidir, entitlement değildir. Sınırsız
+  // kapsam ancak ürün kimliği bunu açıkça söylüyorsa vaat edilir.
+  const ust = /fate|kader|unlimited/i.test(key);
+  const sinir = ust
+    ? t('ob.paywall.sinirsizFal')
+    : /star|yildiz|yıldız|10/i.test(key)
+      ? t('ob.paywall.aylik10')
+      : null;
+  return sinir ? [sinir, ...ortakKapsam()] : ortakKapsam();
 }
 
 export default function Paywall() {
   const router = useRouter();
   const qc = useQueryClient();
   const finish = useDraft((s) => s.finish);
-  const [plans, setPlans] = useState(yedekPlanlar);
-  const [plan, setPlan] = useState<string>('yearly');
+  const [plans, setPlans] = useState<PaywallPlan[]>([]);
+  const [plan, setPlan] = useState<string | null>(null);
+  const [hazirDurum, setHazirDurum] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,8 +86,14 @@ export default function Paywall() {
 
   useEffect(() => {
     let iptal = false;
-    purchases.getPlans().then((p) => {
-      if (iptal || p.length === 0) return;
+    (async () => {
+      const configured = await purchases.configure(await getAnonId());
+      const p = configured ? await purchases.getPlans() : [];
+      if (iptal) return;
+      if (p.length === 0) {
+        setHazirDurum('unavailable');
+        return;
+      }
       const list = p.map((x) => {
         const { title, per } = planBasligi(x.period);
         return {
@@ -93,13 +106,15 @@ export default function Paywall() {
       });
       setPlans(list);
       setPlan(list[0].key);
-    });
+      setHazirDurum('ready');
+    })().catch(() => !iptal && setHazirDurum('unavailable'));
     return () => {
       iptal = true;
     };
   }, []);
 
   const go = async () => {
+    if (hazirDurum !== 'ready' || !plan) return;
     setBusy(true);
     setError(null);
     const res = await purchases.purchase(plan);
@@ -147,7 +162,7 @@ export default function Paywall() {
       <Text style={styles.sub}>{t('ob.paywall.altBaslik')}</Text>
 
       <View style={styles.list}>
-        {kapsam(plan).map((i) => (
+        {kapsam(plan ?? '').map((i) => (
           <View key={i} style={styles.item}>
             <View style={styles.dot} />
             <Text style={styles.itemText}>{i}</Text>
@@ -155,12 +170,27 @@ export default function Paywall() {
         ))}
       </View>
 
+      {hazirDurum !== 'ready' && (
+        <Text style={styles.storeState}>
+          {hazirDurum === 'loading'
+            ? t('ob.paywall.magazaBaglaniliyor')
+            : t('ob.paywall.magazaHazirDegil')}
+        </Text>
+      )}
+
       <View style={styles.plans}>
         {plans.map((p) => {
           const on = plan === p.key;
           return (
-            <Pressable key={p.key} onPress={() => setPlan(p.key)} style={[styles.plan, on && styles.planOn]}>
+            <Pressable
+              key={p.key}
+              onPress={() => setPlan(p.key)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: on }}
+              style={[styles.plan, on && styles.planOn]}
+            >
               <ArtSlot id={artForKey(`plan:${p.key}`, 'topic')} strength="strong" />
+              <View style={styles.radio}>{on && <View style={styles.radioOn} />}</View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.planTitle}>{p.title}</Text>
                 <Text style={styles.planPer}>{p.per}</Text>
@@ -172,16 +202,28 @@ export default function Paywall() {
         })}
       </View>
 
-      <Button label={t('ob.paywall.aboneOl')} loading={busy} onPress={go} style={{ marginTop: space.lg }} />
+      <Button
+        label={t('ob.paywall.aboneOl')}
+        loading={busy}
+        disabled={hazirDurum !== 'ready' || !plan}
+        onPress={go}
+        style={{ marginTop: space.lg }}
+      />
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <Text style={styles.terms}>{t('ob.paywall.sartlar')}</Text>
+      <Text style={styles.coinNote}>{t('ob.paywall.jetonNot')}</Text>
 
       <View style={styles.footerLinks}>
-        <Pressable onPress={skip}>
+        <Pressable onPress={skip} style={styles.footerLink}>
           <Text style={styles.free}>{t('ob.paywall.ucretsizDevam')}</Text>
         </Pressable>
-        <Pressable onPress={restore}>
+        <Pressable
+          onPress={restore}
+          disabled={hazirDurum !== 'ready' || busy}
+          accessibilityState={{ disabled: hazirDurum !== 'ready' || busy }}
+          style={styles.footerLink}
+        >
           <Text style={styles.free}>{t('ob.paywall.geriYukle')}</Text>
         </Pressable>
       </View>
@@ -191,7 +233,7 @@ export default function Paywall() {
 
 const styles = StyleSheet.create({
   close: { alignSelf: 'flex-end', padding: space.sm },
-  closeText: { ...type.data, color: color.kulKoyu },
+  closeText: { ...type.dataStrong, color: color.kul },
   title: { ...type.title, color: color.porselen, marginTop: space.md },
   sub: { ...type.body, color: color.kul, marginTop: space.sm },
   list: { marginTop: space.xl, gap: space.md },
@@ -199,6 +241,7 @@ const styles = StyleSheet.create({
   dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: color.bakir },
   itemText: { ...type.body, color: color.porselen },
   plans: { marginTop: space.xl, gap: space.md },
+  storeState: { ...type.body, color: color.kul, marginTop: space.xl },
   plan: {
     position: 'relative',
     overflow: 'hidden',
@@ -212,16 +255,28 @@ const styles = StyleSheet.create({
     backgroundColor: color.cezve,
   },
   planOn: { borderColor: color.bakir, backgroundColor: color.cezveUst },
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: color.kul,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioOn: { width: 10, height: 10, borderRadius: 5, backgroundColor: color.bakir },
   planTitle: { ...type.bodyStrong, color: color.porselen },
   planPer: { ...type.data, color: color.kulKoyu, fontSize: 11 },
   planPrice: { ...type.dataStrong, color: color.porselen, fontSize: 18 },
   badge: { ...type.eyebrow, color: color.cini, fontSize: 9 },
-  terms: { ...type.data, color: color.kulKoyu, fontSize: 10, lineHeight: 16, marginTop: space.lg },
+  terms: { ...type.data, color: color.kul, fontSize: 12, lineHeight: 18, marginTop: space.lg },
+  coinNote: { ...type.data, color: color.kul, fontSize: 11, lineHeight: 17, marginTop: space.md },
   footerLinks: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: space.lg,
   },
+  footerLink: { minHeight: 44, justifyContent: 'center' },
   free: { ...type.data, color: color.kul },
   error: { ...type.data, color: color.kiremit, fontSize: 12, marginTop: space.md },
 });

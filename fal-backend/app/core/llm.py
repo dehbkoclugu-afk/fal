@@ -3,14 +3,13 @@ LLM katmanı.
 
 Bootstrap bütçesinin hayatta kalması bu dosyadaki 5 karara bağlı:
   1. KADEMELİ MODEL     — ücretsiz kullanıcı küçük modele, ödeyen büyük modele gider
-  2. PROMPT CACHE       — sabit sistem promptu ikinci istekten sonra ~%10 fiyata düşer
+  2. TEK REST İSTEMCİSİ — metin ve görsel aynı Gemini çağrı yolundan geçer
   3. BATCH              — günlük burçlar gece toplu üretilir (yarı fiyat, aciliyet yok)
   4. JSON ZORLAMA       — tek denemede doğru çıktı = yeniden üretme maliyeti yok
   5. MALİYET MUHASEBESİ — her istek DB'ye yazılır; kullanıcı başı maliyeti bilmiyorsan
                           fiyatlandırmayı da bilemezsin
 
-Sağlayıcıdan bağımsız tutuldu: BASE_URL ve model adlarını .env'den değiştirerek
-başka sağlayıcıya geçebilirsin.
+Google Gemini REST API kullanılır. Harici SDK yok; mevcut httpx bağımlılığı yeterli.
 """
 
 from __future__ import annotations
@@ -28,22 +27,24 @@ import httpx
 
 log = logging.getLogger(__name__)
 
-BASE_URL = os.getenv("LLM_BASE_URL", "https://api.anthropic.com/v1/messages")
-API_KEY = os.getenv("LLM_API_KEY", "")
-API_VERSION = os.getenv("LLM_API_VERSION", "2023-06-01")
+BASE_URL = os.getenv(
+    "GEMINI_API_BASE",
+    "https://generativelanguage.googleapis.com/v1beta/models",
+).rstrip("/")
+API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # Model kademeleri. Adları .env'den ver — modeller değişir, kod değişmesin.
 MODEL_TIERS = {
-    "nano":  os.getenv("MODEL_NANO",  "claude-haiku-4-5"),   # guardrail, etiketleme, özetleme
-    "small": os.getenv("MODEL_SMALL", "claude-haiku-4-5"),   # ücretsiz fal, blok birleştirme
-    "large": os.getenv("MODEL_LARGE", "claude-sonnet-5"),    # ödeyen kullanıcı falı
+    "nano":  os.getenv("MODEL_NANO",  "gemini-3.5-flash-lite"),
+    "small": os.getenv("MODEL_SMALL", "gemini-3.5-flash-lite"),
+    "large": os.getenv("MODEL_LARGE", "gemini-3.5-flash-lite"),
 }
 
 # 1M token başına USD — kendi sağlayıcı fiyatınla güncelle, muhasebe buna bakıyor
 PRICING = {
-    "nano":  {"in": 1.00, "out": 5.00, "cache_write": 1.25, "cache_read": 0.10},
-    "small": {"in": 1.00, "out": 5.00, "cache_write": 1.25, "cache_read": 0.10},
-    "large": {"in": 3.00, "out": 15.00, "cache_write": 3.75, "cache_read": 0.30},
+    "nano":  {"in": 0.30, "out": 2.50, "cache_write": 0.0, "cache_read": 0.0},
+    "small": {"in": 0.30, "out": 2.50, "cache_write": 0.0, "cache_read": 0.0},
+    "large": {"in": 0.30, "out": 2.50, "cache_write": 0.0, "cache_read": 0.0},
 }
 
 MAX_RETRIES = 3
@@ -96,6 +97,16 @@ def parse_json_loose(text: str) -> dict | None:
     return None
 
 
+def _system_text(system: list[dict] | str) -> str:
+    if isinstance(system, str):
+        return system
+    return "\n\n".join(
+        str(block.get("text", ""))
+        for block in system
+        if isinstance(block, dict) and block.get("text")
+    )
+
+
 async def complete(
     system: list[dict] | str,
     user: str,
@@ -106,68 +117,66 @@ async def complete(
     images: list[dict] | None = None,
     prefill: str | None = None,
 ) -> LLMResult:
-    """Tek LLM çağrısı.
-
-    prefill: modelin cevabını '{' ile başlatmak JSON tutarlılığını çok artırır —
-    ücretsiz bir kalite kazanımı, kullan.
-    """
+    """Tek Gemini çağrısı. ``prefill`` eski sağlayıcıyla API uyumluluğu içindir."""
     model = MODEL_TIERS[tier]
+    if not API_KEY:
+        raise RuntimeError("GEMINI_API_KEY ortam değişkeni eksik.")
+
     content: list[dict] = []
     for img in images or []:
         content.append({
-            "type": "image",
-            "source": {"type": "base64", "media_type": img.get("media_type", "image/jpeg"),
-                       "data": img["data"]},
+            "inline_data": {
+                "mime_type": img.get("media_type", "image/jpeg"),
+                "data": img["data"],
+            },
         })
-    content.append({"type": "text", "text": user})
-
-    messages: list[dict] = [{"role": "user", "content": content}]
-    if expect_json and prefill is None:
-        prefill = "{"
-    if prefill:
-        messages.append({"role": "assistant", "content": prefill})
+    content.append({"text": user})
 
     payload = {
-        "model": model,
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-        "system": system if isinstance(system, list) else [{"type": "text", "text": system}],
-        "messages": messages,
+        "system_instruction": {"parts": [{"text": _system_text(system)}]},
+        "contents": [{"role": "user", "parts": content}],
+        "generationConfig": {
+            "maxOutputTokens": max_tokens,
+            "temperature": temperature,
+            **({"responseMimeType": "application/json"} if expect_json else {}),
+        },
     }
-    headers = {
-        "x-api-key": API_KEY,
-        "anthropic-version": API_VERSION,
-        "content-type": "application/json",
-    }
+    headers = {"x-goog-api-key": API_KEY, "content-type": "application/json"}
+    url = f"{BASE_URL}/{model}:generateContent"
 
     t0 = time.perf_counter()
     last_err: Exception | None = None
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         for attempt in range(1, MAX_RETRIES + 1):
             try:
-                r = await client.post(BASE_URL, headers=headers, json=payload)
+                r = await client.post(url, headers=headers, json=payload)
                 if r.status_code in (429, 500, 502, 503, 529):
                     await asyncio.sleep(min(2 ** attempt, 12))
                     continue
                 r.raise_for_status()
                 body = r.json()
-                text = "".join(b.get("text", "") for b in body.get("content", [])
-                               if b.get("type") == "text")
-                if prefill:
-                    text = prefill + text
-                usage = body.get("usage", {})
+                candidates = body.get("candidates") or []
+                parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
+                text = "".join(p.get("text", "") for p in parts)
+                usage = body.get("usageMetadata", {})
+                normalized_usage = {
+                    "input_tokens": usage.get("promptTokenCount", 0),
+                    "output_tokens": usage.get("candidatesTokenCount", 0),
+                    "cache_read_input_tokens": usage.get("cachedContentTokenCount", 0),
+                    "cache_creation_input_tokens": 0,
+                }
                 data = parse_json_loose(text) if expect_json else None
                 if expect_json and data is None and attempt < MAX_RETRIES:
                     # Sıcaklığı düşürüp tekrar dene — JSON hatası genelde yaratıcılıktan gelir
-                    payload["temperature"] = 0.3
+                    payload["generationConfig"]["temperature"] = 0.3
                     continue
                 return LLMResult(
                     text=text, data=data, tier=tier, model=model,
-                    in_tokens=usage.get("input_tokens", 0),
-                    out_tokens=usage.get("output_tokens", 0),
-                    cache_read=usage.get("cache_read_input_tokens", 0),
-                    cache_write=usage.get("cache_creation_input_tokens", 0),
-                    cost_usd=_estimate_cost(tier, usage),
+                    in_tokens=normalized_usage["input_tokens"],
+                    out_tokens=normalized_usage["output_tokens"],
+                    cache_read=normalized_usage["cache_read_input_tokens"],
+                    cache_write=0,
+                    cost_usd=_estimate_cost(tier, normalized_usage),
                     latency_ms=int((time.perf_counter() - t0) * 1000),
                     attempts=attempt,
                 )

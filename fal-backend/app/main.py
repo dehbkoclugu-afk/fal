@@ -10,6 +10,7 @@ mobilde "fincanın okunuyor" ritüeli oynar, bitince push gider. Böylece
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -20,12 +21,13 @@ from typing import Literal
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from redis import asyncio as aioredis
 from rq import Queue
 
 from .core import db as dbmod
-from .core import locales
+from .core import locales, tarot as tarot_core
+from .core.cup_vision import REJECT_MESSAGES_TR, analyze_cup
 
 DB_URL = dbmod.DB_URL
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -42,6 +44,7 @@ state: dict = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await dbmod.ensure_schema()
     state["db"] = await dbmod.create_pool()
     state["redis"] = await aioredis.from_url(REDIS_URL)
     import redis as sync_redis
@@ -128,6 +131,22 @@ class TarotIn(BaseModel):
                     "love_five", "celtic_cross"] = "three_card"
     question: str = Field("", max_length=1000)
     seed: str | None = Field(None, max_length=64)
+    selections: list[int] | None = Field(None, max_length=10)
+
+    @model_validator(mode="after")
+    def validate_selections(self):
+        if self.selections is None:
+            return self
+        expected = len(tarot_core.SPREADS[self.spread])
+        if len(self.selections) != expected:
+            raise ValueError(f"Bu açılım için {expected} kart seçilmeli.")
+        if len(set(self.selections)) != len(self.selections):
+            raise ValueError("Aynı deste konumu iki kez seçilemez.")
+        if any(index < 0 or index >= 12 for index in self.selections):
+            raise ValueError("Kart seçimi 0 ile 11 arasında olmalı.")
+        if not self.seed:
+            raise ValueError("Kart seçimleri bir deste seed'i gerektirir.")
+        return self
 
 
 class NatalIn(BaseModel):
@@ -263,6 +282,7 @@ async def upsert_profile(p: ProfileIn, user=Depends(get_user)):
 
     # Onboarding'de anında ödül: yükselen burcu hemen döndür (bırakma oranını düşürür)
     teaser = None
+    chart_payload = None
     if p.birth_date:
         from .core import astro
         d, t = p.birth_date, p.birth_time
@@ -279,7 +299,8 @@ async def upsert_profile(p: ProfileIn, user=Depends(get_user)):
         }
         from .core.pipeline import cache_chart
         await cache_chart(db, profile_id, chart)
-    return {"ok": True, "teaser": teaser}
+        chart_payload = chart.to_dict()
+    return {"ok": True, "teaser": teaser, "chart": chart_payload}
 
 
 class PaywallEventIn(BaseModel):
@@ -305,6 +326,20 @@ async def coffee(photo: UploadFile = File(...), question: str = Form(""),
     raw = await photo.read()
     if len(raw) > MAX_UPLOAD_MB * 1024 * 1024:
         raise HTTPException(413, "Fotoğraf çok büyük.")
+
+    # Güven sınırı burada: fincan olmayan/bulanık görüntü için kullanıcıdan
+    # jeton düşme ve sonra iade etme. CPU işi event loop'u bloklamasın.
+    cup = await asyncio.to_thread(analyze_cup, raw, handle_angle)
+    if not cup.ok:
+        raise HTTPException(422, {
+            "code": "invalid_cup_photo",
+            "reason": cup.reason,
+            "message": REJECT_MESSAGES_TR.get(
+                cup.reason,
+                "Fincanın içini okuyamadım. Fotoğrafı yukarıdan yeniden çek.",
+            ),
+        })
+
     db = state["db"]
     await _charge(db, user["id"], "coffee")
     rid = str(uuid.uuid4())
@@ -315,7 +350,8 @@ async def coffee(photo: UploadFile = File(...), question: str = Form(""),
     # Görüntü Redis'te geçici tutulur (24 saat TTL) — kalıcı depoya yazmıyoruz
     await state["redis"].setex(f"cupimg:{rid}", 86400, raw)
     state["queue"].enqueue("app.workers.tasks.run_reading", rid, "coffee",
-                           {"question": question, "handle_angle": handle_angle})
+                           {"question": question, "handle_angle": handle_angle,
+                            "cup_analysis": cup})
     return {"reading_id": rid, "eta_seconds": 150, "status": "queued"}
 
 
@@ -324,12 +360,15 @@ async def tarot_reading(body: TarotIn, user=Depends(get_user)):
     db = state["db"]
     await _charge(db, user["id"], "tarot")
     rid = str(uuid.uuid4())
+    veri = body.model_dump()
+    if not veri.get("seed"):
+        veri["seed"] = tarot_core.new_seed()
     await db.execute(
         """INSERT INTO readings (id, user_id, kind, input_json, eta_seconds)
            VALUES ($1,$2,'tarot',$3,90)""",
-        rid, user["id"], body.model_dump())
+        rid, user["id"], veri)
     state["queue"].enqueue("app.workers.tasks.run_reading", rid, "tarot",
-                           body.model_dump())
+                           veri)
     return {"reading_id": rid, "eta_seconds": 90, "status": "queued"}
 
 

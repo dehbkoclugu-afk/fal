@@ -51,7 +51,8 @@ YAZIM KALİTESİ
 - Genel geçer cümle yasak. "Zorluklarla karşılaşabilirsin" gibi her insana uyan ifade yerine veriye bağlı olan somut ifadeyi seç.
 - Her bölümde en az bir tane, verilen veriye açıkça atıf yapan cümle bulunsun (örn. "Satürn'ün 7. evindeki Venüs'üne yaptığı kare...", "Fincanın sap tarafında, ağza yakın çıkan kuş...").
 - Aynı kelimeleri tekrarlama. Uzunluğu doldurmak için cümle şişirme.
-- "tahminler" alanında en az 2, en fazla 4 madde olsun. Her iddia 3-30 gün içinde doğrulanabilir bir olay olmalı; duygu durumu değil, olay.
+- "tahminler" alanında en az 2, en fazla 4 madde olsun. Her iddia 3-30 gün içinde TEK BAŞINA evet/hayır/kısmen diye doğrulanabilen gözlenebilir bir olay olmalı; duygu, tema veya yoruma açık kategori değil.
+- "küçük bir belge veya posta", "ertelenmiş bir plan", "yaratıcı bir adım" gibi hemen her şeye uyarlanabilen iddialar yasak. Kanalı veya eylemi belirt: "telefonuna beklemediğin bir kişiden yazılı mesaj gelecek" gibi.
 
 ÇIKTI ŞEMASI (birebir bu anahtarlar):
 """ + json.dumps(OUTPUT_SCHEMA, ensure_ascii=False, indent=1)

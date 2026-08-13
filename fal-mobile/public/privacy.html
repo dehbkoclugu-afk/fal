@@ -26,8 +26,8 @@
 <div class="kutu vurgu">
   <p>
     <strong>In short:</strong> no email, password or phone number is
-    required. Cup photos are not stored permanently — they are deleted as
-    soon as the reading is generated. You can permanently delete everything
+    required. Server copies of cup photos are deleted as soon as the reading
+    is generated; a device-only copy may be kept for up to 30 days so the visual overlay works. You can permanently delete everything
     from inside the app.
   </p>
 </div>
@@ -67,8 +67,8 @@
     <tr><td>App language</td>
         <td>Choose interface text and, in a crisis, the correct country's emergency helpline numbers</td>
         <td>Until deletion</td></tr>
-    <tr><td><strong>Cup photo</strong></td><td>Extract coffee-ground shapes via image processing</td>
-        <td><strong>24 hours maximum.</strong> Deleted immediately after processing; 24 hours is only an upper bound.</td></tr>
+    <tr><td><strong>Cup photo</strong></td><td>Extract coffee-ground shapes and display the visual overlay in reading history</td>
+        <td><strong>Server: 24 hours maximum.</strong> Device-only copy: up to 30 days and 20 photos, or until app data/account deletion.</td></tr>
     <tr><td>Questions you type and dream descriptions</td>
         <td>Generate the reading and run the safety check</td><td>Until deletion</td></tr>
     <tr><td>Generated readings, predictions, and your "came true / did not" answers</td>
@@ -95,9 +95,11 @@
 
 <h2>4. Your cup photo</h2>
 <p>
-  The photo is never written to permanent storage. It is held in a temporary
+  The server copy is never written to permanent storage. It is held in a temporary
   store with a 24-hour maximum lifetime and deleted as soon as the reading
-  finishes. Small crops of the detected coffee-ground regions are sent to our
+  finishes. To keep visual markers available in reading history, the app stores
+  a copy only in its private area on your device for up to 30 days and no more
+  than 20 photos. Account deletion removes these local copies. Small crops of the detected coffee-ground regions are sent to our
   AI provider to identify what the shape resembles (see section 5). The full
   photo is not sent.
 </p>

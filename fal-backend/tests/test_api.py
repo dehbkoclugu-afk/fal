@@ -128,6 +128,9 @@ async def test_profil_kaydi_ve_teaser(client, anon):
     teaser = r.json()["teaser"]
     assert teaser["yukselen"] == "İkizler"
     assert teaser["gunes"] and teaser["ay"] and teaser["ay_fazi"]
+    chart = r.json()["chart"]
+    assert chart["bodies"]["sun"]["sign_tr"] == teaser["gunes"]
+    assert len(chart["houses"]) == 12
 
 
 async def test_profil_iki_kez_kaydedilebiliyor(client, anon, db):
@@ -182,6 +185,29 @@ async def test_tarot_jeton_dusuyor_ve_kuyruga_giriyor(client, db, anon, queue):
 
     bal = await db.fetchval("SELECT coalesce(sum(delta),0) FROM coin_ledger")
     assert bal == 9
+
+
+async def test_tarot_gorsel_secimleri_kuyruga_aynen_gidiyor(client, db, anon, queue):
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    await coin_ver(db, anon, 10)
+    body = {"spread": "three_card", "seed": "mobil-masa-42", "selections": [2, 8, 11]}
+    r = await client.post("/v1/readings/tarot", json=body, headers=H(anon))
+    assert r.status_code == 202
+    _, job_args = queue.jobs[0]
+    assert job_args[2]["seed"] == "mobil-masa-42"
+    assert job_args[2]["selections"] == [2, 8, 11]
+
+
+async def test_tarot_gorsel_secim_sayisi_jeton_dusmeden_reddediliyor(client, db, anon):
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    await coin_ver(db, anon, 10)
+    r = await client.post(
+        "/v1/readings/tarot",
+        json={"spread": "three_card", "seed": "x", "selections": [1, 2]},
+        headers=H(anon),
+    )
+    assert r.status_code == 422
+    assert await db.fetchval("SELECT count(*) FROM coin_ledger WHERE delta<0") == 0
 
 
 async def test_gunluk_harcama_tavani(client, db, anon):
@@ -263,10 +289,42 @@ async def test_buyuk_fotograf_reddediliyor(client, db, anon):
     assert r.status_code == 413
 
 
-async def test_kahve_fali_fotografi_redise_yaziyor(client, db, anon, queue):
+async def test_gecersiz_fincan_jeton_dusmeden_reddediliyor(
+    client, db, anon, queue, monkeypatch,
+):
     from app import main
+    from app.core.cup_vision import CupAnalysis
+
     await client.put("/v1/profile", json=PROFIL, headers=H(anon))
     await coin_ver(db, anon, 10)
+    monkeypatch.setattr(
+        main, "analyze_cup",
+        lambda *_args, **_kw: CupAnalysis(ok=False, reason="cup_not_found"),
+    )
+
+    r = await client.post(
+        "/v1/readings/coffee",
+        files={"photo": ("street.jpg", b"sahte-jpeg", "image/jpeg")},
+        data={"question": "", "handle_angle": "0"},
+        headers=H(anon),
+    )
+
+    assert r.status_code == 422
+    assert r.json()["detail"]["code"] == "invalid_cup_photo"
+    assert await db.fetchval("SELECT count(*) FROM coin_ledger WHERE delta<0") == 0
+    assert queue.jobs == []
+
+
+async def test_kahve_fali_fotografi_redise_yaziyor(
+    client, db, anon, queue, monkeypatch,
+):
+    from app import main
+    from app.core.cup_vision import CupAnalysis
+
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    await coin_ver(db, anon, 10)
+    cup = CupAnalysis(ok=True, quality={"width": 900, "height": 900})
+    monkeypatch.setattr(main, "analyze_cup", lambda *_args, **_kw: cup)
     r = await client.post("/v1/readings/coffee",
                           files={"photo": ("cup.jpg", b"sahte-jpeg", "image/jpeg")},
                           data={"question": "ne görüyorsun", "handle_angle": "0"},
@@ -275,6 +333,7 @@ async def test_kahve_fali_fotografi_redise_yaziyor(client, db, anon, queue):
     rid = r.json()["reading_id"]
     assert f"cupimg:{rid}" in main.state["redis"].store
     assert len(queue.jobs) == 1
+    assert queue.jobs[0][1][2]["cup_analysis"] is cup
 
 
 # ------------------------------------------------------ fal durumu ve geçmişi

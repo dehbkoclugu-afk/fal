@@ -5,9 +5,9 @@ import Constants from 'expo-constants';
 import { getAnonId } from './anon';
 import { aktifDil, hataMetni } from './i18n';
 
-// Öncelik: build zamanı env → app.json extra → Android emülatör varsayılanı.
-// EXPO_PUBLIC_API_URL, dev/staging/prod'u tek app.json ile ayırmayı sağlıyor;
-// adresi app.json'a gömmek her ortam için ayrı build demek.
+// Öncelik: build zamanı env → Expo extra → Android emülatör varsayılanı.
+// EXPO_PUBLIC_API_URL, dev/staging/prod'u tek dinamik yapılandırmayla ayırıyor;
+// adresi sabit gömmek her ortam için ayrı kaynak dalı demek.
 const BASE =
   process.env.EXPO_PUBLIC_API_URL ??
   (Constants.expoConfig?.extra as any)?.apiUrl ??
@@ -31,26 +31,45 @@ export class ApiError extends Error {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const anon = await getAnonId();
   const isForm = init.body instanceof FormData;
-  const res = await fetch(`${BASE}/v1${path}`, {
-    ...init,
-    headers: {
-      'x-anon-id': anon,
-      ...(isForm ? {} : { 'content-type': 'application/json' }),
-      ...(init.headers ?? {}),
-    },
-  });
-  if (!res.ok) {
-    let code = 'unknown';
-    let sunucuMetni: string | undefined;
-    try {
-      const body = await res.json();
-      const d = body?.detail ?? body;
-      code = d?.code ?? code;
-      sunucuMetni = d?.message ?? (typeof d === 'string' ? d : undefined);
-    } catch {}
-    throw new ApiError(res.status, code, hataMetni(code, sunucuMetni), sunucuMetni);
+  const controller = new AbortController();
+  const callerAbort = () => controller.abort();
+  if (init.signal?.aborted) controller.abort();
+  else init.signal?.addEventListener('abort', callerAbort, { once: true });
+  const timer = setTimeout(() => controller.abort(), 30_000);
+  try {
+    const res = await fetch(`${BASE}/v1${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        'x-anon-id': anon,
+        ...(isForm ? {} : { 'content-type': 'application/json' }),
+        ...(init.headers ?? {}),
+      },
+    });
+    if (!res.ok) {
+      let code = 'unknown';
+      let sunucuMetni: string | undefined;
+      try {
+        const body = await res.json();
+        const d = body?.detail ?? body;
+        code = d?.code ?? code;
+        sunucuMetni = d?.message ?? (typeof d === 'string' ? d : undefined);
+      } catch {}
+      throw new ApiError(res.status, code, hataMetni(code, sunucuMetni), sunucuMetni);
+    }
+    return res.status === 204 ? (undefined as T) : res.json();
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new ApiError(0, 'network_timeout', hataMetni('network_timeout'));
+    }
+    if (error instanceof ApiError) throw error;
+    // React Native'in "Network request failed" gibi geliştirici metinleri
+    // kullanıcıya sızmasın. Bütün API çağrıları tek sınırdan geçiyor.
+    throw new ApiError(0, 'network', hataMetni('network'));
+  } finally {
+    clearTimeout(timer);
+    init.signal?.removeEventListener('abort', callerAbort);
   }
-  return res.status === 204 ? (undefined as T) : res.json();
 }
 
 // ---------------------------------------------------------------- tipler
@@ -80,6 +99,69 @@ export type CupMarker = {
   bbox: [number, number, number, number];
   region: string;
   side: string;
+  hint?: string;
+  symbols?: { label: string; confidence: number }[];
+};
+
+export type NatalChartBody = {
+  key: string;
+  name_tr: string;
+  lon: number;
+  sign: string;
+  sign_tr: string;
+  degree_in_sign: number;
+  house: number | null;
+  retrograde: boolean;
+  speed: number;
+};
+
+export type NatalChart = {
+  bodies: Record<string, NatalChartBody>;
+  houses: number[];
+  ascendant: number;
+  mc: number;
+  aspects: { a: string; b: string; kind: string; kind_tr: string; orb: number; applying: boolean; strength: number }[];
+  element_balance: Record<string, number>;
+  modality_balance: Record<string, number>;
+  chart_ruler: string;
+  moon_phase: { key: string; name_tr: string; elongation: number; illumination: number };
+  meta?: { time_unknown?: boolean; ephe?: string; house_system?: string; engine_version?: string };
+};
+
+export type DreamMoon = {
+  burc: string;
+  burc_key: string;
+  derece: number;
+  faz: string;
+  faz_key: string;
+  aydinlanma: number;
+  ozet: string;
+};
+
+export type Transit = {
+  transit: string;
+  natal: string;
+  aspect: string;
+  aspect_tr: string;
+  orb: number;
+  retrograde: boolean;
+  severity: number;
+  code: string;
+  house_touched: number | null;
+};
+
+export type TarotDrawCard = {
+  position: string;
+  key: import('./tarotAtlas').TarotCardKey;
+  name_tr: string;
+  reversed: boolean;
+};
+
+export type TarotDraw = {
+  spread: string;
+  seed: string;
+  selections?: number[] | null;
+  cards: TarotDrawCard[];
 };
 
 export type Reading = {
@@ -92,8 +174,12 @@ export type Reading = {
     overlay?: CupMarker[];
     /** cup_vision'ın işlediği görüntünün boyutu — overlay ölçeklemesi buna dayanır. */
     cup?: { quality?: { width: number; height: number }; coverage?: number };
-    draw?: any;
-    transits?: any[];
+    draw?: TarotDraw;
+    chart?: NatalChart;
+    moon?: DreamMoon;
+    dream_night?: string;
+    sky_date?: string;
+    transits?: Transit[];
   } | null;
   eta_seconds: number;
   progress?: number;
@@ -151,14 +237,23 @@ export const api = {
    * tamamını sessizce işlevsiz bırakıyor.
    */
   saveProfile: (p: Record<string, unknown>) =>
-    request<{ ok: true; teaser: Teaser | null }>('/profile', {
+    request<{ ok: true; teaser: Teaser | null; chart: NatalChart | null }>('/profile', {
       method: 'PUT',
       body: JSON.stringify({ locale: aktifDil().code, ...p }),
     }),
 
-  coffee: (photoUri: string, question: string, handleAngle: number) => {
+  coffee: async (photoUri: string, question: string, handleAngle: number) => {
+    // RN 0.86 FormData artık `{ uri, name, type } as any` nesnesini her ağ
+    // katmanında kabul etmiyor. Yerel URI'yi gerçek Blob'a çevirince standart
+    // FormDataPart üretiliyor ve Android native köprüsü dosyayı taşıyabiliyor.
+    let photo: Blob;
+    try {
+      photo = await (await fetch(photoUri)).blob();
+    } catch {
+      throw new ApiError(0, 'photo_unreadable', hataMetni('photo_unreadable'));
+    }
     const form = new FormData();
-    form.append('photo', { uri: photoUri, name: 'cup.jpg', type: 'image/jpeg' } as any);
+    form.append('photo', photo, 'cup.jpg');
     form.append('question', question);
     form.append('handle_angle', String(handleAngle));
     return request<{ reading_id: string; eta_seconds: number }>('/readings/coffee', {
@@ -167,10 +262,10 @@ export const api = {
     });
   },
 
-  tarot: (spread: string, question: string) =>
+  tarot: (spread: string, question: string, seed: string, selections: number[]) =>
     request<{ reading_id: string; eta_seconds: number }>('/readings/tarot', {
       method: 'POST',
-      body: JSON.stringify({ spread, question }),
+      body: JSON.stringify({ spread, question, seed, selections }),
     }),
 
   reading: (id: string) => request<Reading>(`/readings/${id}`),

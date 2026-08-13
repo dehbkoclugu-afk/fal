@@ -19,6 +19,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { cleanupStoredCupPhotos, existingCupPhotos } from './cupPhotos';
 
 export type Tone = 'nazik' | 'dobra' | 'mistik' | 'bilimsel';
 
@@ -40,6 +41,8 @@ type Draft = {
 type Persisted = {
   draft: Draft;
   onboarded: boolean;
+  /** Expo token backend'e başarıyla kaydedildi; izin tek başına yeterli değil. */
+  pushRegistered: boolean;
   /** reading_id → cihazdaki fincan fotoğrafının yerel yolu. */
   cupPhotos: Record<string, string>;
 };
@@ -49,6 +52,7 @@ type State = Persisted & {
   hydrated: boolean;
   set: (patch: Partial<Draft>) => void;
   finish: () => void;
+  setPushRegistered: (registered: boolean) => void;
   rememberCupPhoto: (readingId: string, uri: string) => void;
   reset: () => void;
 };
@@ -57,6 +61,7 @@ const KEY = 'fal-draft-v1';
 const BOS: Persisted = {
   draft: { timeKnown: true, tone: 'mistik' },
   onboarded: false,
+  pushRegistered: false,
   cupPhotos: {},
 };
 
@@ -65,25 +70,35 @@ export const useDraft = create<State>((set) => ({
   hydrated: false,
   set: (patch) => set((s) => ({ draft: { ...s.draft, ...patch } })),
   finish: () => set({ onboarded: true }),
+  setPushRegistered: (pushRegistered) => set({ pushRegistered }),
   rememberCupPhoto: (readingId, uri) =>
     set((s) => ({ cupPhotos: { ...s.cupPhotos, [readingId]: uri } })),
   reset: () => set({ ...BOS }),
 }));
 
 function snapshot(s: State): Persisted {
-  return { draft: s.draft, onboarded: s.onboarded, cupPhotos: s.cupPhotos };
+  return {
+    draft: s.draft,
+    onboarded: s.onboarded,
+    pushRegistered: s.pushRegistered,
+    cupPhotos: s.cupPhotos,
+  };
 }
 
 /** Uygulama açılışında bir kez çağrılır (app/_layout.tsx). */
 export async function hydrateDraft(): Promise<void> {
   try {
+    await cleanupStoredCupPhotos().catch(() => {});
     const raw = await AsyncStorage.getItem(KEY);
     if (raw) {
       const saved = JSON.parse(raw) as Partial<Persisted>;
+      const cupPhotos = await existingCupPhotos(saved.cupPhotos ?? {})
+        .catch(() => saved.cupPhotos ?? {});
       useDraft.setState({
         draft: { ...BOS.draft, ...(saved.draft ?? {}) },
         onboarded: !!saved.onboarded,
-        cupPhotos: saved.cupPhotos ?? {},
+        pushRegistered: !!saved.pushRegistered,
+        cupPhotos,
       });
     }
   } catch {

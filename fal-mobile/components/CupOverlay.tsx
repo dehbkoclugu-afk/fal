@@ -33,20 +33,26 @@ type Props = {
   onSelect?: (id: string | null) => void;
 };
 
-const REGION_TR: Record<string, string> = {
-  rim: t('fincan.rim'),
-  upper: t('fincan.upper'),
-  middle: t('fincan.middle'),
-  lower: t('fincan.lower'),
-  bottom: t('fincan.bottom'),
-};
+const REGION_KEYS = {
+  rim: 'fincan.rim',
+  upper: 'fincan.upper',
+  middle: 'fincan.middle',
+  lower: 'fincan.lower',
+  bottom: 'fincan.bottom',
+} as const;
 
-const SIDE_TR: Record<string, string> = {
-  handle: t('fincan.handle'),
-  opposite: t('fincan.opposite'),
-  left: t('fincan.left'),
-  right: t('fincan.right'),
-};
+const SIDE_KEYS = {
+  handle: 'fincan.handle',
+  opposite: 'fincan.opposite',
+  left: 'fincan.left',
+  right: 'fincan.right',
+} as const;
+
+const regionName = (key: string) =>
+  key in REGION_KEYS ? t(REGION_KEYS[key as keyof typeof REGION_KEYS]) : key;
+
+const sideName = (key: string) =>
+  key in SIDE_KEYS ? t(SIDE_KEYS[key as keyof typeof SIDE_KEYS]) : key;
 
 export function CupOverlay({
   photoUri,
@@ -98,7 +104,7 @@ export function CupOverlay({
                 <Pressable
                   onPress={() => tap(m.id)}
                   accessibilityRole="button"
-                  accessibilityLabel={`${REGION_TR[m.region] ?? m.region} bölgesi`}
+                  accessibilityLabel={`${regionName(m.region)} bölgesi`}
                   style={[styles.marker, { width: d, height: d, borderRadius: d / 2 }, on && styles.markerOn]}
                 >
                   <Text style={[styles.markerNo, on && { color: color.telve }]}>{i + 1}</Text>
@@ -111,8 +117,21 @@ export function CupOverlay({
       {/* Seçili bölgenin konum anlamı. Fal metnine değil, geleneksel şemaya dayanır. */}
       {active ? (
         <Animated.View entering={FadeIn.duration(180)} style={styles.caption}>
-          <Eyebrow style={styles.captionKey}>{REGION_TR[active.region] ?? active.region}</Eyebrow>
-          <Text style={styles.captionVal}>{SIDE_TR[active.side] ?? active.side}</Text>
+          <Eyebrow style={styles.captionKey}>{regionName(active.region)}</Eyebrow>
+          <Text style={styles.captionVal}>{sideName(active.side)}</Text>
+          {!!active.symbols?.length && (
+            <View style={styles.symbols}>
+              {active.symbols.slice(0, 3).map((s) => (
+                <View key={s.label} style={styles.symbolChip}>
+                  <Text style={styles.symbolText}>{s.label}</Text>
+                  <Text style={styles.confidence}>%{Math.round(s.confidence * 100)}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+          {!active.symbols?.length && active.hint ? (
+            <Text style={styles.hintValue}>{active.hint}</Text>
+          ) : null}
         </Animated.View>
       ) : (
         <Text style={styles.hint}>{t('fincan.ipucu')}</Text>
@@ -147,5 +166,10 @@ const styles = StyleSheet.create({
   },
   captionKey: { ...type.eyebrow, color: color.bakir },
   captionVal: { ...type.data, color: color.kul, marginTop: 2 },
+  symbols: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs, marginTop: space.sm },
+  symbolChip: { flexDirection: 'row', gap: 5, borderWidth: 1, borderColor: color.cizgi, borderRadius: radius.full, paddingVertical: 5, paddingHorizontal: 8 },
+  symbolText: { ...type.dataStrong, color: color.porselen, fontSize: 10 },
+  confidence: { ...type.data, color: color.kulKoyu, fontSize: 9 },
+  hintValue: { ...type.data, color: color.kulKoyu, fontSize: 10, marginTop: space.sm },
   hint: { ...type.data, color: color.kulKoyu, marginTop: space.md, fontSize: 11 },
 });

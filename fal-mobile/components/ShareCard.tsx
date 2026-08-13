@@ -29,6 +29,7 @@ type Props = {
   symbol?: string;
   kind: string;
   photoUri?: string;
+  computedDetail?: string;
 };
 
 // Anahtar tutuluyor, metin render anında üretiliyor: modül gövdesindeki t()
@@ -50,10 +51,11 @@ const baslik = (k: string) =>
   t(k in BASLIK_ANAHTAR ? BASLIK_ANAHTAR[k as keyof typeof BASLIK_ANAHTAR]
                         : 'sonuc.yorum');
 
-export function ShareCard({ line, symbol, kind, photoUri }: Props) {
+export function ShareCard({ line, symbol, kind, photoUri, computedDetail }: Props) {
   const cardRef = useRef<View>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const safeLine = line.trim();
 
   const share = async () => {
     if (busy) return;
@@ -71,7 +73,7 @@ export function ShareCard({ line, symbol, kind, photoUri }: Props) {
       await Share.share(
         Platform.OS === 'ios'
           ? { url: uri }
-          : { message: line, url: uri },
+          : { message: safeLine, url: uri },
       );
     } catch {
       setError(t('paylas.hata'));
@@ -79,6 +81,8 @@ export function ShareCard({ line, symbol, kind, photoUri }: Props) {
       setBusy(false);
     }
   };
+
+  if (!safeLine) return null;
 
   return (
     <View style={styles.wrap}>
@@ -97,11 +101,12 @@ export function ShareCard({ line, symbol, kind, photoUri }: Props) {
         <View style={styles.body}>
           <Eyebrow style={styles.eyebrow}>{baslik(kind)}</Eyebrow>
           <Text style={styles.line} numberOfLines={4}>
-            {line}
+            {safeLine}
           </Text>
           {!!symbol && photoUri ? (
             <Text style={styles.symbol}>{t('paylas.cikanSembol', { sembol: symbol })}</Text>
           ) : null}
+          {!!computedDetail && <Text style={styles.computed}>{computedDetail}</Text>}
         </View>
 
         <View style={styles.footer}>
@@ -140,6 +145,7 @@ const styles = StyleSheet.create({
   eyebrow: { ...type.eyebrow, color: color.bakir },
   line: { ...type.oracleLead, color: color.porselen, marginTop: space.sm },
   symbol: { ...type.data, color: color.kulKoyu, fontSize: 11, marginTop: space.md },
+  computed: { ...type.data, color: color.cini, fontSize: 10, marginTop: space.sm },
   footer: {
     flexDirection: 'row',
     alignItems: 'baseline',

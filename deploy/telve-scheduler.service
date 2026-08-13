@@ -1,0 +1,18 @@
+[Unit]
+Description=Telve scheduler
+After=network-online.target postgresql.service redis-server.service
+Wants=network-online.target
+Requires=postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=telve
+Group=telve
+WorkingDirectory=/srv/telve/fal-backend
+EnvironmentFile=/etc/telve/backend.env
+ExecStart=/srv/telve/.venv/bin/python -m app.workers.scheduler
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

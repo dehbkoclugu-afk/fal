@@ -89,6 +89,21 @@ def test_new_seed_benzersiz():
     assert len({tarot.new_seed() for _ in range(50)}) == 50
 
 
+def test_gorsel_deste_secimi_gercek_cekimi_belirliyor():
+    a = tarot.draw("three_card", seed="masa-42", selections=[2, 8, 11])
+    b = tarot.draw("three_card", seed="masa-42", selections=[2, 8, 11])
+    c = tarot.draw("three_card", seed="masa-42", selections=[1, 8, 11])
+    assert a == b
+    assert a["cards"] != c["cards"]
+    assert a["selections"] == [2, 8, 11]
+
+
+@pytest.mark.parametrize("selections", ([1, 1, 2], [0, 1], [0, 1, 12]))
+def test_gecersiz_gorsel_secim_reddediliyor(selections):
+    with pytest.raises(ValueError):
+        tarot.draw("three_card", seed="masa", selections=list(selections))
+
+
 # ------------------------------------------------------------- kart korpusu
 
 def test_korpus_tum_minorleri_kapsiyor():
