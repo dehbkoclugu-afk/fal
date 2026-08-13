@@ -838,6 +838,23 @@ async def test_tamamlanmis_gunluk_bekleyene_tercih_ediliyor(client, db, anon):
     assert d["reading_id"] == bitmis and d["status"] == "done"
 
 
+async def test_bos_tamamlanmis_gunluk_yeniden_uretiliyor(client, db, anon, queue):
+    """Eski sürümün boş done kaydı kullanıcıyı gün boyu kilitlememeli."""
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
+    bos = str(uuid.uuid4())
+    await db.execute(
+        """INSERT INTO readings (id,user_id,kind,status,output_json,created_at)
+           VALUES ($1,$2,'daily','done','{"ozet":"","bolumler":[]}',now())""",
+        bos, uid)
+
+    d = (await client.post("/v1/readings/daily", headers=H(anon))).json()
+
+    assert d["status"] == "queued" and d["reading_id"] != bos
+    assert await db.fetchval("SELECT status FROM readings WHERE id=$1", bos) == "failed"
+    assert len(queue.jobs) == 1
+
+
 async def test_gun_siniri_kullanicinin_saat_dilimine_gore(client, db, anon, queue):
     """Regresyon: gün sınırı sunucunun (UTC) gününe göreydi. İstanbul'da gece
     02:00'de uygulamayı açan kullanıcı UTC'de hâlâ dünde olduğu için dünün

@@ -463,7 +463,7 @@ async def daily_reading(user=Depends(get_user)):
     # açan kullanıcı UTC'de hâlâ dündedir ve dünün yorumunu görür. "Günün
     # yorumu" ürününde bu doğrudan yanlış içerik demek.
     mevcut = await db.fetchrow(
-        """SELECT id, eta_seconds, status, created_at FROM readings
+        """SELECT id, eta_seconds, status, output_json, created_at FROM readings
            WHERE user_id=$1 AND kind='daily' AND status <> 'failed'
              AND created_at >= date_trunc('day', now() AT TIME ZONE $2)
                                AT TIME ZONE $2
@@ -471,9 +471,22 @@ async def daily_reading(user=Depends(get_user)):
            LIMIT 1""", user["id"], user["tz_name"] or "Europe/Istanbul")
 
     if mevcut and mevcut["status"] == "done":
-        return {"reading_id": str(mevcut["id"]),
-                "eta_seconds": mevcut["eta_seconds"],
-                "status": "done", "cached": True}
+        out = mevcut["output_json"] or {}
+        visible = (out.get("ozet") or out.get("tavsiye") or "").strip()
+        if not visible:
+            visible = next((str(s.get("metin") or "").strip()
+                            for s in (out.get("bolumler") or [])
+                            if isinstance(s, dict) and s.get("metin")), "")
+        if visible:
+            return {"reading_id": str(mevcut["id"]),
+                    "eta_seconds": mevcut["eta_seconds"],
+                    "status": "done", "cached": True}
+        # Eski sürüm boş bir çıktıyı done işaretlediyse onu bütün gün yeniden
+        # verme. Hatalı kaydı kapat ve aşağıda temiz bir günlük oluştur.
+        await db.execute(
+            "UPDATE readings SET status='failed', block_reason='empty_output' WHERE id=$1",
+            mevcut["id"])
+        mevcut = None
 
     if mevcut:
         yas = (datetime.now(timezone.utc) - mevcut["created_at"]).total_seconds()
