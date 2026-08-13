@@ -10,8 +10,6 @@ import { resetAnonId } from '@/lib/anon';
 import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
-import { ArtSlot } from '@/components/ArtSlot';
-import { artForKey } from '@/lib/artAssets';
 import { DILLER, aktifDil, dilSec, t, uygulaYon } from '@/lib/i18n';
 import { deleteAllCupPhotos } from '@/lib/cupPhotos';
 
@@ -118,7 +116,6 @@ export default function Profile() {
       <View style={styles.table}>
         {rows.map((r) => (
           <View key={r.k} style={styles.row}>
-            <ArtSlot id={artForKey(r.k, 'topic')} strength="strong" />
             <Text style={styles.k}>{r.k}</Text>
             <Text style={styles.v}>{r.v}</Text>
           </View>
@@ -184,6 +181,7 @@ const styles = StyleSheet.create({
     marginBottom: space.xs,
     borderBottomWidth: 1,
     borderBottomColor: color.cizgi,
+    backgroundColor: color.cezve,
   },
   k: { ...type.data, color: color.kulKoyu },
   v: { ...type.dataStrong, color: color.porselen },

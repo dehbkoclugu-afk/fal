@@ -19,23 +19,45 @@ export function Screen({
 }) {
   const insets = useSafeAreaInsets();
   const pad = {
-    paddingTop: (safeTop ? insets.top : 0) + space.lg,
-    paddingBottom: (safeBottom ? insets.bottom : 0) + space.xl,
+    paddingTop: space.lg,
+    paddingBottom: space.xl,
     paddingHorizontal: space.lg,
   };
 
   if (scroll) {
     return (
-      <ScrollView
-        style={styles.bg}
-        contentContainerStyle={[pad, style]}
-        showsVerticalScrollIndicator={false}
-      >
-        {children}
-      </ScrollView>
+      <View style={styles.bg}>
+        {/*
+          Safe-area boşlukları ScrollView içeriğinin parçası olursa yalnızca
+          listenin başında/sonunda işe yarar. Kullanıcı kaydırınca metin yine
+          şeffaf Android durum ve gezinme çubuklarının altına girer. Boşlukları
+          viewport'un dışında tutarak kaydırılan alanı sistem çubuklarının
+          arasında fiziksel olarak sınırlıyoruz.
+        */}
+        {safeTop && insets.top > 0 ? <View style={{ height: insets.top }} /> : null}
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={[pad, style]}
+          contentInsetAdjustmentBehavior="never"
+          automaticallyAdjustContentInsets={false}
+          showsVerticalScrollIndicator={false}
+        >
+          {children}
+        </ScrollView>
+        {safeBottom && insets.bottom > 0 ? <View style={{ height: insets.bottom }} /> : null}
+      </View>
     );
   }
-  return <View style={[styles.bg, pad, style]}>{children}</View>;
+  return (
+    <View style={styles.bg}>
+      {safeTop && insets.top > 0 ? <View style={{ height: insets.top }} /> : null}
+      <View style={[styles.content, pad, style]}>{children}</View>
+      {safeBottom && insets.bottom > 0 ? <View style={{ height: insets.bottom }} /> : null}
+    </View>
+  );
 }
 
-const styles = StyleSheet.create({ bg: { flex: 1, backgroundColor: color.telve } });
+const styles = StyleSheet.create({
+  bg: { flex: 1, backgroundColor: color.telve },
+  content: { flex: 1, backgroundColor: color.telve },
+});

@@ -39,15 +39,33 @@ function TarotFace({ card, width }: { card: TarotDrawCard; width: number }) {
 
 export function TarotReveal({ draw }: { draw: TarotDraw }) {
   const { width } = useWindowDimensions();
-  const cardWidth = draw.cards.length === 1 ? Math.min(220, width * 0.58) : 128;
+  const cardCount = draw.cards.length;
+  if (cardCount === 0) return null;
+
+  const fitsWithoutScrolling = cardCount <= 3;
+  const availableWidth = width - space.lg * 2;
+  const cardWidth = cardCount === 1
+    ? Math.min(220, availableWidth * 0.62)
+    : fitsWithoutScrolling
+      ? Math.min(128, (availableWidth - space.md * (cardCount - 1)) / cardCount)
+      // Five-card spreads deliberately leave the next card peeking in from
+      // the edge. That makes the horizontal gesture discoverable without an
+      // always-visible platform scrollbar.
+      : Math.min(112, Math.max(84, availableWidth * 0.28));
+
   return (
     <View style={styles.root}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[
-        styles.row,
-        draw.cards.length === 1 && { minWidth: width - space.lg * 2, justifyContent: 'center' },
-      ]}>
+      <ScrollView
+        horizontal
+        scrollEnabled={!fitsWithoutScrolling}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.row,
+          fitsWithoutScrolling && styles.fittedRow,
+        ]}
+      >
         {draw.cards.map((card) => (
-          <View key={`${card.position}:${card.key}`} style={{ width: cardWidth }}>
+          <View key={`${card.position}:${card.key}`} style={[styles.cardColumn, { width: cardWidth }]}>
             <Text style={styles.position}>{card.position}</Text>
             <View accessible accessibilityLabel={`${card.position}: ${card.name_tr}${card.reversed ? `, ${t('tarot.ters')}` : ''}`}>
               <TarotFace card={card} width={cardWidth} />
@@ -64,6 +82,8 @@ export function TarotReveal({ draw }: { draw: TarotDraw }) {
 const styles = StyleSheet.create({
   root: { marginTop: space.lg, marginHorizontal: -space.lg },
   row: { gap: space.md, paddingHorizontal: space.lg, paddingBottom: space.sm },
+  fittedRow: { flexGrow: 1, justifyContent: 'center' },
+  cardColumn: { flexShrink: 0 },
   position: { ...type.eyebrow, color: color.bakir, marginBottom: space.xs, textAlign: 'center' },
   frame: { overflow: 'hidden', borderRadius: radius.sm, borderWidth: 1, borderColor: color.bakirSolgun, backgroundColor: color.cezve },
   reversed: { transform: [{ rotate: '180deg' }] },
