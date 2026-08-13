@@ -80,6 +80,55 @@ export type CupMarker = {
   bbox: [number, number, number, number];
   region: string;
   side: string;
+  hint?: string;
+  symbols?: { label: string; confidence: number }[];
+};
+
+export type NatalChartBody = {
+  key: string;
+  name_tr: string;
+  lon: number;
+  sign: string;
+  sign_tr: string;
+  degree_in_sign: number;
+  house: number | null;
+  retrograde: boolean;
+  speed: number;
+};
+
+export type NatalChart = {
+  bodies: Record<string, NatalChartBody>;
+  houses: number[];
+  ascendant: number;
+  mc: number;
+  aspects: { a: string; b: string; kind: string; kind_tr: string; orb: number; applying: boolean; strength: number }[];
+  element_balance: Record<string, number>;
+  modality_balance: Record<string, number>;
+  chart_ruler: string;
+  moon_phase: { key: string; name_tr: string; elongation: number; illumination: number };
+  meta?: { time_unknown?: boolean; ephe?: string; house_system?: string; engine_version?: string };
+};
+
+export type DreamMoon = {
+  burc: string;
+  burc_key: string;
+  derece: number;
+  faz: string;
+  faz_key: string;
+  aydinlanma: number;
+  ozet: string;
+};
+
+export type Transit = {
+  transit: string;
+  natal: string;
+  aspect: string;
+  aspect_tr: string;
+  orb: number;
+  retrograde: boolean;
+  severity: number;
+  code: string;
+  house_touched: number | null;
 };
 
 export type TarotDrawCard = {
@@ -107,7 +156,11 @@ export type Reading = {
     /** cup_vision'ın işlediği görüntünün boyutu — overlay ölçeklemesi buna dayanır. */
     cup?: { quality?: { width: number; height: number }; coverage?: number };
     draw?: TarotDraw;
-    transits?: any[];
+    chart?: NatalChart;
+    moon?: DreamMoon;
+    dream_night?: string;
+    sky_date?: string;
+    transits?: Transit[];
   } | null;
   eta_seconds: number;
   progress?: number;
@@ -165,7 +218,7 @@ export const api = {
    * tamamını sessizce işlevsiz bırakıyor.
    */
   saveProfile: (p: Record<string, unknown>) =>
-    request<{ ok: true; teaser: Teaser | null }>('/profile', {
+    request<{ ok: true; teaser: Teaser | null; chart: NatalChart | null }>('/profile', {
       method: 'PUT',
       body: JSON.stringify({ locale: aktifDil().code, ...p }),
     }),

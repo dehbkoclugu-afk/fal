@@ -70,9 +70,22 @@ class CupAnalysis:
     overlay: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        d = asdict(self)
-        d["blobs"] = [asdict(b) for b in self.blobs]
-        return d
+        # crop_b64 yalnızca geçici vision-model girdisidir. DB'ye yazmak
+        # ham görüntü parçalarını kalıcılaştırır; bbox ve etiketler yeterli.
+        clean_blobs = []
+        for blob in self.blobs:
+            clean = asdict(blob)
+            clean.pop("crop_b64", None)
+            clean_blobs.append(clean)
+        return {
+            "ok": self.ok,
+            "reason": self.reason,
+            "quality": self.quality,
+            "cup_bbox": self.cup_bbox,
+            "blobs": clean_blobs,
+            "coverage": self.coverage,
+            "overlay": self.overlay,
+        }
 
     def llm_context(self) -> dict:
         """LLM'e giden hâl. Kırpmalar ve piksel koordinatları çıkarılır (token tasarrufu)."""
@@ -341,7 +354,14 @@ def analyze_cup(image_bytes: bytes, handle_angle_deg: float = 0.0) -> CupAnalysi
                            cup_bbox=bbox, coverage=coverage)
 
     overlay = [
-        {"id": b.id, "bbox": b.bbox, "region": b.region, "side": b.side}
+        {
+            "id": b.id,
+            "bbox": b.bbox,
+            "region": b.region,
+            "side": b.side,
+            "hint": b.hint,
+            "symbols": b.symbols[:3],
+        }
         for b in blobs
     ]
     return CupAnalysis(ok=True, quality=metrics, cup_bbox=bbox,

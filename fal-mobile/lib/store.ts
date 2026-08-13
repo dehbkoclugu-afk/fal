@@ -19,6 +19,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { cleanupStoredCupPhotos, existingCupPhotos } from './cupPhotos';
 
 export type Tone = 'nazik' | 'dobra' | 'mistik' | 'bilimsel';
 
@@ -77,13 +78,16 @@ function snapshot(s: State): Persisted {
 /** Uygulama açılışında bir kez çağrılır (app/_layout.tsx). */
 export async function hydrateDraft(): Promise<void> {
   try {
+    await cleanupStoredCupPhotos().catch(() => {});
     const raw = await AsyncStorage.getItem(KEY);
     if (raw) {
       const saved = JSON.parse(raw) as Partial<Persisted>;
+      const cupPhotos = await existingCupPhotos(saved.cupPhotos ?? {})
+        .catch(() => saved.cupPhotos ?? {});
       useDraft.setState({
         draft: { ...BOS.draft, ...(saved.draft ?? {}) },
         onboarded: !!saved.onboarded,
-        cupPhotos: saved.cupPhotos ?? {},
+        cupPhotos,
       });
     }
   } catch {

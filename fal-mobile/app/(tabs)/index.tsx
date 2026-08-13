@@ -179,7 +179,7 @@ export default function Home() {
               onPress={() => router.push(`/reading/${r.id}`)}
               style={({ pressed }) => [styles.gecmisSatir, pressed && styles.gecmisBasili]}
             >
-              <ArtSlot id={artForKey(r.id)} strength="strong" />
+              <ArtSlot id={ritualArt[r.kind] ?? artForKey(r.id)} strength="strong" />
               <Text style={styles.gecmisOzet} numberOfLines={1}>{r.ozet}</Text>
               <Text style={styles.gecmisTarih}>{tarih(r.created_at)}</Text>
             </Pressable>

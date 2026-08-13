@@ -26,6 +26,7 @@ import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
 import { t } from '@/lib/i18n';
+import { persistCupPhoto } from '@/lib/cupPhotos';
 
 const ADIMLAR = [
   { key: 'inside', baslik: 'kahve.adimBaslik', ipucu: 'kahve.adimIpucu' },
@@ -83,7 +84,8 @@ export default function Coffee() {
       const r = await api.coffee(shot, question.trim(), 0);
       // Fotoğrafı cihazda tut: sunucu ham görüntüyü işledikten hemen sonra
       // siliyor. Sonuç ekranındaki overlay'in çizileceği tek kaynak bu.
-      rememberCupPhoto(r.reading_id, shot);
+      const durablePhoto = await persistCupPhoto(r.reading_id, shot);
+      rememberCupPhoto(r.reading_id, durablePhoto);
       router.replace(`/reading/${r.reading_id}`);
     } catch (e) {
       const err = e as ApiError;

@@ -280,6 +280,7 @@ async def upsert_profile(p: ProfileIn, user=Depends(get_user)):
 
     # Onboarding'de anında ödül: yükselen burcu hemen döndür (bırakma oranını düşürür)
     teaser = None
+    chart_payload = None
     if p.birth_date:
         from .core import astro
         d, t = p.birth_date, p.birth_time
@@ -296,7 +297,8 @@ async def upsert_profile(p: ProfileIn, user=Depends(get_user)):
         }
         from .core.pipeline import cache_chart
         await cache_chart(db, profile_id, chart)
-    return {"ok": True, "teaser": teaser}
+        chart_payload = chart.to_dict()
+    return {"ok": True, "teaser": teaser, "chart": chart_payload}
 
 
 class PaywallEventIn(BaseModel):

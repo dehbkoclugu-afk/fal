@@ -176,7 +176,7 @@ export const tr = {
   // --- kahve ritüeli
   'kahve.izinBaslik': 'Kamera izni gerekiyor',
   'kahve.izinAciklama':
-    'Fincanı okuyabilmem için fotoğrafını çekmem gerek. Fotoğraf 24 saat içinde siliniyor, kalıcı olarak saklanmıyor.',
+    'Sunucu kopyası yorumdan sonra, en geç 24 saatte silinir. Geçmişte işaretleri göstermek için cihazındaki kopya en fazla 30 gün tutulur.',
   'kahve.izinVer': 'İzin ver',
   'kahve.adimBaslik': 'Fincanın içi',
   'kahve.adimIpucu':
@@ -218,6 +218,28 @@ export const tr = {
   'natal.yorumla': 'Haritamı yorumla',
   'natal.yorumlaJeton': 'Haritamı yorumla · {n} jeton',
 
+  // --- hesaplanmış gökyüzü görselleri
+  'harita.hesaplanmis': 'hesaplanmış doğum haritan',
+  'harita.erisilebilir': 'Gezegenleri, evleri ve açıları gösteren doğum haritası çemberi',
+  'harita.yukselen': 'YÜKSELEN',
+  'harita.retro': 'retro',
+  'harita.saatYok':
+    'Doğum saatin bilinmediği için yükselen ve ev çizgileri gösterilmiyor. Gezegen burçları ve açılar geçerlidir.',
+  'ruya.geceninGokyuzu': 'rüyayı gördüğün gecenin gökyüzü',
+  'ruya.aydinlik': 'aydınlık',
+  'ruya.etkinGostergeler': 'yoruma giren hesaplanmış göstergeler',
+  'ruya.transitYok': 'O gece sıkı bir kişisel transit yoktu; yorum Ay fazına bağlandı.',
+  'gezegen.sun': 'Güneş',
+  'gezegen.moon': 'Ay',
+  'gezegen.mercury': 'Merkür',
+  'gezegen.venus': 'Venüs',
+  'gezegen.mars': 'Mars',
+  'gezegen.jupiter': 'Jüpiter',
+  'gezegen.saturn': 'Satürn',
+  'gezegen.uranus': 'Uranüs',
+  'gezegen.neptune': 'Neptün',
+  'gezegen.pluto': 'Plüton',
+
   // --- sonuç ekranı
   'sonuc.kahveFali': 'kahve falı',
   'sonuc.tarot': 'tarot',
@@ -254,6 +276,7 @@ export const tr = {
   // --- kader günlüğü
   'gunluk.eyebrow': 'kader günlüğü',
   'gunluk.cevabinIcin': 'cevabın için',
+  'gunluk.bugununGokyuzu': 'bugünün hesaplanmış gökyüzü',
   'gunluk.konuyaGore': 'konuya göre',
   'gunluk.cevabiniBekliyorum': 'cevabını bekliyorum',
   'gunluk.ozet': '{total} tahmin · {hits} tuttu · {partials} kısmen',

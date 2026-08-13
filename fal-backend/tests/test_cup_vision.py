@@ -218,3 +218,12 @@ def test_analiz_json_serilestirilebilir():
     res = cv.analyze_cup(sentetik_fincan(lekeler=varsayilan_lekeler()))
     assert res.ok
     json.dumps(res.to_dict())
+
+
+def test_analiz_json_ham_kirpma_saklamiyor():
+    """Vision girdisi iş bittikten sonra DB/API yanıtına taşınmamalı."""
+    res = cv.analyze_cup(sentetik_fincan(lekeler=varsayilan_lekeler()))
+    assert res.ok and res.blobs[0].crop_b64
+    saved = res.to_dict()
+    assert all("crop_b64" not in b for b in saved["blobs"])
+    assert "crop_b64" not in str(saved)

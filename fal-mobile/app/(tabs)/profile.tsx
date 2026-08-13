@@ -13,6 +13,7 @@ import { Eyebrow } from '@/components/Eyebrow';
 import { ArtSlot } from '@/components/ArtSlot';
 import { artForKey } from '@/lib/artAssets';
 import { DILLER, aktifDil, dilSec, t, uygulaYon } from '@/lib/i18n';
+import { deleteAllCupPhotos } from '@/lib/cupPhotos';
 
 /**
  * Yasal sayfalar.
@@ -94,6 +95,7 @@ export default function Profile() {
             setBusy(true);
             try {
               await api.deleteAccount();
+              await deleteAllCupPhotos();
               await resetAnonId();
               reset();
               qc.clear();

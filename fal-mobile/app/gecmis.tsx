@@ -25,7 +25,7 @@ import { api } from '@/lib/api';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
 import { ArtSlot } from '@/components/ArtSlot';
-import { artForKey } from '@/lib/artAssets';
+import { artForKey, ritualArt } from '@/lib/artAssets';
 import { t, tarih } from '@/lib/i18n';
 
 /** Ritüel adı — sonuç ekranındaki etiketlerle aynı kalmalı. */
@@ -72,7 +72,7 @@ export default function Gecmis() {
           onPress={() => router.push(`/reading/${r.id}`)}
           style={({ pressed }) => [styles.satir, pressed && styles.satirBasili]}
         >
-          <ArtSlot id={artForKey(r.id)} strength="strong" />
+          <ArtSlot id={ritualArt[r.kind] ?? artForKey(r.id)} strength="strong" />
           <View style={styles.ust}>
             <Eyebrow style={styles.tur}>{ritualAdi(r.kind)}</Eyebrow>
             <Text style={styles.tarih}>{tarih(r.created_at)}</Text>

@@ -128,6 +128,9 @@ async def test_profil_kaydi_ve_teaser(client, anon):
     teaser = r.json()["teaser"]
     assert teaser["yukselen"] == "İkizler"
     assert teaser["gunes"] and teaser["ay"] and teaser["ay_fazi"]
+    chart = r.json()["chart"]
+    assert chart["bodies"]["sun"]["sign_tr"] == teaser["gunes"]
+    assert len(chart["houses"]) == 12
 
 
 async def test_profil_iki_kez_kaydedilebiliyor(client, anon, db):

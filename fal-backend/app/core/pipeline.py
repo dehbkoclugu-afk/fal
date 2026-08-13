@@ -189,6 +189,19 @@ async def generate_reading(db, user_id: str, reading_id: str, kind: str,
             raise ReadingRejected(
                 cup.reason, REJECT_MESSAGES_TR.get(cup.reason, "Fotoğrafı tekrar çeker misin?"))
         await label_symbols(cup.blobs, SYMBOL_LEXICON_TR)
+        # analyze_cup overlay'i vision etiketlemesinden önce kurar. Etiketler
+        # geldikten sonra kullanıcıya dönen hafif overlay'i tazele.
+        cup.overlay = [
+            {
+                "id": b.id,
+                "bbox": b.bbox,
+                "region": b.region,
+                "side": b.side,
+                "hint": b.hint,
+                "symbols": b.symbols[:3],
+            }
+            for b in cup.blobs
+        ]
         user_msg = prompts.coffee_prompt(cup.llm_context(), user_ctx, memory, question)
         extra = {"cup": cup.to_dict(), "overlay": cup.overlay}
 
@@ -248,6 +261,12 @@ async def generate_reading(db, user_id: str, reading_id: str, kind: str,
             raise ReadingRejected("no_birth_data", "Doğum bilgilerini tamamlaman gerekiyor.")
         today = datetime.now(timezone.utc)
         trs = astro.transits_for(chart, today)[:3]
+        sky_moon = astro.moon_at(today)
+        sky_extra = {
+            "transits": trs,
+            "moon": sky_moon,
+            "sky_date": today.date().isoformat(),
+        }
         day_bucket = today.toordinal()
 
         # Ücretsiz kullanıcı → hibrit blok üretimi (5x daha ucuz)
@@ -261,15 +280,15 @@ async def generate_reading(db, user_id: str, reading_id: str, kind: str,
                 db, user_id, user_ctx, keys, loc.code,
                 day_bucket, transits=trs, extra_note=g.get("note"))
             return await _finalize(db, user_id, reading_id, kind,
-                                   _normalize_hybrid(out), {"transits": trs},
+                                   _normalize_hybrid(out), sky_extra,
                                    cost=out.get("_cost", 0.0), tier=tier)
 
         user_msg = prompts.DAILY_USER.format(
             transits=json.dumps(trs, ensure_ascii=False),
-            moon=chart.moon_phase["name_tr"],
+            moon=sky_moon.get("ozet", ""),
             chart_brief=json.dumps(chart.llm_context()["gezegenler"][:4], ensure_ascii=False),
             user=json.dumps(user_ctx, ensure_ascii=False))
-        extra = {"transits": trs}
+        extra = sky_extra
     else:
         raise ReadingRejected("unknown_kind", "Bilinmeyen fal türü.")
 

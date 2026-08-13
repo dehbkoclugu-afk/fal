@@ -291,6 +291,9 @@ async def test_ucretsiz_gunluk_hibrit_yoldan_geciyor(db, user_with_chart,
     assert out["ozet"] == "Bugün sakin."
     n = await db.fetchval("SELECT count(*) FROM predictions WHERE reading_id=$1", rid)
     assert n == 1, "hibrit yol da tahmin üretmeli"
+    extra = await db.fetchval("SELECT extra_json FROM readings WHERE id=$1", rid)
+    assert extra["moon"]["ozet"], "günün hesaplanmış Ay verisi görünür değil"
+    assert extra["sky_date"]
 
 
 # ------------------------------------------------------------------------ hafıza

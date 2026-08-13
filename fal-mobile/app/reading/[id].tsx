@@ -27,6 +27,8 @@ import { ArtSlot } from '@/components/ArtSlot';
 import { artForKey, ritualArt } from '@/lib/artAssets';
 import { t } from '@/lib/i18n';
 import { TarotReveal } from '@/components/TarotReveal';
+import { NatalChartWheel } from '@/components/NatalChartWheel';
+import { DreamSkyPanel } from '@/components/DreamSkyPanel';
 
 // Anahtarlar modül düzeyinde, METİN render anında.
 //
@@ -46,6 +48,8 @@ const SONUC_ETIKET: Record<string, 'sonuc.kahveFali' | 'sonuc.tarot' | 'sonuc.na
 const BEKLEME_ANAHTARLARI = [
   'sonuc.bekleme1', 'sonuc.bekleme2', 'sonuc.bekleme3', 'sonuc.bekleme4',
 ] as const;
+
+const SIGN_GLYPHS = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
 
 export default function ReadingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -165,6 +169,27 @@ export default function ReadingScreen() {
         <TarotReveal draw={data.extra_json.draw} />
       )}
 
+      {data.kind === 'natal' && data.extra_json?.chart && (
+        <NatalChartWheel chart={data.extra_json.chart} />
+      )}
+
+      {data.kind === 'dream' && data.extra_json?.moon && data.extra_json?.dream_night && (
+        <DreamSkyPanel
+          moon={data.extra_json.moon}
+          transits={data.extra_json.transits ?? []}
+          night={data.extra_json.dream_night}
+        />
+      )}
+
+      {data.kind === 'daily' && data.extra_json?.moon && data.extra_json?.sky_date && (
+        <DreamSkyPanel
+          moon={data.extra_json.moon}
+          transits={data.extra_json.transits ?? []}
+          night={data.extra_json.sky_date}
+          mode="daily"
+        />
+      )}
+
       <Text style={styles.lead}>{out.ozet}</Text>
 
       {out.bolumler?.map((b, i) => (
@@ -206,6 +231,15 @@ export default function ReadingScreen() {
         symbol={out.sembol}
         kind={data.kind}
         photoUri={data.kind === 'coffee' ? cupPhoto : undefined}
+        computedDetail={
+          data.kind === 'tarot'
+            ? data.extra_json?.draw?.cards?.[0]?.name_tr
+            : data.kind === 'dream' || data.kind === 'daily'
+              ? data.extra_json?.moon?.ozet
+              : data.kind === 'natal' && data.extra_json?.chart
+                ? `${t('harita.yukselen')} · ${SIGN_GLYPHS[Math.floor(data.extra_json.chart.ascendant / 30)]} ${Math.floor(data.extra_json.chart.ascendant % 30)}°`
+                : data.extra_json?.overlay?.[0]?.symbols?.[0]?.label
+        }
       />
 
       <Button
