@@ -69,6 +69,15 @@ async def get_user(x_anon_id: str = Header(...)) -> dict:
     row = await db.fetchrow("SELECT * FROM users WHERE anon_id=$1 AND deleted_at IS NULL",
                             x_anon_id)
     if row:
+        # Eski üretim sürümü kullanıcıyı yaratıp açılış jetonunu yazmadan
+        # bırakabiliyordu. Yalnızca hiç ledger kaydı olmayan bu eski hesapları
+        # onar; jetonunu harcamış kullanıcıya ikinci kez hediye verme.
+        await db.execute(
+            """INSERT INTO coin_ledger (user_id, delta, reason, balance_after)
+               SELECT $1,$2,'signup_repair',$2
+               WHERE $2 > 0
+                 AND NOT EXISTS (SELECT 1 FROM coin_ledger WHERE user_id=$1)""",
+            row["id"], SIGNUP_COINS)
         return dict(row)
 
     # Yeni kullanıcı: kayıt ve açılış jetonu TEK İFADEDE.
@@ -372,6 +381,21 @@ async def tarot_reading(body: TarotIn, user=Depends(get_user)):
     return {"reading_id": rid, "eta_seconds": 90, "status": "queued"}
 
 
+@app.post("/v1/tarot/preview")
+async def tarot_preview(body: TarotIn, user=Depends(get_user)):
+    """Seçilen gerçek kartları ödeme öncesinde göster.
+
+    Aynı seed ve seçimler ücretli okumaya da gönderildiği için önizlemedeki
+    kartlarla sonuç ekranındaki kartlar birebir aynıdır. Bu uç LLM çalıştırmaz,
+    kuyruk oluşturmaz ve jeton düşmez.
+    """
+    veri = body.model_dump()
+    if not veri.get("seed"):
+        veri["seed"] = tarot_core.new_seed()
+    return {"draw": tarot_core.draw(
+        veri["spread"], veri["seed"], selections=veri.get("selections"))}
+
+
 async def _require_birth(db, user_id) -> None:
     ok = await db.fetchval(
         "SELECT 1 FROM birth_profiles WHERE user_id=$1 AND is_primary", user_id)
@@ -657,6 +681,47 @@ async def me(user=Depends(get_user)):
         "entitlement": abonelik,
         "streak": {"count": user["streak_count"], "last_day": user["streak_last_day"]},
         "push_optin": user["push_optin"],
+    }
+
+
+@app.get("/v1/me/natal-chart")
+async def my_natal_chart(user=Depends(get_user)):
+    """Kullanıcının hesaplanmış haritasını fal satın almadan döndür."""
+    db = state["db"]
+    row = await db.fetchrow(
+        """SELECT b.id, b.birth_date, b.birth_time, b.time_known,
+                  b.lat, b.lon, b.tz_name, c.chart_json
+           FROM birth_profiles b
+           LEFT JOIN natal_charts c ON c.birth_profile_id=b.id
+           WHERE b.user_id=$1 AND b.is_primary""", user["id"])
+    if not row:
+        raise HTTPException(400, {"code": "no_birth_data",
+                                  "message": "Önce doğum bilgilerini tamamla."})
+    if row["chart_json"]:
+        return {"chart": row["chart_json"]}
+
+    from .core.pipeline import _chart_from_row, cache_chart
+    chart = _chart_from_row(dict(row))
+    await cache_chart(db, row["id"], chart)
+    return {"chart": chart.to_dict()}
+
+
+@app.get("/v1/me/dream-sky")
+async def dream_sky(night: date, user=Depends(get_user)):
+    """Rüya formunda gösterilen gecenin gerçek Ay ve transit önizlemesi."""
+    from .core import astro
+    from .core.pipeline import _chart_from_row
+
+    when = datetime(night.year, night.month, night.day, 3, 0,
+                    tzinfo=timezone.utc)
+    row = await state["db"].fetchrow(
+        """SELECT birth_date, birth_time, time_known, lat, lon, tz_name
+           FROM birth_profiles WHERE user_id=$1 AND is_primary""", user["id"])
+    chart = _chart_from_row(dict(row)) if row else None
+    return {
+        "night": night.isoformat(),
+        "moon": astro.moon_at(when),
+        "transits": astro.transits_for(chart, when)[:3] if chart else [],
     }
 
 

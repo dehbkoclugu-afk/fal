@@ -26,6 +26,8 @@ import { api, ApiError } from '@/lib/api';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
 import { t } from '@/lib/i18n';
+import { DreamSkyPanel } from '@/components/DreamSkyPanel';
+import { RitualVisual } from '@/components/RitualVisual';
 
 /** Sunucudaki alt sınırla aynı; burada tutmak boşuna istek atmayı önlüyor. */
 const EN_AZ = 20;
@@ -63,13 +65,18 @@ export default function Dream() {
   const haritaYok = me ? !me.has_birth_data : false;
 
   const tarih = useMemo(() => isoGun(gunOnce), [gunOnce]);
+  const { data: sky } = useQuery({
+    queryKey: ['dream-sky', tarih],
+    queryFn: () => api.dreamSky(tarih),
+    retry: 1,
+  });
 
   const submit = async () => {
     setBusy(true);
     setError(null);
     try {
       const r = await api.dream(metin.trim(), tarih);
-      router.replace(`/reading/${r.reading_id}`);
+      router.replace(`/reading/${r.reading_id}?kind=dream`);
     } catch (e) {
       setError((e as ApiError).message);
     } finally {
@@ -82,6 +89,12 @@ export default function Dream() {
       <Eyebrow style={styles.eyebrow}>{t('ruya.eyebrow')}</Eyebrow>
       <Text style={styles.title}>{t('ruya.baslik')}</Text>
       <Text style={styles.lead}>{t('ruya.aciklama')}</Text>
+
+      {sky?.moon ? (
+        <DreamSkyPanel moon={sky.moon} transits={sky.transits} night={sky.night} />
+      ) : (
+        <View style={styles.preview}><RitualVisual kind="dream" size={210} /></View>
+      )}
 
       <TextInput
         value={metin}
@@ -153,6 +166,7 @@ const styles = StyleSheet.create({
     minHeight: 160,
     marginTop: space.lg,
   },
+  preview: { alignItems: 'center', marginTop: space.md },
   label: { ...type.eyebrow, color: color.kulKoyu, marginTop: space.lg },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm },
   chip: {

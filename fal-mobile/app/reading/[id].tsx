@@ -24,11 +24,12 @@ import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
 import { ArtSlot } from '@/components/ArtSlot';
-import { artForKey, ritualArt } from '@/lib/artAssets';
+import { ritualArt } from '@/lib/artAssets';
 import { t } from '@/lib/i18n';
 import { TarotReveal } from '@/components/TarotReveal';
 import { NatalChartWheel } from '@/components/NatalChartWheel';
 import { DreamSkyPanel } from '@/components/DreamSkyPanel';
+import { RitualVisual, type RitualKind } from '@/components/RitualVisual';
 
 // Anahtarlar modül düzeyinde, METİN render anında.
 //
@@ -52,7 +53,7 @@ const BEKLEME_ANAHTARLARI = [
 const SIGN_GLYPHS = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
 
 export default function ReadingScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, kind: routeKind } = useLocalSearchParams<{ id: string; kind?: string }>();
   const router = useRouter();
   const [marker, setMarker] = useState<string | null>(null);
   const cupPhotos = useDraft((s) => s.cupPhotos);
@@ -90,9 +91,15 @@ export default function ReadingScreen() {
     const remaining = eta
       ? Math.max(10, Math.ceil((eta * (1 - p)) / 10) * 10)
       : 0;
+    const waitingKind = ((data?.kind ?? routeKind) || 'coffee') as RitualKind;
     return (
       <Screen style={styles.waitRoot}>
-        <TelveRing size={240} value={Math.max(0.06, p)} mode="ritual" />
+        <View style={styles.waitVisual}>
+          <TelveRing size={240} value={Math.max(0.06, p)} mode="ritual" />
+          <View style={styles.waitVisualInner}>
+            <RitualVisual kind={waitingKind} size={170} />
+          </View>
+        </View>
         <Text style={styles.waitLine}>{line}</Text>
         <Text style={styles.waitStatus}>
           {remaining
@@ -226,7 +233,7 @@ export default function ReadingScreen() {
 
       {out.bolumler?.map((b, i) => (
         <View key={i} style={styles.section}>
-          <ArtSlot id={artForKey(`${id}:${b.baslik}:${i}`)} strength="strong" />
+          <ArtSlot id={ritualArt[data.kind] ?? 'daily'} strength="strong" />
           <Eyebrow style={styles.sectionTitle}>{b.baslik}</Eyebrow>
           <Text style={styles.sectionBody}>{b.metin}</Text>
         </View>
@@ -247,7 +254,7 @@ export default function ReadingScreen() {
           <Eyebrow style={styles.predLabel}>{t('sonuc.defteryeYazildi')}</Eyebrow>
           {predictions.map((t, i) => (
             <View key={i} style={styles.predRow}>
-              <ArtSlot id={artForKey(`${id}:${t.iddia}:${i}`, 'topic')} strength="strong" />
+              <ArtSlot id="prediction" strength="strong" />
               <Text style={styles.predWindow}>{t.pencere_gun}g</Text>
               <Text style={styles.predClaim}>{t.iddia}</Text>
             </View>
@@ -290,6 +297,8 @@ const styles = StyleSheet.create({
   eyebrow: { ...type.eyebrow, color: color.kul },
 
   waitRoot: { alignItems: 'center', justifyContent: 'center' },
+  waitVisual: { width: 240, height: 240, alignItems: 'center', justifyContent: 'center' },
+  waitVisualInner: { position: 'absolute' },
   waitLine: { ...type.oracle, color: color.porselen, marginTop: space.xl },
   waitStatus: { ...type.dataStrong, color: color.bakir, marginTop: space.sm },
   waitNote: { ...type.body, color: color.kul, marginTop: space.md, textAlign: 'center' },

@@ -22,10 +22,9 @@ import { api, ApiError, type NatalChart, type Teaser } from '@/lib/api';
 import { useDraft } from '@/lib/store';
 import { color, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
-import { ArtSlot } from '@/components/ArtSlot';
-import { artForKey } from '@/lib/artAssets';
 import { t } from '@/lib/i18n';
 import { NatalChartWheel } from '@/components/NatalChartWheel';
+import { RitualVisual } from '@/components/RitualVisual';
 
 export default function Reveal() {
   const router = useRouter();
@@ -80,6 +79,7 @@ export default function Reveal() {
       {!chart ? (
         <View style={styles.ringWrap}>
           <TelveRing size={220} value={progress} mode="ritual" breathing={!teaser} />
+          <View style={styles.chartPreview}><RitualVisual kind="natal" size={170} /></View>
           <View style={styles.ringCenter} pointerEvents="none">
             <Text style={styles.calc}>{t('ob.reveal.hesaplaniyor')}</Text>
           </View>
@@ -105,7 +105,6 @@ export default function Reveal() {
                 entering={FadeInDown.delay(i * 320).duration(520)}
                 style={styles.row}
               >
-                <ArtSlot id={artForKey(r.key, 'topic')} strength="strong" />
                 <Eyebrow style={styles.rowKey}>{r.key}</Eyebrow>
                 <Text style={styles.rowValue}>{r.value}</Text>
                 <Text style={styles.rowNote}>{r.note}</Text>
@@ -134,6 +133,7 @@ export default function Reveal() {
 const styles = StyleSheet.create({
   ringWrap: { alignItems: 'center', justifyContent: 'center', marginTop: space.xl },
   ringCenter: { position: 'absolute', alignItems: 'center' },
+  chartPreview: { position: 'absolute', opacity: 0.68 },
   calc: { ...type.data, color: color.kul, textAlign: 'center', fontSize: 11 },
   phase: { ...type.eyebrow, color: color.bakir, textAlign: 'center' },
 

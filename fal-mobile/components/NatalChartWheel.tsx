@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, G, Line, Text as SvgText } from 'react-native-svg';
 
 import type { NatalChart, NatalChartBody } from '@/lib/api';
@@ -26,6 +26,8 @@ function point(lon: number, radius: number) {
 }
 
 export function NatalChartWheel({ chart, compact = false }: { chart: NatalChart; compact?: boolean }) {
+  const { width } = useWindowDimensions();
+  const renderSize = Math.min(SIZE, width - space.lg * 2 - space.md * 2);
   const bodies = useMemo(() => Object.values(chart.bodies), [chart.bodies]);
   const [selectedKey, setSelectedKey] = useState('sun');
   const selected: NatalChartBody | undefined = chart.bodies[selectedKey] ?? bodies[0];
@@ -39,7 +41,7 @@ export function NatalChartWheel({ chart, compact = false }: { chart: NatalChart;
       </View>
 
       <View style={styles.wheelWrap} accessibilityLabel={t('harita.erisilebilir')}>
-        <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
+        <Svg width={renderSize} height={renderSize} viewBox={`0 0 ${SIZE} ${SIZE}`}>
           <Circle cx={C} cy={C} r={R} fill={color.cezve} stroke={color.cizgi} strokeWidth={1} />
           <Circle cx={C} cy={C} r={126} fill="none" stroke={color.bakir} strokeOpacity={0.42} />
           <Circle cx={C} cy={C} r={ASPECT_R} fill="none" stroke={color.cizgi} />

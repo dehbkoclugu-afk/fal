@@ -26,6 +26,7 @@ import { Eyebrow } from '@/components/Eyebrow';
 import { ArtSlot } from '@/components/ArtSlot';
 import { t, tarih } from '@/lib/i18n';
 import { artForKey, ritualArt } from '@/lib/artAssets';
+import { RitualVisual } from '@/components/RitualVisual';
 
 // Fiyatlar sunucudan (/v1/me → prices) geliyor; buradakiler sadece sunucu
 // yanıtı gelmeden önceki gösterim. Sabit fiyat yazmak, fiyat değiştiğinde
@@ -126,7 +127,7 @@ export default function Home() {
       {/* 2. Günün yorumu — fincan formu */}
       <Pressable
         style={styles.cup}
-        onPress={() => today && router.push(`/reading/${today.id}`)}
+        onPress={() => today && router.push(`/reading/${today.id}?kind=daily`)}
         accessibilityRole="button"
       >
         <ArtSlot id="daily" strength="strong" />
@@ -154,7 +155,7 @@ export default function Home() {
               onPress={() => r.route && router.push(r.route as any)}
               style={({ pressed }) => [styles.tile, pressed && styles.tilePressed, off && styles.tileOff]}
             >
-              <ArtSlot id={ritualArt[r.key]} strength="card" />
+              <View style={styles.tileVisual}><RitualVisual kind={r.key} size={74} /></View>
               <Text style={styles.tileTitle}>{t(r.title)}</Text>
               <Text style={styles.tileNote}>{t(r.note)}</Text>
               {!off && (
@@ -179,7 +180,7 @@ export default function Home() {
           {gecmis.slice(0, 3).map((r) => (
             <Pressable
               key={r.id}
-              onPress={() => router.push(`/reading/${r.id}`)}
+              onPress={() => router.push(`/reading/${r.id}?kind=${r.kind}`)}
               style={({ pressed }) => [styles.gecmisSatir, pressed && styles.gecmisBasili]}
             >
               <ArtSlot id={ritualArt[r.kind] ?? artForKey(r.id)} strength="strong" />
@@ -292,6 +293,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   tilePressed: { backgroundColor: color.cezveUst },
+  tileVisual: { position: 'absolute', right: -2, top: -6, opacity: 0.72 },
   tileOff: { opacity: 0.4 },
   tileTitle: { ...type.bodyStrong, color: color.porselen },
   tileNote: { ...type.data, color: color.kulKoyu, fontSize: 11 },

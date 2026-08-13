@@ -94,7 +94,7 @@ export default function Coffee() {
       // siliyor. Sonuç ekranındaki overlay'in çizileceği tek kaynak bu.
       const durablePhoto = await persistCupPhoto(r.reading_id, shot);
       rememberCupPhoto(r.reading_id, durablePhoto);
-      router.replace(`/reading/${r.reading_id}`);
+      router.replace(`/reading/${r.reading_id}?kind=coffee`);
     } catch (e) {
       const err = e instanceof ApiError ? e : null;
       if (err?.code === 'insufficient_coins') {

@@ -8,6 +8,7 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
@@ -17,9 +18,9 @@ import { Screen } from '@/components/Screen';
 import { api, ApiError } from '@/lib/api';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
-import { ArtSlot } from '@/components/ArtSlot';
-import { artForKey } from '@/lib/artAssets';
 import { t } from '@/lib/i18n';
+import { TarotCardBack } from '@/components/RitualVisual';
+import { TarotReveal } from '@/components/TarotReveal';
 
 // `key` API'ye gidiyor ve SABİT kalmak zorunda; `title` ekranda görünüyor
 // ve dile göre değişiyor. İkisini aynı yerde t() ile üretmek, çeviri
@@ -48,6 +49,13 @@ export default function Tarot() {
 
   const cardW = (width - space.lg * 2 - space.sm * 3) / 4;
   const done = picked.length === spread.count;
+  const { data: preview, isFetching: previewBusy } = useQuery({
+    queryKey: ['tarot-preview', spread.key, deckSeed, picked],
+    queryFn: () => api.tarotPreview(spread.key, deckSeed, picked),
+    enabled: done,
+    staleTime: Infinity,
+    retry: 1,
+  });
 
   const pick = (i: number) => {
     if (picked.includes(i) || done) return;
@@ -60,7 +68,7 @@ export default function Tarot() {
     setError(null);
     try {
       const r = await api.tarot(spread.key, '', deckSeed, picked);
-      router.replace(`/reading/${r.reading_id}`);
+      router.replace(`/reading/${r.reading_id}?kind=tarot`);
     } catch (e) {
       const err = e as ApiError;
       if (err.code === 'insufficient_coins') {
@@ -109,6 +117,9 @@ export default function Tarot() {
         ))}
       </View>
 
+      {previewBusy ? <Text style={styles.previewNote}>{t('tarot.kartlarAciliyor')}</Text> : null}
+      {preview?.draw ? <TarotReveal draw={preview.draw} /> : null}
+
       {error && <Text style={styles.error}>{error}</Text>}
       {jetonYok && <CoinGate kind="tarot" />}
 
@@ -152,9 +163,7 @@ function TarotCard({
           picked && styles.cardPicked,
         ]}
       >
-        <ArtSlot id={artForKey(`tarot-card-${index}`)} strength={picked ? 'soft' : 'card'} />
-        {/* Kart arkası deseni: fincan kenarındaki çini motifinin sadeleşmiş hâli */}
-        <View style={styles.cardMotif} />
+        <TarotCardBack width={width} picked={picked} />
       </Pressable>
     </Animated.View>
   );
@@ -185,12 +194,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cardPicked: { borderColor: color.bakir, backgroundColor: color.cezveUst },
-  cardMotif: {
-    width: '46%',
-    aspectRatio: 1,
-    borderWidth: 1,
-    borderColor: color.bakirSolgun,
-    transform: [{ rotate: '45deg' }],
-  },
+  previewNote: { ...type.data, color: color.bakir, textAlign: 'center', marginTop: space.lg },
   error: { ...type.body, color: color.kiremit, marginTop: space.md },
 });

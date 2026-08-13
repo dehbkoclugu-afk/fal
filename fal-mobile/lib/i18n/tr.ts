@@ -214,6 +214,7 @@ export const tr = {
   'tarot.kartSec': 'Desteden {n} kart seç. Aklındaki soruyu düşün.',
   'tarot.kartNo': '{n}. kart',
   'tarot.ters': 'ters',
+  'tarot.kartlarAciliyor': 'Seçtiğin gerçek kartlar açılıyor…',
 
   // --- natal ritüeli
   'natal.eyebrow': 'doğum haritası',

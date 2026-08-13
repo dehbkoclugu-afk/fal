@@ -242,6 +242,14 @@ export const api = {
       body: JSON.stringify({ locale: aktifDil().code, ...p }),
     }),
 
+  natalChart: () =>
+    request<{ chart: NatalChart }>('/me/natal-chart'),
+
+  dreamSky: (night: string) =>
+    request<{ night: string; moon: DreamMoon; transits: Transit[] }>(
+      `/me/dream-sky?night=${encodeURIComponent(night)}`,
+    ),
+
   coffee: async (photoUri: string, question: string, handleAngle: number) => {
     // RN 0.86 FormData artık `{ uri, name, type } as any` nesnesini her ağ
     // katmanında kabul etmiyor. Yerel URI'yi gerçek Blob'a çevirince standart
@@ -266,6 +274,12 @@ export const api = {
     request<{ reading_id: string; eta_seconds: number }>('/readings/tarot', {
       method: 'POST',
       body: JSON.stringify({ spread, question, seed, selections }),
+    }),
+
+  tarotPreview: (spread: string, seed: string, selections: number[]) =>
+    request<{ draw: TarotDraw }>('/tarot/preview', {
+      method: 'POST',
+      body: JSON.stringify({ spread, question: '', seed, selections }),
     }),
 
   reading: (id: string) => request<Reading>(`/readings/${id}`),

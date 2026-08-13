@@ -12,7 +12,7 @@ import uuid
 import httpx
 import pytest
 
-from app.core.pricing import COIN_PRICES
+from app.core.pricing import COIN_PRICES, SIGNUP_COINS
 from tests.conftest import requires_db
 
 pytestmark = [pytest.mark.asyncio, requires_db]
@@ -107,6 +107,21 @@ async def test_anon_id_yoksa_reddediliyor(client):
     assert (await client.get("/v1/me")).status_code == 422
 
 
+async def test_eski_jetonsuz_hesabin_acilis_hediyesi_onariliyor(client, db, anon):
+    """Eski sürümde users oluşup ledger oluşmayan cihaz 0 jetonda kalmasın."""
+    uid = await db.fetchval(
+        "INSERT INTO users (anon_id) VALUES ($1) RETURNING id", anon)
+
+    ilk = await client.get("/v1/me", headers=H(anon))
+    ikinci = await client.get("/v1/me", headers=H(anon))
+
+    assert ilk.status_code == 200 and ilk.json()["coins"] == SIGNUP_COINS
+    assert ikinci.json()["coins"] == SIGNUP_COINS
+    assert await db.fetchval(
+        "SELECT count(*) FROM coin_ledger WHERE user_id=$1 AND reason='signup_repair'",
+        uid) == 1
+
+
 async def test_baskasinin_fali_okunamiyor(client, db, anon):
     await client.put("/v1/profile", json=PROFIL, headers=H(anon))
     uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
@@ -196,6 +211,20 @@ async def test_tarot_gorsel_secimleri_kuyruga_aynen_gidiyor(client, db, anon, qu
     _, job_args = queue.jobs[0]
     assert job_args[2]["seed"] == "mobil-masa-42"
     assert job_args[2]["selections"] == [2, 8, 11]
+
+
+async def test_tarot_onizleme_gercek_kartlari_jetonsuz_aciyor(client, db, anon, queue):
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    body = {"spread": "three_card", "seed": "mobil-masa-42", "selections": [2, 8, 11]}
+
+    r1 = await client.post("/v1/tarot/preview", json=body, headers=H(anon))
+    r2 = await client.post("/v1/tarot/preview", json=body, headers=H(anon))
+
+    assert r1.status_code == 200
+    assert r1.json() == r2.json()
+    assert len(r1.json()["draw"]["cards"]) == 3
+    assert not queue.jobs
+    assert await db.fetchval("SELECT count(*) FROM coin_ledger WHERE delta<0") == 0
 
 
 async def test_tarot_gorsel_secim_sayisi_jeton_dusmeden_reddediliyor(client, db, anon):
@@ -644,6 +673,23 @@ async def test_natal_harita_onbellege_yaziliyor(client, db, anon):
     assert row is not None, "natal_charts tablosuna hiç yazılmıyor"
     assert row["chart_json"]["ascendant"]
     assert row["engine_version"]
+
+
+async def test_harita_fal_satin_almadan_goruntuleniyor(client, anon):
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    r = await client.get("/v1/me/natal-chart", headers=H(anon))
+    assert r.status_code == 200
+    assert len(r.json()["chart"]["houses"]) == 12
+    assert r.json()["chart"]["bodies"]["sun"]["sign_tr"]
+
+
+async def test_ruya_formu_gecenin_gokyuzunu_onizliyor(client, anon):
+    await client.put("/v1/profile", json=PROFIL, headers=H(anon))
+    r = await client.get("/v1/me/dream-sky?night=2026-08-12", headers=H(anon))
+    assert r.status_code == 200
+    assert r.json()["night"] == "2026-08-12"
+    assert r.json()["moon"]["burc"]
+    assert isinstance(r.json()["transits"], list)
 
 
 async def test_harita_guncellenince_onbellek_tazeleniyor(client, db, anon):
