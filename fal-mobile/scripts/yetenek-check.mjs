@@ -37,7 +37,7 @@ const YETENEKLER = [
     ad: 'Abonelik (RevenueCat)',
     paket: 'react-native-purchases',
     anahtarlar: ['rcAndroidKey', 'rcIosKey'],
-    kapaliysa: 'abonelik satın alınamaz; paywall ödeme CTA\'sını kapalı tutar',
+    kapaliysa: 'abonelik satın alınamaz; paywall kullanıcıyı ücretsiz akışa geçirir',
   },
   {
     ad: 'Ödüllü reklam (AppLovin MAX)',
@@ -83,9 +83,11 @@ for (const y of YETENEKLER) {
 
 console.log('\n\x1b[1mAbonelik güven kapısı\x1b[0m\n');
 const rcKokte = rootLayout.includes('purchases.configure');
-const fiyatKapisi = paywall.includes("disabled={hazirDurum !== 'ready' || !plan}");
+const fiyatKapisi =
+  paywall.includes("onPress={hazirDurum === 'ready' ? go : skip}") &&
+  paywall.includes("disabled={hazirDurum === 'loading' || (hazirDurum === 'ready' && !plan)}");
 console.log(`  ${rcKokte ? OK : NO} RevenueCat uygulama kökünde yapılandırılıyor`);
-console.log(`  ${fiyatKapisi ? OK : NO} Gerçek fiyat gelmeden satın alma CTA kapalı`);
+console.log(`  ${fiyatKapisi ? OK : NO} Gerçek fiyat gelmeden satın alma çalışmıyor`);
 if (!rcKokte) hata++;
 if (!fiyatKapisi) hata++;
 

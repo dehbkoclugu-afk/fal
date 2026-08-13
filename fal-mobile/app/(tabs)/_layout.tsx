@@ -1,8 +1,9 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Text } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { color, font } from '@/lib/theme';
+import { color, font, space } from '@/lib/theme';
 import { t } from '@/lib/i18n';
 
 /**
@@ -11,6 +12,8 @@ import { t } from '@/lib/i18n';
  * duruyor. Mono etiketler defter kaydı estetiğiyle tutarlı ve ayırt edici.
  */
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
@@ -20,7 +23,11 @@ export default function TabsLayout() {
           backgroundColor: color.telve,
           borderTopColor: color.cizgi,
           borderTopWidth: 1,
-          height: 62,
+          // Sabit 62px yükseklik Android'in üç tuşlu gezinme alanını hesaba
+          // katmıyordu; etiketler sistem çubuğunun altında kalıyordu.
+          height: 62 + insets.bottom,
+          paddingTop: space.xs,
+          paddingBottom: insets.bottom + space.xs,
         },
         tabBarActiveTintColor: color.bakir,
         tabBarInactiveTintColor: color.kulKoyu,

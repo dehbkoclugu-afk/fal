@@ -24,11 +24,12 @@ import { useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
 import { ArtSlot } from '@/components/ArtSlot';
-import { artForKey, ritualArt } from '@/lib/artAssets';
+import { ritualArt } from '@/lib/artAssets';
 import { t } from '@/lib/i18n';
 import { TarotReveal } from '@/components/TarotReveal';
 import { NatalChartWheel } from '@/components/NatalChartWheel';
 import { DreamSkyPanel } from '@/components/DreamSkyPanel';
+import { RitualVisual, type RitualKind } from '@/components/RitualVisual';
 
 // Anahtarlar modül düzeyinde, METİN render anında.
 //
@@ -45,14 +46,18 @@ const SONUC_ETIKET: Record<string, 'sonuc.kahveFali' | 'sonuc.tarot' | 'sonuc.na
   dream: 'sonuc.ruya',
 };
 
-const BEKLEME_ANAHTARLARI = [
-  'sonuc.bekleme1', 'sonuc.bekleme2', 'sonuc.bekleme3', 'sonuc.bekleme4',
-] as const;
+const BEKLEME_ANAHTARLARI = {
+  coffee: ['sonuc.bekleme.coffee1', 'sonuc.bekleme.coffee2', 'sonuc.bekleme.coffee3', 'sonuc.bekleme.coffee4'],
+  tarot: ['sonuc.bekleme.tarot1', 'sonuc.bekleme.tarot2', 'sonuc.bekleme.tarot3', 'sonuc.bekleme.tarot4'],
+  natal: ['sonuc.bekleme.natal1', 'sonuc.bekleme.natal2', 'sonuc.bekleme.natal3', 'sonuc.bekleme.natal4'],
+  dream: ['sonuc.bekleme.dream1', 'sonuc.bekleme.dream2', 'sonuc.bekleme.dream3', 'sonuc.bekleme.dream4'],
+  daily: ['sonuc.bekleme.daily1', 'sonuc.bekleme.daily2', 'sonuc.bekleme.daily3', 'sonuc.bekleme.daily4'],
+} as const;
 
 const SIGN_GLYPHS = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
 
 export default function ReadingScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, kind: routeKind } = useLocalSearchParams<{ id: string; kind?: string }>();
   const router = useRouter();
   const [marker, setMarker] = useState<string | null>(null);
   const cupPhotos = useDraft((s) => s.cupPhotos);
@@ -81,18 +86,25 @@ export default function ReadingScreen() {
   // --- 1. Bekleme ritüeli
   if (!data || data.status === 'queued' || data.status === 'running') {
     const p = data?.progress ?? 0.05;
+    const waitingKind = ((data?.kind ?? routeKind) || 'coffee') as RitualKind;
+    const waitingKeys = BEKLEME_ANAHTARLARI[waitingKind] ?? BEKLEME_ANAHTARLARI.coffee;
     const stageIndex = Math.min(
-      BEKLEME_ANAHTARLARI.length - 1,
-      Math.floor(p * BEKLEME_ANAHTARLARI.length),
+      waitingKeys.length - 1,
+      Math.floor(p * waitingKeys.length),
     );
-    const line = t(BEKLEME_ANAHTARLARI[stageIndex]);
+    const line = t(waitingKeys[stageIndex]);
     const eta = data?.eta_seconds ?? 0;
     const remaining = eta
       ? Math.max(10, Math.ceil((eta * (1 - p)) / 10) * 10)
       : 0;
     return (
       <Screen style={styles.waitRoot}>
-        <TelveRing size={240} value={Math.max(0.06, p)} mode="ritual" />
+        <View style={styles.waitVisual}>
+          <TelveRing size={240} value={Math.max(0.06, p)} mode="ritual" />
+          <View style={styles.waitVisualInner}>
+            <RitualVisual kind={waitingKind} size={170} />
+          </View>
+        </View>
         <Text style={styles.waitLine}>{line}</Text>
         <Text style={styles.waitStatus}>
           {remaining
@@ -226,7 +238,8 @@ export default function ReadingScreen() {
 
       {out.bolumler?.map((b, i) => (
         <View key={i} style={styles.section}>
-          <ArtSlot id={artForKey(`${id}:${b.baslik}:${i}`)} strength="strong" />
+          <ArtSlot id={ritualArt[data.kind] ?? 'daily'} strength="strong" />
+          <View pointerEvents="none" style={styles.readingScrim} />
           <Eyebrow style={styles.sectionTitle}>{b.baslik}</Eyebrow>
           <Text style={styles.sectionBody}>{b.metin}</Text>
         </View>
@@ -235,6 +248,7 @@ export default function ReadingScreen() {
       {!!out.tavsiye && (
         <View style={styles.adviceBox}>
           <ArtSlot id={ritualArt[data.kind] ?? 'daily'} strength="strong" />
+          <View pointerEvents="none" style={styles.readingScrim} />
           <Eyebrow style={styles.adviceLabel}>{t('sonuc.neYapmali')}</Eyebrow>
           <Text style={styles.advice}>{out.tavsiye}</Text>
         </View>
@@ -247,7 +261,6 @@ export default function ReadingScreen() {
           <Eyebrow style={styles.predLabel}>{t('sonuc.defteryeYazildi')}</Eyebrow>
           {predictions.map((t, i) => (
             <View key={i} style={styles.predRow}>
-              <ArtSlot id={artForKey(`${id}:${t.iddia}:${i}`, 'topic')} strength="strong" />
               <Text style={styles.predWindow}>{t.pencere_gun}g</Text>
               <Text style={styles.predClaim}>{t.iddia}</Text>
             </View>
@@ -290,6 +303,8 @@ const styles = StyleSheet.create({
   eyebrow: { ...type.eyebrow, color: color.kul },
 
   waitRoot: { alignItems: 'center', justifyContent: 'center' },
+  waitVisual: { width: 240, height: 240, alignItems: 'center', justifyContent: 'center' },
+  waitVisualInner: { position: 'absolute' },
   waitLine: { ...type.oracle, color: color.porselen, marginTop: space.xl },
   waitStatus: { ...type.dataStrong, color: color.bakir, marginTop: space.sm },
   waitNote: { ...type.body, color: color.kul, marginTop: space.md, textAlign: 'center' },
@@ -300,6 +315,20 @@ const styles = StyleSheet.create({
   section: {
     position: 'relative', overflow: 'hidden', marginTop: space.xl,
     padding: space.lg, borderRadius: radius.md,
+    backgroundColor: color.cezve,
+    borderWidth: 1,
+    borderColor: color.cizgi,
+  },
+  // Result artwork remains visible, but it must never compete with long-form
+  // copy. The extra local scrim affects reading cards only; artwork elsewhere
+  // in the app keeps its original contrast.
+  readingScrim: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(22, 16, 14, 0.14)',
   },
   sectionTitle: { ...type.eyebrow, color: color.bakir },
   // Uzun yorum düz gövde kaydında; italik kâhin sesi özet/vurguda kalır.
@@ -323,6 +352,7 @@ const styles = StyleSheet.create({
   predRow: {
     position: 'relative', overflow: 'hidden', flexDirection: 'row', gap: space.md,
     marginTop: space.md, padding: space.md, borderRadius: radius.sm,
+    backgroundColor: color.cezve,
   },
   predWindow: { ...type.dataStrong, color: color.kulKoyu, width: 32 },
   predClaim: { ...type.data, color: color.porselen, flex: 1 },

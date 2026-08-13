@@ -1,10 +1,9 @@
 /**
  * Doğum haritası ritüeli — odak seçimi.
  *
- * Tasarım kararı: bu ekran kart/animasyon göstermiyor. Doğum haritası ürünün
- * "hesaplanmış" tarafı; ritüel süsü eklemek onu tarotla aynı kovaya koyar ve
- * asıl farkı (gerçek ephemeris) gizler. Bu yüzden ekran defter kaydında:
- * mono etiketler, ince cetvel çizgileri, süssüz.
+ * Doğum haritası ürünün "hesaplanmış" tarafı. Kullanıcı yorum satın almadan
+ * kendi gezegen, ev ve açı çemberini görür; odak seçimi bu gerçek haritanın
+ * altında kalır. Dekoratif konu fotoğrafları bu ekranda kullanılmaz.
  *
  * Kullanıcının haritası zaten onboarding'de hesaplandı; burada seçilen tek şey
  * yorumun hangi eksene ağırlık vereceği.
@@ -22,20 +21,20 @@ import { Screen } from '@/components/Screen';
 import { api, ApiError } from '@/lib/api';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
-import { ArtSlot } from '@/components/ArtSlot';
-import { artForKey } from '@/lib/artAssets';
 import { t } from '@/lib/i18n';
+import { NatalChartWheel } from '@/components/NatalChartWheel';
+import { RitualVisual } from '@/components/RitualVisual';
 
 // `key` sunucuya `focus` olarak gidiyor ve orada Literal ile doğrulanıyor:
 // SABİT kalmak zorunda. Çeviri çıkarımı bunları da t() ile sarmıştı;
 // Türkçe katalog değerleri anahtarlarla aynı olduğu için hata görünmüyordu,
 // ikinci dilde her doğum haritası isteği 422 dönecekti.
 const ODAKLAR = [
-  { key: 'genel', title: 'natal.butunHarita', note: 'natal.butunHaritaNot' },
-  { key: 'ask', title: 'natal.ask', note: 'natal.askNot' },
-  { key: 'para', title: 'natal.para', note: 'natal.paraNot' },
-  { key: 'kariyer', title: 'natal.kariyer', note: 'natal.kariyerNot' },
-  { key: 'kendim', title: 'natal.kendim', note: 'natal.kendimNot' },
+  { key: 'genel', title: 'natal.butunHarita', note: 'natal.butunHaritaNot', glyph: '◎' },
+  { key: 'ask', title: 'natal.ask', note: 'natal.askNot', glyph: '♀' },
+  { key: 'para', title: 'natal.para', note: 'natal.paraNot', glyph: '♃' },
+  { key: 'kariyer', title: 'natal.kariyer', note: 'natal.kariyerNot', glyph: '♄' },
+  { key: 'kendim', title: 'natal.kendim', note: 'natal.kendimNot', glyph: '☽' },
 ] as const;
 
 export default function Natal() {
@@ -45,6 +44,12 @@ export default function Natal() {
   const [error, setError] = useState<string | null>(null);
 
   const { data: me } = useQuery({ queryKey: ['me'], queryFn: api.me });
+  const { data: chartData } = useQuery({
+    queryKey: ['natal-chart'],
+    queryFn: api.natalChart,
+    enabled: !!me?.has_birth_data,
+    retry: 1,
+  });
   const fiyat = me?.prices?.natal ?? 5;
   const abone = !!me?.entitlement;
   const yetersiz = !abone && (me?.coins ?? 0) < fiyat;
@@ -54,7 +59,7 @@ export default function Natal() {
     setError(null);
     try {
       const r = await api.natal(odak);
-      router.replace(`/reading/${r.reading_id}`);
+      router.replace(`/reading/${r.reading_id}?kind=natal`);
     } catch (e) {
       setError((e as ApiError).message);
     } finally {
@@ -68,6 +73,12 @@ export default function Natal() {
       <Text style={styles.title}>{t('natal.baslik')}</Text>
       <Text style={styles.lead}>{t('natal.aciklama')}</Text>
 
+      {chartData?.chart ? (
+        <NatalChartWheel chart={chartData.chart} compact />
+      ) : (
+        <View style={styles.preview}><RitualVisual kind="natal" size={220} /></View>
+      )}
+
       <View style={styles.list}>
         {ODAKLAR.map((o, i) => {
           const on = odak === o.key;
@@ -80,7 +91,7 @@ export default function Natal() {
                 }}
                 style={[styles.row, on && styles.rowOn]}
               >
-                <ArtSlot id={artForKey(o.key, 'topic')} strength="strong" />
+                <Text style={[styles.rowGlyph, on && styles.rowGlyphOn]}>{o.glyph}</Text>
                 <View style={styles.rowText}>
                   <Text style={[styles.rowTitle, on && { color: color.porselen }]}>
                     {t(o.title)}
@@ -127,6 +138,9 @@ const styles = StyleSheet.create({
   },
   rowOn: { borderBottomColor: color.bakir },
   rowText: { flex: 1 },
+  preview: { alignItems: 'center', marginTop: space.lg },
+  rowGlyph: { color: color.kulKoyu, fontSize: 24, width: 38 },
+  rowGlyphOn: { color: color.bakir },
   rowTitle: { ...type.data, color: color.kul, fontSize: 14 },
   rowNote: { ...type.data, color: color.kulKoyu, fontSize: 11, marginTop: 4 },
   dot: {

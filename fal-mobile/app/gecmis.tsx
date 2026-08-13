@@ -69,7 +69,7 @@ export default function Gecmis() {
       {data?.map((r) => (
         <Pressable
           key={r.id}
-          onPress={() => router.push(`/reading/${r.id}`)}
+          onPress={() => router.push(`/reading/${r.id}?kind=${r.kind}`)}
           style={({ pressed }) => [styles.satir, pressed && styles.satirBasili]}
         >
           <ArtSlot id={ritualArt[r.kind] ?? artForKey(r.id)} strength="strong" />

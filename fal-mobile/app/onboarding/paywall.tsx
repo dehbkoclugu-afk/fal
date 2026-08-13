@@ -203,30 +203,34 @@ export default function Paywall() {
       </View>
 
       <Button
-        label={t('ob.paywall.aboneOl')}
+        label={hazirDurum === 'unavailable'
+          ? t('ob.paywall.ucretsizDevam')
+          : t('ob.paywall.aboneOl')}
         loading={busy}
-        disabled={hazirDurum !== 'ready' || !plan}
-        onPress={go}
+        disabled={hazirDurum === 'loading' || (hazirDurum === 'ready' && !plan)}
+        onPress={hazirDurum === 'ready' ? go : skip}
         style={{ marginTop: space.lg }}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Text style={styles.terms}>{t('ob.paywall.sartlar')}</Text>
+      {hazirDurum === 'ready' ? <Text style={styles.terms}>{t('ob.paywall.sartlar')}</Text> : null}
       <Text style={styles.coinNote}>{t('ob.paywall.jetonNot')}</Text>
 
-      <View style={styles.footerLinks}>
-        <Pressable onPress={skip} style={styles.footerLink}>
-          <Text style={styles.free}>{t('ob.paywall.ucretsizDevam')}</Text>
-        </Pressable>
-        <Pressable
-          onPress={restore}
-          disabled={hazirDurum !== 'ready' || busy}
-          accessibilityState={{ disabled: hazirDurum !== 'ready' || busy }}
-          style={styles.footerLink}
-        >
-          <Text style={styles.free}>{t('ob.paywall.geriYukle')}</Text>
-        </Pressable>
-      </View>
+      {hazirDurum === 'ready' ? (
+        <View style={styles.footerLinks}>
+          <Pressable onPress={skip} style={styles.footerLink}>
+            <Text style={styles.free}>{t('ob.paywall.ucretsizDevam')}</Text>
+          </Pressable>
+          <Pressable
+            onPress={restore}
+            disabled={busy}
+            accessibilityState={{ disabled: busy }}
+            style={styles.footerLink}
+          >
+            <Text style={styles.free}>{t('ob.paywall.geriYukle')}</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </Screen>
   );
 }

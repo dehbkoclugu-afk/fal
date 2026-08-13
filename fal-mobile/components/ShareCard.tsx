@@ -22,6 +22,7 @@ import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
 import { ArtSlot } from '@/components/ArtSlot';
 import { ritualArt } from '@/lib/artAssets';
+import { RitualVisual, type RitualKind } from '@/components/RitualVisual';
 import { t } from '@/lib/i18n';
 
 type Props = {
@@ -56,6 +57,11 @@ export function ShareCard({ line, symbol, kind, photoUri, computedDetail }: Prop
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const safeLine = line.trim();
+  const safeSymbol = symbol?.trim();
+  const safeComputedDetail = computedDetail?.trim();
+  const visualKind: RitualKind = kind === 'tarot' || kind === 'natal' || kind === 'dream' || kind === 'daily'
+    ? kind
+    : 'coffee';
 
   const share = async () => {
     if (busy) return;
@@ -90,29 +96,58 @@ export function ShareCard({ line, symbol, kind, photoUri, computedDetail }: Prop
           önceden görmezse paylaşma oranı düşüyor. */}
       <View ref={cardRef} collapsable={false} style={styles.card}>
         <ArtSlot id={ritualArt[kind] ?? 'daily'} strength="strong" />
-        {photoUri ? (
-          <Image source={{ uri: photoUri }} style={styles.photo} contentFit="cover" />
-        ) : (
-          <View style={[styles.photo, styles.photoFallback]}>
-            <Text style={styles.symbolBig}>{symbol || '☾'}</Text>
-          </View>
-        )}
+
+        {/*
+          Üst alanın yüksekliği sabit. `symbol` her zaman tek karakter değil;
+          sunucu "Doğan güneş" gibi bir başlık da gönderebiliyor. Önceki
+          sürüm bunu 56pt sınırsız metin olarak çizdiği için Android'de kartın
+          gövdesi ve altbilgisi birbirinin üstüne taşıyordu.
+        */}
+        <View style={styles.media}>
+          {photoUri ? (
+            <Image source={{ uri: photoUri }} style={styles.photo} contentFit="cover" />
+          ) : safeSymbol ? (
+            <Text
+              style={styles.symbolTitle}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.72}
+            >
+              {safeSymbol}
+            </Text>
+          ) : (
+            <RitualVisual kind={visualKind} size={96} />
+          )}
+        </View>
 
         <View style={styles.body}>
           <Eyebrow style={styles.eyebrow}>{baslik(kind)}</Eyebrow>
-          <Text style={styles.line} numberOfLines={4}>
+          <Text
+            style={styles.line}
+            numberOfLines={4}
+            adjustsFontSizeToFit
+            minimumFontScale={0.68}
+          >
             {safeLine}
           </Text>
-          {!!symbol && photoUri ? (
-            <Text style={styles.symbol}>{t('paylas.cikanSembol', { sembol: symbol })}</Text>
-          ) : null}
-          {!!computedDetail && <Text style={styles.computed}>{computedDetail}</Text>}
+          <View style={styles.details}>
+            {!!safeSymbol && photoUri ? (
+              <Text style={styles.symbol} numberOfLines={1} ellipsizeMode="tail">
+                {t('paylas.cikanSembol', { sembol: safeSymbol })}
+              </Text>
+            ) : null}
+            {!!safeComputedDetail && (
+              <Text style={styles.computed} numberOfLines={1} ellipsizeMode="tail">
+                {safeComputedDetail}
+              </Text>
+            )}
+          </View>
         </View>
 
         <View style={styles.footer}>
           {/* i18n-ignore: marka adı çevrilmiyor */}
-          <Text style={styles.brand}>telve</Text>
-          <Text style={styles.disclaimer}>{t('ortak.eglenceAmacli')}</Text>
+          <Text style={styles.brand} numberOfLines={1}>telve</Text>
+          <Text style={styles.disclaimer} numberOfLines={1}>{t('ortak.eglenceAmacli')}</Text>
         </View>
       </View>
 
@@ -127,6 +162,9 @@ export function ShareCard({ line, symbol, kind, photoUri, computedDetail }: Prop
 const styles = StyleSheet.create({
   wrap: { marginTop: space.xxl },
   card: {
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
     aspectRatio: 4 / 5,
     borderRadius: radius.lg,
     overflow: 'hidden',
@@ -134,29 +172,69 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: color.cizgi,
   },
-  photo: { width: '100%', flex: 1.15 },
-  photoFallback: {
-    backgroundColor: 'transparent',
+  media: {
+    height: '34%',
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    paddingHorizontal: space.lg,
   },
-  symbolBig: { ...type.oracle, color: color.bakir, fontSize: 56 },
-  body: { paddingHorizontal: space.lg, paddingTop: space.lg, flex: 1 },
+  photo: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+  },
+  symbolTitle: {
+    ...type.oracle,
+    width: '100%',
+    color: color.bakir,
+    fontSize: 30,
+    lineHeight: 34,
+    textAlign: 'center',
+  },
+  body: {
+    flex: 1,
+    minHeight: 0,
+    paddingHorizontal: space.lg,
+    paddingTop: space.md,
+  },
   eyebrow: { ...type.eyebrow, color: color.bakir },
-  line: { ...type.oracleLead, color: color.porselen, marginTop: space.sm },
-  symbol: { ...type.data, color: color.kulKoyu, fontSize: 11, marginTop: space.md },
-  computed: { ...type.data, color: color.cini, fontSize: 10, marginTop: space.sm },
-  footer: {
+  line: {
+    ...type.oracleLead,
+    flex: 1,
+    minHeight: 0,
+    color: color.porselen,
+    marginTop: space.sm,
+    fontSize: 22,
+    lineHeight: 29,
+  },
+  details: {
+    minHeight: 20,
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
+    gap: space.sm,
+    paddingTop: space.xs,
+  },
+  symbol: { ...type.data, flex: 1, minWidth: 0, color: color.kulKoyu, fontSize: 10 },
+  computed: { ...type.data, flexShrink: 1, minWidth: 0, color: color.cini, fontSize: 10 },
+  footer: {
+    height: 44,
+    flexShrink: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: space.lg,
-    paddingBottom: space.lg,
+    gap: space.md,
   },
   // Watermark: paylaşılan görselde markanın göründüğü tek yer.
   brand: { ...type.dataStrong, color: color.bakir, letterSpacing: 2 },
   // Mağaza kuralı ve uyum gereği kartta da bulunmak zorunda.
-  disclaimer: { ...type.data, color: color.kulKoyu, fontSize: 10 },
+  disclaimer: { ...type.data, flexShrink: 1, color: color.kulKoyu, fontSize: 10, textAlign: 'right' },
   btn: {
     marginTop: space.md,
     paddingVertical: space.md,
