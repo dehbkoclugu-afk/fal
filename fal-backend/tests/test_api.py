@@ -464,7 +464,7 @@ async def test_basarisiz_falin_sebebi_donuyor(client, db, anon):
     assert d["status"] == "failed" and d["block_reason"] == "blurry"
 
 
-async def test_gecmis_sadece_biten_fallari_veriyor(client, db, anon):
+async def test_gecmis_hazirlanan_ve_kurtarilabilir_fallari_veriyor(client, db, anon):
     await client.put("/v1/profile", json=PROFIL, headers=H(anon))
     uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
     for st in ("done", "queued", "failed", "blocked"):
@@ -472,7 +472,8 @@ async def test_gecmis_sadece_biten_fallari_veriyor(client, db, anon):
             """INSERT INTO readings (user_id,kind,status,output_json)
                VALUES ($1,'tarot',$2,'{"ozet":"x"}')""", uid, st)
     rows = (await client.get("/v1/readings", headers=H(anon))).json()
-    assert len(rows) == 1 and rows[0]["ozet"] == "x"
+    assert {row["status"] for row in rows} == {"done", "queued", "failed"}
+    assert all(row["ozet"] == "x" for row in rows)
 
 
 # ------------------------------------------------------- doğrulama döngüsü
@@ -1338,9 +1339,9 @@ async def test_gecmis_gunluk_yorumu_gostermiyor(client, db, anon):
     assert [x["kind"] for x in d] == ["coffee"], "günlük yorum arşivi dolduruyor"
 
 
-async def test_gecmis_tamamlanmamis_fali_gostermiyor(client, db, anon):
-    """Yarıda kalmış veya kriz nedeniyle durdurulmuş kayıt arşivde
-    görünmemeli — kullanıcı boş bir karta dokunmuş olur."""
+async def test_gecmis_hazirlanan_fali_gosterir_kriz_kaydini_gizler(client, db, anon):
+    """Kuyruk/çalışma/hata kayıtları ilerleme ve retry için görünür; kriz
+    kaydındaki mahrem destek akışı arşive taşınmaz."""
     await client.get("/v1/me", headers=H(anon))
     uid = await db.fetchval("SELECT id FROM users WHERE anon_id=$1", anon)
     for durum in ("queued", "running", "failed", "blocked"):
@@ -1348,7 +1349,8 @@ async def test_gecmis_tamamlanmamis_fali_gostermiyor(client, db, anon):
     await _fal_yaz(db, uid, "tarot", "tamam", 1)
 
     d = (await client.get("/v1/readings", headers=H(anon))).json()
-    assert [x["ozet"] for x in d] == ["tamam"]
+    assert {x["status"] for x in d} == {"done", "queued", "running", "failed"}
+    assert all(x["status"] != "blocked" for x in d)
 
 
 async def test_gecmis_baskasinin_fallarini_gostermiyor(client, db, anon):
