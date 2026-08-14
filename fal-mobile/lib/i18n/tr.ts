@@ -269,8 +269,11 @@ export const tr = {
   'harita.erisilebilir': 'Gezegenleri, evleri ve açıları gösteren doğum haritası çemberi',
   'harita.yukselen': 'YÜKSELEN',
   'harita.retro': 'retro',
+  'harita.tahmini': 'YÜKSELEN TAHMİNİ',
+  'harita.gezegenEtiket': '{gezegen}, {burc} burcunda {derece} derece',
+  'harita.motor': 'Hesap motoru: {motor}',
   'harita.saatYok':
-    'Doğum saatin bilinmediği için yükselen ve ev çizgileri gösterilmiyor. Gezegen burçları ve açılar geçerlidir.',
+    'Doğum saatin bilinmediği için yükselen tahmini, ev çizgileri gizli. Gezegen burçları ve açılar geçerlidir.',
   'ruya.geceninGokyuzu': 'rüyayı gördüğün gecenin gökyüzü',
   'ruya.aydinlik': 'aydınlık',
   'ruya.etkinGostergeler': 'yoruma giren hesaplanmış göstergeler',
