@@ -257,6 +257,12 @@ export const tr = {
   'natal.kendimNot': 'Yükselen, Ay, Chiron',
   'natal.yorumla': 'Haritamı yorumla',
   'natal.yorumlaJeton': 'Haritamı yorumla · {n} jeton',
+  'natal.odak': 'ODAK',
+  'natal.secili': 'SEÇİLİ ODAK',
+  'natal.ucretBaslik': 'YORUM HAKKI',
+  'natal.aboneligeDahil': 'Aboneliğine dahil · jeton harcanmaz',
+  'natal.bakiyeVeUcret': 'Bakiyen {bakiye} jeton · bu yorum {ucret} jeton',
+  'natal.tekSeferNot': 'Yalnızca yorumu başlattığında bakiyenden düşer.',
 
   // --- hesaplanmış gökyüzü görselleri
   'harita.hesaplanmis': 'hesaplanmış doğum haritan',

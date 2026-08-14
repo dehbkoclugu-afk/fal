@@ -3,7 +3,8 @@
  *
  * Doğum haritası ürünün "hesaplanmış" tarafı. Kullanıcı yorum satın almadan
  * kendi gezegen, ev ve açı çemberini görür; odak seçimi bu gerçek haritanın
- * altında kalır. Dekoratif konu fotoğrafları bu ekranda kullanılmaz.
+ * altında kalır. Konu görselleri seçimin anlamını destekler, haritanın yerine
+ * geçmez.
  *
  * Kullanıcının haritası zaten onboarding'de hesaplandı; burada seçilen tek şey
  * yorumun hangi eksene ağırlık vereceği.
@@ -24,17 +25,19 @@ import { Eyebrow } from '@/components/Eyebrow';
 import { t } from '@/lib/i18n';
 import { NatalChartWheel } from '@/components/NatalChartWheel';
 import { RitualVisual } from '@/components/RitualVisual';
+import { ArtSlot } from '@/components/ArtSlot';
+import type { ArtId } from '@/lib/artAssets';
 
 // `key` sunucuya `focus` olarak gidiyor ve orada Literal ile doğrulanıyor:
 // SABİT kalmak zorunda. Çeviri çıkarımı bunları da t() ile sarmıştı;
 // Türkçe katalog değerleri anahtarlarla aynı olduğu için hata görünmüyordu,
 // ikinci dilde her doğum haritası isteği 422 dönecekti.
 const ODAKLAR = [
-  { key: 'genel', title: 'natal.butunHarita', note: 'natal.butunHaritaNot', glyph: '◎' },
-  { key: 'ask', title: 'natal.ask', note: 'natal.askNot', glyph: '♀' },
-  { key: 'para', title: 'natal.para', note: 'natal.paraNot', glyph: '♃' },
-  { key: 'kariyer', title: 'natal.kariyer', note: 'natal.kariyerNot', glyph: '♄' },
-  { key: 'kendim', title: 'natal.kendim', note: 'natal.kendimNot', glyph: '☽' },
+  { key: 'genel', title: 'natal.butunHarita', note: 'natal.butunHaritaNot', artId: 'general' },
+  { key: 'ask', title: 'natal.ask', note: 'natal.askNot', artId: 'love' },
+  { key: 'para', title: 'natal.para', note: 'natal.paraNot', artId: 'money' },
+  { key: 'kariyer', title: 'natal.kariyer', note: 'natal.kariyerNot', artId: 'career' },
+  { key: 'kendim', title: 'natal.kendim', note: 'natal.kendimNot', artId: 'self' },
 ] as const;
 
 export default function Natal() {
@@ -89,10 +92,16 @@ export default function Natal() {
                   Haptics.selectionAsync();
                   setOdak(o.key);
                 }}
-                style={[styles.row, on && styles.rowOn]}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: on }}
+                accessibilityLabel={`${t(o.title)}, ${t(o.note)}`}
+                style={({ pressed }) => [styles.row, on && styles.rowOn, pressed && styles.rowPressed]}
               >
-                <Text style={[styles.rowGlyph, on && styles.rowGlyphOn]}>{o.glyph}</Text>
+                <ArtSlot id={o.artId as ArtId} strength="soft" selected={on} />
                 <View style={styles.rowText}>
+                  <Eyebrow style={[styles.rowEyebrow, on && styles.rowEyebrowOn]}>
+                    {on ? t('natal.secili') : t('natal.odak')}
+                  </Eyebrow>
                   <Text style={[styles.rowTitle, on && { color: color.porselen }]}>
                     {t(o.title)}
                   </Text>
@@ -108,6 +117,15 @@ export default function Natal() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <View style={styles.spacer} />
+      <View style={styles.purchaseContext} accessibilityLiveRegion="polite">
+        <Eyebrow style={styles.purchaseLabel}>{t('natal.ucretBaslik')}</Eyebrow>
+        <Text style={styles.purchaseValue}>
+          {abone
+            ? t('natal.aboneligeDahil')
+            : t('natal.bakiyeVeUcret', { bakiye: me?.coins ?? 0, ucret: fiyat })}
+        </Text>
+        {!abone ? <Text style={styles.purchaseNote}>{t('natal.tekSeferNot')}</Text> : null}
+      </View>
       <Button
         label={abone ? t('natal.yorumla') : t('natal.yorumlaJeton', { n: fiyat })}
         loading={busy}
@@ -123,26 +141,28 @@ const styles = StyleSheet.create({
   eyebrow: { ...type.eyebrow, color: color.kul, marginTop: space.lg },
   title: { ...type.title, color: color.porselen, marginTop: space.sm },
   lead: { ...type.body, color: color.kul, marginTop: space.md },
-  list: { marginTop: space.xl },
+  list: { marginTop: space.xl, gap: space.sm },
   row: {
     position: 'relative',
     overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: space.md,
-    paddingHorizontal: space.md,
-    borderRadius: radius.sm,
-    marginBottom: space.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: color.cizgi,
+    minHeight: 116,
+    paddingVertical: space.lg,
+    paddingHorizontal: space.lg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: color.cizgi,
+    backgroundColor: color.cezve,
   },
-  rowOn: { borderBottomColor: color.bakir },
-  rowText: { flex: 1 },
+  rowOn: { borderColor: color.bakir },
+  rowPressed: { opacity: 0.88 },
+  rowText: { flex: 1, maxWidth: '72%' },
   preview: { alignItems: 'center', marginTop: space.lg },
-  rowGlyph: { color: color.kulKoyu, fontSize: 24, width: 38 },
-  rowGlyphOn: { color: color.bakir },
-  rowTitle: { ...type.data, color: color.kul, fontSize: 14 },
-  rowNote: { ...type.data, color: color.kulKoyu, fontSize: 11, marginTop: 4 },
+  rowEyebrow: { color: color.kulKoyu, marginBottom: space.xs },
+  rowEyebrowOn: { color: color.bakir },
+  rowTitle: { ...type.bodyStrong, color: color.kul, fontSize: 17 },
+  rowNote: { ...type.data, color: color.kul, fontSize: 11, marginTop: 4 },
   dot: {
     width: 10,
     height: 10,
@@ -160,4 +180,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   spacer: { height: space.xl },
+  purchaseContext: {
+    borderTopWidth: 1,
+    borderTopColor: color.cizgi,
+    paddingTop: space.lg,
+    marginBottom: space.md,
+  },
+  purchaseLabel: { color: color.kulKoyu },
+  purchaseValue: { ...type.dataStrong, color: color.porselen, marginTop: space.xs },
+  purchaseNote: { ...type.body, color: color.kul, fontSize: 12, marginTop: space.xs },
 });
