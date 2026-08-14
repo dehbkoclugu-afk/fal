@@ -18,6 +18,13 @@ export type Plan = {
   priceString: string;
   /** month | year | ... */
   period: string | null;
+  /** Mağazanın kullanıcıya gösterdiği ürün adı. */
+  title: string;
+};
+
+export type StorePlansResult = {
+  status: 'ready' | 'empty' | 'offline' | 'misconfigured';
+  plans: Plan[];
 };
 
 type PurchasesModule = typeof import('react-native-purchases');
@@ -25,6 +32,7 @@ type PurchasesModule = typeof import('react-native-purchases');
 let mod: PurchasesModule | null | undefined;
 let configured = false;
 let configuring: Promise<boolean> | null = null;
+let configurationState: 'unknown' | 'ready' | 'misconfigured' = 'unknown';
 
 function load(): PurchasesModule | null {
   if (mod !== undefined) return mod;
@@ -45,39 +53,53 @@ export function configure(anonId: string): Promise<boolean> {
   if (configuring) return configuring;
   configuring = (async () => {
     const P = load();
-    if (!P) return false;
+    if (!P) {
+      configurationState = 'misconfigured';
+      return false;
+    }
     const extra = Constants.expoConfig?.extra as any;
     const key = Platform.OS === 'ios'
       ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? extra?.rcIosKey
       : process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? extra?.rcAndroidKey;
-    if (!key) return false;
+    if (!key) {
+      configurationState = 'misconfigured';
+      return false;
+    }
     try {
       // appUserID = anon_id: RevenueCat webhook'u backend'e bu kimlikle geliyor
       // (main.rc_webhook, users.anon_id ile eşleştiriyor). Farklı bir kimlik
       // kullanılırsa satın alma hiçbir kullanıcıya bağlanmaz.
       await P.default.configure({ apiKey: key, appUserID: anonId });
       configured = true;
+      configurationState = 'ready';
       return true;
     } catch {
+      configurationState = 'misconfigured';
       return false;
     }
   })();
   return configuring;
 }
 
-export async function getPlans(): Promise<Plan[]> {
+export async function getPlans(): Promise<StorePlansResult> {
   const P = load();
-  if (!P || !configured) return [];
+  if (!P || !configured || configurationState !== 'ready') {
+    return { status: 'misconfigured', plans: [] };
+  }
   try {
     const offerings = await P.default.getOfferings();
     const pkgs = offerings.current?.availablePackages ?? [];
-    return pkgs.map((p) => ({
+    const plans = pkgs.map((p) => ({
       identifier: p.identifier,
       priceString: p.product.priceString,
       period: (p.product as any).subscriptionPeriod ?? null,
+      title: p.product.title ?? p.identifier,
     }));
+    return { status: plans.length ? 'ready' : 'empty', plans };
   } catch {
-    return [];
+    // `empty` yalnız başarılı mağaza yanıtında plan bulunmaması demektir.
+    // SDK çağrısının atması bağlantı/mağaza erişimi problemidir.
+    return { status: 'offline', plans: [] };
   }
 }
 

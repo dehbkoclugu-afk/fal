@@ -79,7 +79,9 @@ export default function Gecmis() {
           </View>
           {/* Özet, yorumun kullanıcının hatırladığı ilk cümlesi — listede
               onu göstermek "hangisiydi bu" sorusunu tek bakışta çözüyor. */}
-          <Text style={styles.ozet} numberOfLines={2}>{r.ozet}</Text>
+          <Text style={styles.ozet} numberOfLines={2}>
+            {r.ozet ?? (r.status === 'failed' ? t('gecmis.basarisiz') : t('gecmis.hazirlaniyor'))}
+          </Text>
         </Pressable>
       ))}
 

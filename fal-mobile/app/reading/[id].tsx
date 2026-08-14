@@ -9,7 +9,7 @@
  *   3. done            → fincan overlay + yorum. Metin serif italik (kâhin sesi),
  *      bölüm etiketleri monospace (defter sesi).
  */
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -29,7 +29,14 @@ import { t } from '@/lib/i18n';
 import { TarotReveal } from '@/components/TarotReveal';
 import { NatalChartWheel } from '@/components/NatalChartWheel';
 import { DreamSkyPanel } from '@/components/DreamSkyPanel';
-import { RitualVisual, type RitualKind } from '@/components/RitualVisual';
+import { RitualVisual } from '@/components/RitualVisual';
+import {
+  isReadingSlow,
+  isWaitingKind,
+  monotonicProgress,
+  RITUAL_WAITING_MODELS,
+  waitingStage,
+} from '@/lib/ritualWaiting';
 
 // Anahtarlar modül düzeyinde, METİN render anında.
 //
@@ -46,24 +53,20 @@ const SONUC_ETIKET: Record<string, 'sonuc.kahveFali' | 'sonuc.tarot' | 'sonuc.na
   dream: 'sonuc.ruya',
 };
 
-const BEKLEME_ANAHTARLARI = {
-  coffee: ['sonuc.bekleme.coffee1', 'sonuc.bekleme.coffee2', 'sonuc.bekleme.coffee3', 'sonuc.bekleme.coffee4'],
-  tarot: ['sonuc.bekleme.tarot1', 'sonuc.bekleme.tarot2', 'sonuc.bekleme.tarot3', 'sonuc.bekleme.tarot4'],
-  natal: ['sonuc.bekleme.natal1', 'sonuc.bekleme.natal2', 'sonuc.bekleme.natal3', 'sonuc.bekleme.natal4'],
-  dream: ['sonuc.bekleme.dream1', 'sonuc.bekleme.dream2', 'sonuc.bekleme.dream3', 'sonuc.bekleme.dream4'],
-  daily: ['sonuc.bekleme.daily1', 'sonuc.bekleme.daily2', 'sonuc.bekleme.daily3', 'sonuc.bekleme.daily4'],
-} as const;
-
 const SIGN_GLYPHS = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
 
 export default function ReadingScreen() {
   const { id, kind: routeKind } = useLocalSearchParams<{ id: string; kind?: string }>();
   const router = useRouter();
   const [marker, setMarker] = useState<string | null>(null);
+  const [now, setNow] = useState(Date.now());
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
+  const maxProgress = useRef(0.05);
   const cupPhotos = useDraft((s) => s.cupPhotos);
   const pushRegistered = useDraft((s) => s.pushRegistered);
 
-  const { data, isError } = useQuery({
+  const { data, isError, refetch } = useQuery({
     queryKey: ['reading', id],
     queryFn: () => api.reading(id!),
     // Hazır olana kadar yokla. Sunucu ETA'yı da döndürüyor.
@@ -74,10 +77,21 @@ export default function ReadingScreen() {
     enabled: !!id,
   });
 
+  const pending = !data || data.status === 'queued' || data.status === 'running';
+  useEffect(() => {
+    maxProgress.current = 0.05;
+  }, [id]);
+  useEffect(() => {
+    if (!pending) return;
+    const timer = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(timer);
+  }, [pending]);
+
   if (isError) {
     return (
       <Screen>
         <Text style={styles.err}>{t('sonuc.getirilemedi')}</Text>
+        <Button label={t('ortak.tekrarDeneButon')} onPress={() => refetch()} />
         <Button label={t('ortak.geriDon')} variant="ghost" onPress={() => router.back()} />
       </Screen>
     );
@@ -85,29 +99,35 @@ export default function ReadingScreen() {
 
   // --- 1. Bekleme ritüeli
   if (!data || data.status === 'queued' || data.status === 'running') {
-    const p = data?.progress ?? 0.05;
-    const waitingKind = ((data?.kind ?? routeKind) || 'coffee') as RitualKind;
-    const waitingKeys = BEKLEME_ANAHTARLARI[waitingKind] ?? BEKLEME_ANAHTARLARI.coffee;
-    const stageIndex = Math.min(
-      waitingKeys.length - 1,
-      Math.floor(p * waitingKeys.length),
-    );
-    const line = t(waitingKeys[stageIndex]);
+    const waitingKind = isWaitingKind(data?.kind)
+      ? data.kind
+      : isWaitingKind(routeKind)
+        ? routeKind
+        : null;
+    const p = monotonicProgress(maxProgress.current, data?.progress);
+    maxProgress.current = p;
+    const model = waitingKind ? RITUAL_WAITING_MODELS[waitingKind] : null;
+    const stageIndex = waitingStage(p);
+    const line = model ? t(model.stageKeys[stageIndex]) : t('sonuc.beklemeKaydi');
     const eta = data?.eta_seconds ?? 0;
     const remaining = eta
       ? Math.max(10, Math.ceil((eta * (1 - p)) / 10) * 10)
       : 0;
+    const slow = isReadingSlow(data?.created_at, eta, now);
     return (
       <Screen style={styles.waitRoot}>
+        <View accessible accessibilityLabel={model ? t(model.accessibilityKey) : t('sonuc.beklemeKaydi')} style={styles.waitAccessible}>
         <View style={styles.waitVisual}>
           <TelveRing size={240} value={Math.max(0.06, p)} mode="ritual" />
-          <View style={styles.waitVisualInner}>
-            <RitualVisual kind={waitingKind} size={170} />
-          </View>
+          {model ? <View style={styles.waitVisualInner}>
+            <RitualVisual kind={model.visualKind} size={170} />
+          </View> : null}
         </View>
         <Text style={styles.waitLine}>{line}</Text>
         <Text style={styles.waitStatus}>
-          {remaining
+          {slow
+            ? t('sonuc.beklenendenUzun')
+            : remaining
             ? t('sonuc.beklemeDurumSureli', { adim: stageIndex + 1, sure: remaining })
             : t('sonuc.beklemeDurum', { adim: stageIndex + 1 })}
         </Text>
@@ -117,6 +137,7 @@ export default function ReadingScreen() {
         <Pressable onPress={() => router.replace('/(tabs)')} style={{ marginTop: space.xl }}>
           <Text style={styles.waitLink}>{t('ortak.anaEkranKucuk')}</Text>
         </Pressable>
+        </View>
       </Screen>
     );
   }
@@ -146,13 +167,35 @@ export default function ReadingScreen() {
 
   // --- Fotoğraf reddi (bulanık, fincan bulunamadı vb.)
   if (data.status === 'failed') {
+    const retry = async () => {
+      if (data.kind === 'coffee') {
+        router.replace('/ritual/coffee');
+        return;
+      }
+      setRetrying(true);
+      setRetryError(null);
+      try {
+        await api.retryReading(data.id);
+        maxProgress.current = 0.05;
+        await refetch();
+      } catch (error) {
+        setRetryError((error as Error).message || t('sonuc.yenidenDenenemedi'));
+      } finally {
+        setRetrying(false);
+      }
+    };
     return (
       <Screen>
         <Eyebrow style={styles.eyebrow}>{t('sonuc.olmadi')}</Eyebrow>
         <Text style={styles.failTitle}>{t('sonuc.okuyamadim')}</Text>
         <Text style={styles.failBody}>{t('sonuc.okuyamadimAciklama')}</Text>
+        {retryError ? <Text style={styles.err}>{retryError}</Text> : null}
         <View style={{ flex: 1 }} />
-        <Button label={t('kahve.yenidenCek')} onPress={() => router.replace('/ritual/coffee')} />
+        <Button
+          label={data.kind === 'coffee' ? t('kahve.yenidenCek') : t('sonuc.ucretsizYenidenDene')}
+          loading={retrying}
+          onPress={retry}
+        />
       </Screen>
     );
   }
@@ -303,6 +346,7 @@ const styles = StyleSheet.create({
   eyebrow: { ...type.eyebrow, color: color.kul },
 
   waitRoot: { alignItems: 'center', justifyContent: 'center' },
+  waitAccessible: { alignItems: 'center', width: '100%' },
   waitVisual: { width: 240, height: 240, alignItems: 'center', justifyContent: 'center' },
   waitVisualInner: { position: 'absolute' },
   waitLine: { ...type.oracle, color: color.porselen, marginTop: space.xl },
