@@ -25,7 +25,14 @@ function point(lon: number, radius: number) {
   return { x: C + Math.cos(a) * radius, y: C + Math.sin(a) * radius };
 }
 
-export function NatalChartWheel({ chart, compact = false }: { chart: NatalChart; compact?: boolean }) {
+type NatalChartWheelProps = {
+  chart: NatalChart;
+  compact?: boolean;
+  selectedKey?: string;
+  onSelectionChange?: (key: string) => void;
+};
+
+export function NatalChartWheel({ chart, compact = false, selectedKey: controlledKey, onSelectionChange }: NatalChartWheelProps) {
   const { width } = useWindowDimensions();
   const renderSize = Math.min(SIZE, width - space.lg * 2 - space.md * 2);
   const bodies = useMemo(() => Object.values(chart.bodies), [chart.bodies]);
@@ -36,7 +43,8 @@ export function NatalChartWheel({ chart, compact = false }: { chart: NatalChart;
       body: byKey.get(position.key)!,
     }));
   }, [bodies]);
-  const [selectedKey, setSelectedKey] = useState('sun');
+  const [internalKey, setInternalKey] = useState('sun');
+  const selectedKey = controlledKey ?? internalKey;
   const selected: NatalChartBody | undefined = chart.bodies[selectedKey] ?? bodies[0];
   const timeUnknown = !!chart.meta?.time_unknown;
 
@@ -125,7 +133,10 @@ export function NatalChartWheel({ chart, compact = false }: { chart: NatalChart;
           return (
             <Pressable
               key={b.key}
-              onPress={() => setSelectedKey(b.key)}
+              onPress={() => {
+                setInternalKey(b.key);
+                onSelectionChange?.(b.key);
+              }}
               style={[styles.bodyChip, on && styles.bodyChipOn]}
               accessibilityRole="radio"
               accessibilityState={{ selected: on }}

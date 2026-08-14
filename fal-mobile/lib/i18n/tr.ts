@@ -412,6 +412,9 @@ export const tr = {
   'paylas.hata': 'Paylaşamadım. Tekrar dener misin?',
   'paylas.cikanSembol': 'çıkan sembol · {sembol}',
   'paylas.gununYorumu': 'günün yorumu',
+  'paylas.natalBaslik': 'DOĞUM HARİTAM',
+  'paylas.natalKisisel': 'Gökyüzündeki imzam',
+  'paylas.seciliGosterge': 'SEÇİLİ GÖSTERGE',
 
   // --- fincan overlay bölge adları
   'fincan.ipucu': 'İşaretlere dokun, fincanın neresi olduğunu göster',
