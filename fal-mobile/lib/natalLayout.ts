@@ -38,3 +38,7 @@ export function natalAspectLimit(renderSize: number, compact: boolean): number {
   if (renderSize < 280) return 8;
   return compact ? 10 : 14;
 }
+
+export function natalRenderSize(viewportWidth: number, horizontalChrome = 64): number {
+  return Math.max(240, Math.min(328, viewportWidth - horizontalChrome));
+}

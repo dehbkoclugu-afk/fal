@@ -4,6 +4,10 @@ name: Android Preview APK
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/eas-preview.yml"
+      - "fal-mobile/**"
   push:
     branches: [main, claude/app-store-distribution-strategy-kuqu2g, "fix/**"]
     paths:

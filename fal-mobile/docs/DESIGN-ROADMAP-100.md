@@ -50,49 +50,55 @@ Bu yol haritası 13 Ağustos 2026 tarihli Android ekran kayıtları ve `main` da
 
 ## P1 — Semantik art sistemi
 
-41. Rastgele kahve fotoğrafı havuzunu ürün yüzeylerinden kaldır.
-42. Her artı ritüel, konu ve kullanım yüzeyi anahtarıyla eşleştir.
-43. Art kimliklerini ritual, topic, state ve editorial gruplarına ayır.
-44. Kahve için üç özgün semantik art üret.
-45. Tarot için üç özgün semantik art üret.
-46. Rüya için üç özgün semantik art üret.
-47. Natal için üç özgün semantik art üret.
-48. Aşk, para, kariyer, benlik ve genel için beş konu artı üret.
-49. Daily, history, ledger ve share için dört editorial art üret.
-50. Paywall için free ve premium hero artları üret.
-51. Yeni seti en az 24 semantik varlığa tamamla.
-52. Her artın dark ve light sürümünü üret.
-53. Kart, hero ve paylaşım master oranlarını standardize et.
-54. Ana nesneyi metin güvenli alanından uzak tut.
-55. Görsel içine yazı, logo veya okunması gereken sembol koyma.
-56. Kahve nesnesini natal ve tarot bağlamında kullanma.
-57. Bakır, porselen, gece mavisi ve telve paletini sabitle.
-58. 160x100 önizlemede tanınabilirlik kontrolü yap.
-59. WebP kalite ve boyut bütçesi belirle.
-60. Eksik çift, yanlış oran ve büyük dosyayı CI'da reddet.
+- [x] 41. Rastgele kahve fotoğrafı havuzunu ürün yüzeylerinden kaldır.
+- [x] 42. Her artı ritüel, konu ve kullanım yüzeyi anahtarıyla eşleştir.
+- [x] 43. Art kimliklerini ritual, topic, state ve editorial gruplarına ayır.
+- [x] 44. Kahve için üç özgün semantik art üret.
+- [x] 45. Tarot için üç özgün semantik art üret.
+- [x] 46. Rüya için üç özgün semantik art üret.
+- [x] 47. Natal için üç özgün semantik art üret.
+- [x] 48. Aşk, para, kariyer, benlik ve genel için beş konu artı üret.
+- [x] 49. Daily, history, ledger ve share için dört editorial art üret.
+- [x] 50. Paywall için free ve premium hero artları üret.
+- [x] 51. Yeni seti en az 24 semantik varlığa tamamla.
+- [x] 52. Her artın dark ve light sürümünü üret.
+- [x] 53. Kart, hero ve paylaşım master oranlarını standardize et.
+- [x] 54. Ana nesneyi metin güvenli alanından uzak tut.
+- [x] 55. Görsel içine yazı, logo veya okunması gereken sembol koyma.
+- [x] 56. Kahve nesnesini natal ve tarot bağlamında kullanma.
+- [x] 57. Bakır, porselen, gece mavisi ve telve paletini sabitle.
+- [x] 58. 160x100 önizlemede tanınabilirlik kontrolü yap.
+- [x] 59. WebP kalite ve boyut bütçesi belirle.
+- [x] 60. Eksik çift, yanlış oran ve büyük dosyayı CI'da reddet.
 
 ## P1 — Doğum haritası deneyimi
 
-61. Reveal ekranındaki Yükselen, Güneş ve Ay satırlarına semantik mini art ekle.
-62. Kahve fotoğrafı yerine astrolojik konu artı kullan.
-63. Loading çarkını gerçek sonuç çarkıyla aynı görsel aileye bağla.
-64. Haritan çiziliyor metnini merkez diske yerleştir.
-65. Yükselen, Güneş ve Ay'ı ayrı bilgi kartları yap.
-66. Burç glifi, derece ve kısa anlamı birlikte göster.
-67. Bilinmeyen doğum saatinde Yükselen'i tahmin olarak işaretle.
-68. Natal konu seçimlerinde beş konu artını kullan.
-69. Seçili konu artını daha aydınlık göster.
-70. CTA üstünde fiyat, bakiye ve abonelik durumunu göster.
-71. Burç, ev, gezegen ve açıları ayrı görsel katmanlar yap.
-72. Yakın gezegen glifleri için çakışma çözümü ekle.
-73. Sert ve uyumlu açıları farklı renklerle kodla.
-74. Açı yoğunluğunu ekran boyutuna göre azalt.
-75. Seçilen gezegeni çark ve detayda birlikte vurgula.
-76. Gezegen chiplerini responsive grid yap.
-77. Harita etkileşim alanlarını en az 44x44 dp yap.
-78. Teknik ephemeris etiketini yardım içeriğine taşı.
-79. Paylaşım için yüksek çözünürlüklü ayrı render üret.
-80. Saat var/yok, dar ekran ve büyük yazı snapshot testleri ekle.
+- [x] 61. Reveal ekranındaki Yükselen, Güneş ve Ay satırlarına semantik mini art ekle.
+- [x] 62. Kahve fotoğrafı yerine astrolojik konu artı kullan.
+- [x] 63. Loading çarkını gerçek sonuç çarkıyla aynı görsel aileye bağla.
+- [x] 64. Haritan çiziliyor metnini merkez diske yerleştir.
+- [x] 65. Yükselen, Güneş ve Ay'ı ayrı bilgi kartları yap.
+- [x] 66. Burç glifi, derece ve kısa anlamı birlikte göster.
+- [x] 67. Bilinmeyen doğum saatinde Yükselen'i tahmin olarak işaretle.
+- [x] 68. Natal konu seçimlerinde beş konu artını kullan.
+- [x] 69. Seçili konu artını daha aydınlık göster.
+- [x] 70. CTA üstünde fiyat, bakiye ve abonelik durumunu göster.
+- [x] 71. Burç, ev, gezegen ve açıları ayrı görsel katmanlar yap.
+- [x] 72. Yakın gezegen glifleri için çakışma çözümü ekle.
+- [x] 73. Sert ve uyumlu açıları farklı renklerle kodla.
+- [x] 74. Açı yoğunluğunu ekran boyutuna göre azalt.
+- [x] 75. Seçilen gezegeni çark ve detayda birlikte vurgula.
+- [x] 76. Gezegen chiplerini responsive grid yap.
+- [x] 77. Harita etkileşim alanlarını en az 44x44 dp yap.
+- [x] 78. Teknik ephemeris etiketini yardım içeriğine taşı.
+- [x] 79. Paylaşım için yüksek çözünürlüklü ayrı render üret.
+- [x] 80. Saat var/yok, dar ekran ve büyük yazı snapshot testleri ekle.
+
+Dalga 2 kabul kanıtı: semantik registry ve CI `ff46674`; 50 yeni WebP `c97c65e`;
+reveal `20df028`; odak/ödeme `645a165`; deterministik çark `bd9d592`; natal
+paylaşımı `d1762b2`. `art:check`, `natal-state:check` ve tam `ci:check` sözleşmeleri
+otomatik doğrulamadır. Küçük Android, büyük Android ve tablet viewport snapshotları
+saf render-state çıktılarıyla sabitlenir; bu kayıt gerçek cihaz doğrulaması iddiası değildir.
 
 ## P2 — Ana ekran ve ritüel kartları
 

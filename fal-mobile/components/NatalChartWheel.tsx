@@ -6,7 +6,7 @@ import type { NatalChart, NatalChartBody } from '@/lib/api';
 import { Eyebrow } from '@/components/Eyebrow';
 import { color, radius, space, type } from '@/lib/theme';
 import { t } from '@/lib/i18n';
-import { layoutNatalBodies, natalAspectLimit } from '@/lib/natalLayout';
+import { layoutNatalBodies, natalAspectLimit, natalRenderSize } from '@/lib/natalLayout';
 
 const SIZE = 328;
 const C = SIZE / 2;
@@ -34,7 +34,7 @@ type NatalChartWheelProps = {
 
 export function NatalChartWheel({ chart, compact = false, selectedKey: controlledKey, onSelectionChange }: NatalChartWheelProps) {
   const { width } = useWindowDimensions();
-  const renderSize = Math.min(SIZE, width - space.lg * 2 - space.md * 2);
+  const renderSize = natalRenderSize(width, space.lg * 2 + space.md * 2);
   const bodies = useMemo(() => Object.values(chart.bodies), [chart.bodies]);
   const bodyLayout = useMemo(() => {
     const byKey = new Map(bodies.map((body) => [body.key, body]));
