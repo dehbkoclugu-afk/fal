@@ -39,6 +39,8 @@ type Draft = {
 
 /** Diske yazılan kısım. */
 type Persisted = {
+  /** OTA/bundle ile kalıcı state sözleşmesini aynı sürümde tutar. */
+  storageVersion: 2;
   draft: Draft;
   onboarded: boolean;
   /** Expo token backend'e başarıyla kaydedildi; izin tek başına yeterli değil. */
@@ -57,8 +59,11 @@ type State = Persisted & {
   reset: () => void;
 };
 
-const KEY = 'fal-draft-v1';
+export const BUNDLE_STATE_VERSION = 2;
+const KEY = 'fal-draft-v2';
+const LEGACY_KEY = 'fal-draft-v1';
 const BOS: Persisted = {
+  storageVersion: BUNDLE_STATE_VERSION,
   draft: { timeKnown: true, tone: 'mistik' },
   onboarded: false,
   pushRegistered: false,
@@ -78,6 +83,7 @@ export const useDraft = create<State>((set) => ({
 
 function snapshot(s: State): Persisted {
   return {
+    storageVersion: BUNDLE_STATE_VERSION,
     draft: s.draft,
     onboarded: s.onboarded,
     pushRegistered: s.pushRegistered,
@@ -89,7 +95,9 @@ function snapshot(s: State): Persisted {
 export async function hydrateDraft(): Promise<void> {
   try {
     await cleanupStoredCupPhotos().catch(() => {});
-    const raw = await AsyncStorage.getItem(KEY);
+    const current = await AsyncStorage.getItem(KEY);
+    const legacy = current ? null : await AsyncStorage.getItem(LEGACY_KEY);
+    const raw = current ?? legacy;
     if (raw) {
       const saved = JSON.parse(raw) as Partial<Persisted>;
       const cupPhotos = await existingCupPhotos(saved.cupPhotos ?? {})
@@ -100,6 +108,16 @@ export async function hydrateDraft(): Promise<void> {
         pushRegistered: !!saved.pushRegistered,
         cupPhotos,
       });
+      if (legacy) {
+        await AsyncStorage.setItem(KEY, JSON.stringify({
+          storageVersion: BUNDLE_STATE_VERSION,
+          draft: { ...BOS.draft, ...(saved.draft ?? {}) },
+          onboarded: !!saved.onboarded,
+          pushRegistered: !!saved.pushRegistered,
+          cupPhotos,
+        }));
+        await AsyncStorage.removeItem(LEGACY_KEY);
+      }
     }
   } catch {
     // Bozuk kayıt onboarding'i kilitlemesin: temiz başla.

@@ -12,7 +12,7 @@
  *   4. Streak en altta ince bir satır. Oyunlaştırmayı öne çıkarmak bu üründe
  *      güveni azaltıyor.
  */
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -27,6 +27,7 @@ import { ArtSlot } from '@/components/ArtSlot';
 import { t, tarih } from '@/lib/i18n';
 import { artForKey, ritualArt } from '@/lib/artAssets';
 import { RitualVisual } from '@/components/RitualVisual';
+import { track } from '@/lib/analytics';
 
 // Fiyatlar sunucudan (/v1/me → prices) geliyor; buradakiler sadece sunucu
 // yanıtı gelmeden önceki gösterim. Sabit fiyat yazmak, fiyat değiştiğinde
@@ -51,12 +52,22 @@ export default function Home() {
   // Geçmiş fallar. Sunucu ucu ve istemci fonksiyonu vardı ama hiçbir ekran
   // çağırmıyordu: kullanıcı jeton ödeyip ürettiği yorumu bir kez okuyup bir
   // daha ulaşamıyordu. Burada son üçü, tamamı /gecmis ekranında.
-  const { data: gecmis } = useQuery({ queryKey: ['history'], queryFn: () => api.history(10) });
+  const [hazirBildirim, setHazirBildirim] = useState(false);
+  const pendingIds = useRef(new Set<string>());
+  const trackedDailyFailure = useRef<string | null>(null);
+  const dailyFailureCount = useRef(0);
+  const { data: gecmis } = useQuery({
+    queryKey: ['history'],
+    queryFn: () => api.history(10),
+    refetchInterval: (query) => query.state.data?.some(
+      (reading) => reading.status === 'queued' || reading.status === 'running',
+    ) ? 5000 : false,
+  });
 
   // Günün yorumu: history(1) son YAPILAN falı döndürüyor — geçen haftaki
   // kahve falı da olabilir. "Bugün" kartı gerçekten bugüne ait olmalı,
   // o yüzden ayrı uçtan isteniyor (ücretsiz, günde bir üretiliyor).
-  const { data: daily } = useQuery({
+  const { data: daily, isError: dailyRequestError, refetch: retryDaily } = useQuery({
     queryKey: ['daily'],
     queryFn: api.daily,
     enabled: !!me?.has_birth_data,
@@ -66,8 +77,41 @@ export default function Home() {
     queryKey: ['reading', daily?.reading_id],
     queryFn: () => api.reading(daily!.reading_id),
     enabled: !!daily?.reading_id,
-    refetchInterval: (q) => (q.state.data?.status === 'done' ? false : 5000),
+    refetchInterval: (q) => {
+      const status = q.state.data?.status;
+      return status === 'done' || status === 'failed' || status === 'blocked' ? false : 5000;
+    },
   });
+
+  useEffect(() => {
+    if (!gecmis) return;
+    let newlyReady = false;
+    for (const reading of gecmis) {
+      if (reading.status === 'queued' || reading.status === 'running') {
+        pendingIds.current.add(reading.id);
+      } else if (reading.status === 'done' && pendingIds.current.delete(reading.id)) {
+        newlyReady = true;
+      }
+    }
+    if (!newlyReady) return;
+    setHazirBildirim(true);
+    const timer = setTimeout(() => setHazirBildirim(false), 4500);
+    return () => clearTimeout(timer);
+  }, [gecmis]);
+
+  useEffect(() => {
+    if (dailyReading?.status === 'done') {
+      dailyFailureCount.current = 0;
+      return;
+    }
+    if (dailyReading?.status !== 'failed' || trackedDailyFailure.current === dailyReading.id) return;
+    trackedDailyFailure.current = dailyReading.id;
+    dailyFailureCount.current += 1;
+    track('daily_reading_failed', {
+      reason: dailyReading.block_reason ?? 'unknown',
+      consecutive_failures: dailyFailureCount.current,
+    });
+  }, [dailyReading]);
 
   const verdict = useMutation({
     mutationFn: ({ id, v }: { id: string; v: 'hit' | 'partial' | 'miss' }) => api.verdict(id, v),
@@ -90,7 +134,10 @@ export default function Home() {
       : ent.tier_tr;
   const pending = acc?.awaiting_verdict?.[0];
   const dailySummary = dailyReading?.output_json?.ozet?.trim() ?? '';
-  const dailyEmpty = dailyReading?.status === 'done' && !dailySummary;
+  const dailyEmpty = dailyRequestError
+    || dailyReading?.status === 'failed'
+    || dailyReading?.status === 'blocked'
+    || (dailyReading?.status === 'done' && !dailySummary);
   const today = dailyReading?.status === 'done' && dailySummary
     ? { id: dailyReading.id, ozet: dailySummary }
     : null;
@@ -101,6 +148,12 @@ export default function Home() {
         <Text style={styles.hello}>{name ? `${name}` : t('ana.merhaba')}</Text>
         <Text style={styles.coins}>{bakiyeMetni}</Text>
       </View>
+
+      {hazirBildirim ? (
+        <View style={styles.readyBanner} accessibilityLiveRegion="polite">
+          <Text style={styles.readyBannerText}>{t('ana.falinHazir')}</Text>
+        </View>
+      ) : null}
 
       {/* 1. Bekleyen doğrulama */}
       {pending && (
@@ -141,6 +194,11 @@ export default function Home() {
           </Text>
         </View>
       </Pressable>
+      {dailyEmpty ? (
+        <Pressable onPress={() => retryDaily()} style={styles.dailyRetry} accessibilityRole="button">
+          <Text style={styles.dailyRetryText}>{t('ana.gunlukTekrarDene')}</Text>
+        </Pressable>
+      ) : null}
 
       {/* 3. Ritüeller */}
       <Eyebrow style={styles.sectionLabel}>{t('ana.ritueller')}</Eyebrow>
@@ -184,7 +242,9 @@ export default function Home() {
               style={({ pressed }) => [styles.gecmisSatir, pressed && styles.gecmisBasili]}
             >
               <ArtSlot id={ritualArt[r.kind] ?? artForKey(r.id)} strength="strong" />
-              <Text style={styles.gecmisOzet} numberOfLines={1}>{r.ozet}</Text>
+              <Text style={styles.gecmisOzet} numberOfLines={1}>
+                {r.ozet ?? (r.status === 'failed' ? t('gecmis.basarisiz') : t('gecmis.hazirlaniyor'))}
+              </Text>
               <Text style={styles.gecmisTarih}>{tarih(r.created_at)}</Text>
             </Pressable>
           ))}
@@ -222,6 +282,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   hello: { ...type.title, color: color.porselen },
   coins: { ...type.data, color: color.bakir },
+  readyBanner: { marginTop: space.md, padding: space.md, borderRadius: radius.sm, borderWidth: 1, borderColor: color.cini, backgroundColor: color.cezve },
+  readyBannerText: { ...type.dataStrong, color: color.porselen, textAlign: 'center' },
 
   verifyBox: {
     position: 'relative',
@@ -253,6 +315,8 @@ const styles = StyleSheet.create({
   cupInner: { position: 'absolute', width: 170, alignItems: 'center' },
   cupLabel: { ...type.eyebrow, color: color.kul },
   cupText: { ...type.oracle, color: color.porselen, textAlign: 'center', fontSize: 15, lineHeight: 24 },
+  dailyRetry: { minHeight: 44, alignSelf: 'center', justifyContent: 'center', paddingHorizontal: space.lg },
+  dailyRetryText: { ...type.dataStrong, color: color.bakir },
 
   sectionLabel: { ...type.eyebrow, color: color.kulKoyu, marginTop: space.xxl, marginBottom: space.md },
   sectionLabelSatir: { ...type.eyebrow, color: color.kulKoyu },

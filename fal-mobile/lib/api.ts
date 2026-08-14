@@ -186,6 +186,10 @@ export type Reading = {
   created_at: string;
 };
 
+export type HistoryReading = Pick<Reading, 'id' | 'kind' | 'status' | 'created_at'> & {
+  ozet: string | null;
+};
+
 export type Accuracy = {
   overall: { total: number; hits: number; partials: number; score: number | null } | null;
   by_topic: { topic: string; total: number; hits: number }[];
@@ -284,8 +288,13 @@ export const api = {
 
   reading: (id: string) => request<Reading>(`/readings/${id}`),
 
+  retryReading: (id: string) =>
+    request<{ reading_id: string; status: 'queued'; retried: true }>(`/readings/${id}/retry`, {
+      method: 'POST',
+    }),
+
   history: (limit = 20) =>
-    request<{ id: string; kind: string; ozet: string; created_at: string }[]>(
+    request<HistoryReading[]>(
       `/readings?limit=${limit}`,
     ),
 

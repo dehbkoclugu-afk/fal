@@ -102,7 +102,7 @@ async def _run_reading(reading_id: str, kind: str, inputs: dict):
         await db.execute(
             "UPDATE readings SET status='failed', block_reason=$2 WHERE id=$1",
             reading_id, e.code)
-        await refund(db, str(row["user_id"]), kind)
+        await refund(db, str(row["user_id"]), reading_id, kind)
         # Hata başlığı da ritüele göre: rüyası reddedilen kullanıcıya
         # "fotoğrafı tekrar çekelim" demek anlamsız bir mesaj.
         await push(db, str(row["user_id"]),
@@ -112,21 +112,38 @@ async def _run_reading(reading_id: str, kind: str, inputs: dict):
         await db.execute(
             "UPDATE readings SET status='failed', block_reason='provider_error' WHERE id=$1",
             reading_id)
-        await refund(db, str(row["user_id"]), kind)
+        await refund(db, str(row["user_id"]), reading_id, kind)
     finally:
         r.delete(f"cupimg:{reading_id}")
         await db.close()
 
 
-async def refund(db, user_id: str, kind: str):
+async def refund(db, user_id: str, reading_id: str, kind: str):
+    """Bir reading için en fazla bir kez jeton iadesi yaz.
+
+    Aynı işin ücretsiz retry'si de başarısız olabilir. Sadece `reason=refund`
+    yazmak ikinci worker denemesinde kullanıcıya fazladan jeton üretirdi;
+    kayıt üzerindeki atomik işaret bunu engeller.
+    """
     cost = COIN_PRICES.get(kind, 0)
     if not cost:
         return
-    bal = await db.fetchval(
-        "SELECT coalesce(sum(delta),0) FROM coin_ledger WHERE user_id=$1", user_id) or 0
-    await db.execute(
-        """INSERT INTO coin_ledger (user_id, delta, reason, balance_after)
-           VALUES ($1,$2,'refund',$3)""", user_id, cost, bal + cost)
+    async with db.transaction():
+        marked = await db.fetchval(
+            """UPDATE readings
+               SET input_json=coalesce(input_json,'{}'::jsonb)
+                    || '{"_refund_issued": true}'::jsonb
+               WHERE id=$1
+                 AND NOT coalesce((input_json->>'_refund_issued')::boolean, false)
+               RETURNING id""", reading_id)
+        if not marked:
+            return
+        bal = await db.fetchval(
+            "SELECT coalesce(sum(delta),0) FROM coin_ledger WHERE user_id=$1", user_id) or 0
+        await db.execute(
+            """INSERT INTO coin_ledger (user_id, delta, reason, balance_after)
+               VALUES ($1,$2,$3,$4)""",
+            user_id, cost, f"refund_{reading_id}", bal + cost)
 
 
 # ---------------------------------------------------------- gece transit taraması

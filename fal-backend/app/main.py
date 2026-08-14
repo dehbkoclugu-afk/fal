@@ -451,6 +451,24 @@ async def daily_reading(user=Depends(get_user)):
     """
     db = state["db"]
     await _require_birth(db, user["id"])
+    failed_today = await db.fetchrow(
+        """SELECT id, eta_seconds,
+                  sum(1 + coalesce((input_json->>'_retry_count')::int, 0))
+                    OVER () AS attempts
+           FROM readings
+           WHERE user_id=$1 AND kind='daily' AND status='failed'
+             AND created_at >= date_trunc('day', now() AT TIME ZONE $2)
+                               AT TIME ZONE $2
+           ORDER BY created_at DESC LIMIT 1""",
+        user["id"], user["tz_name"] or "Europe/Istanbul")
+    # İlk başarısızlıkta aşağıdaki akış temiz bir kayıt oluşturur. İkinci
+    # başarısızlıktan sonra otomatik döngüyü keser; kullanıcı manuel olarak
+    # yeniden deneyebilir ve sağlayıcı arızasında sınırsız kuyruk oluşmaz.
+    if failed_today and int(failed_today["attempts"]) >= 2:
+        return {"reading_id": str(failed_today["id"]),
+                "eta_seconds": failed_today["eta_seconds"],
+                "status": "failed", "cached": True,
+                "retry_exhausted": True}
     # Bugünün kaydını ararken TAMAMLANMIŞ olan önceliklidir.
     #
     # Sadece "bugün oluşturulmuş ve failed değil" demek yetmiyor: worker
@@ -531,6 +549,50 @@ async def get_reading(rid: str, user=Depends(get_user)):
     return d
 
 
+@app.post("/v1/readings/{rid}/retry", status_code=202)
+async def retry_reading(rid: str, user=Depends(get_user)):
+    """Başarısız yorumu en fazla bir kez, yeniden ücret almadan kuyruğa koy.
+
+    Worker başarısız ücretli işi zaten iade ediyor. Bu uç `_charge` çağırmaz;
+    böylece kurtarma butonu aynı jetonu ikinci kez harcamaz. Kahve görseli
+    gizlilik gereği worker sonunda silindiğinden kahve için yeni fotoğraf gerekir.
+    """
+    db = state["db"]
+    row = await db.fetchrow(
+        """SELECT id, kind, status, input_json
+           FROM readings WHERE id=$1 AND user_id=$2""", rid, user["id"])
+    if not row:
+        raise HTTPException(404, {"code": "reading_not_found"})
+    if row["status"] != "failed":
+        raise HTTPException(409, {"code": "reading_not_failed"})
+    if row["kind"] == "coffee":
+        raise HTTPException(409, {"code": "retry_requires_photo"})
+
+    inputs = dict(row["input_json"] or {})
+    retry_count = int(inputs.get("_retry_count", 0))
+    if retry_count >= 1:
+        raise HTTPException(409, {"code": "retry_limit"})
+    inputs["_retry_count"] = retry_count + 1
+    # Başarısız kayıt ilk worker denemesinde iade edilmiş kabul edilir. Eski
+    # sürümden kalan kayıtlarda işaret bulunmasa bile retry tekrar başarısız
+    # olursa ikinci kez jeton yazılmasını engeller.
+    inputs["_refund_issued"] = True
+
+    updated = await db.fetchval(
+        """UPDATE readings
+           SET status='queued', block_reason=NULL, output_json=NULL,
+               extra_json=NULL, input_json=$3, created_at=now()
+           WHERE id=$1 AND user_id=$2 AND status='failed'
+           RETURNING id""", rid, user["id"], inputs)
+    if not updated:  # İki hızlı dokunuşta yalnızca ilk istek kazanır.
+        raise HTTPException(409, {"code": "retry_in_progress"})
+
+    worker_inputs = {k: v for k, v in inputs.items() if not k.startswith("_")}
+    state["queue"].enqueue(
+        "app.workers.tasks.run_reading", rid, row["kind"], worker_inputs)
+    return {"reading_id": rid, "status": "queued", "retried": True}
+
+
 @app.get("/v1/readings")
 async def history(limit: int = 20, user=Depends(get_user)):
     """Geçmiş fallar — arşiv ekranını besliyor.
@@ -541,13 +603,15 @@ async def history(limit: int = 20, user=Depends(get_user)):
     ürettiği fal; günlük zaten ana ekranda "bugün" kartında ve tanımı gereği
     ertesi gün bayat.
 
-    Yalnızca 'done': üretimi yarıda kalmış veya kriz nedeniyle durdurulmuş
-    kayıtlar arşivde yer almamalı.
+    Kuyrukta/çalışan kayıtlar da döner: kullanıcı bekleme ekranından ana
+    ekrana geçtiğinde ödediği yorum kaybolmuş gibi görünmemeli. Kriz nedeniyle
+    durdurulan kayıtlar mahrem destek metni taşıdığı için listeye alınmaz.
     """
     rows = await state["db"].fetch(
         """SELECT id, kind, status, output_json->>'ozet' AS ozet, created_at
            FROM readings
-           WHERE user_id=$1 AND status='done' AND kind <> 'daily'
+           WHERE user_id=$1 AND status IN ('queued','running','done','failed')
+             AND kind <> 'daily'
            ORDER BY created_at DESC LIMIT $2""", user["id"], min(limit, 50))
     return [dict(r) for r in rows]
 

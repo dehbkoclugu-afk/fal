@@ -23,6 +23,7 @@ jobs:
     timeout-minutes: 60
     env:
       EXPO_PUBLIC_API_URL: https://fal-production-7ec6.up.railway.app
+      EXPO_PUBLIC_BUILD_PROFILE: preview
     defaults:
       run:
         working-directory: fal-mobile

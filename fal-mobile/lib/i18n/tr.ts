@@ -34,12 +34,16 @@ export const tr = {
   'hata.network': 'Bağlantını kontrol edip tekrar dener misin?',
   'hata.network_timeout': 'Bağlantı uzun sürdü. Tekrar dener misin?',
   'hata.photo_unreadable': 'Fotoğrafı cihazdan okuyamadım. Yeniden çeker misin?',
+  'hata.retry_limit': 'Bu yorum için ücretsiz yeniden deneme hakkı kullanıldı.',
+  'hata.retry_in_progress': 'Yorum zaten yeniden hazırlanıyor.',
+  'hata.retry_requires_photo': 'Kahve falı için fincanı yeniden çekmen gerekiyor.',
   'hata.invalid_cup_photo':
     'Fincanın içi seçilemiyor. Fincanı ortalayıp yukarıdan, net biçimde yeniden çek.',
   'hata.unknown': 'Bir şeyler ters gitti. Tekrar dene.',
   'ortak.jeton': '{n} jeton',
   'ortak.baglantiHatasi': 'Bağlantını kontrol edip tekrar dener misin?',
   'ortak.eglenceAmacli': 'eğlence amaçlıdır',
+  'profil.surum': 'Telve {version} ({build}) · state v{state}',
 
   // --- onboarding
   'ob.isim.eyebrow': 'Başlarken',
@@ -116,17 +120,30 @@ export const tr = {
   'ob.bildirim.simdiDegil': 'Şimdi değil',
 
   'ob.paywall.baslik': 'Falın hazır',
+  'ob.paywall.testBaslik': 'Test sürümündesin',
+  'ob.paywall.baglantiBaslik': 'Bağlantı bekleniyor',
+  'ob.paywall.ucretsizBaslik': 'Ücretsiz başlayabilirsin',
   'ob.paywall.altBaslik':
     'Ücretsiz kullanmaya devam edebilirsin. Abonelik kapsamı seçtiğin plana göre değişir.',
-  'ob.paywall.sinirsizFal': 'Sınırsız kahve falı ve tarot',
-  'ob.paywall.aylik10': 'Ayda 10 fal (kahve, tarot, harita)',
+  'ob.paywall.ucretsizAltBaslik':
+    'Mağaza şu anda hazır değil. Ritüelleri jetonla kullanabilir, günlük yorumunu ücretsiz okuyabilirsin.',
+  'ob.paywall.testSurumu': 'TEST SÜRÜMÜ · SATIN ALMA KAPALI',
+  'ob.paywall.ucretsizHaklar': 'Ücretsiz kullanım',
+  'ob.paywall.premiumHaklar': 'Abonelik avantajları',
+  'ob.paywall.ucretsizJeton': 'Başlangıç jetonlarıyla ritüelleri dene',
+  'ob.paywall.ucretsizGunluk': 'Günün kişisel yorumunu ücretsiz oku',
+  'ob.paywall.ucretsizGecmis': 'Hazırlanan yorumlarına geçmişten ulaş',
   'ob.paywall.natal': 'Doğum verilerine göre kişisel harita yorumu',
   'ob.paywall.transit': 'Kişisel transit uyarıları',
   'ob.paywall.reklamsiz': 'Reklamsız',
   'ob.paywall.aboneOl': 'Abone ol',
   'ob.paywall.magazaBaglaniliyor': 'Mağaza fiyatları yükleniyor…',
   'ob.paywall.magazaHazirDegil':
-    'Abonelik şu anda kullanılamıyor. Ücretsiz devam edebilirsin.',
+    'Bu test paketinde mağaza satın alımları kapalı. Ücretsiz akış eksiksiz çalışır.',
+  'ob.paywall.cevrimdisi':
+    'Mağazaya bağlanamadım. İnternet bağlantını kontrol edip yeniden deneyebilirsin.',
+  'ob.paywall.planYok':
+    'Mağaza bağlantısı kuruldu ancak yayınlanmış bir abonelik planı bulunamadı.',
   'ob.paywall.ucretsizDevam': 'Ücretsiz devam et',
   'ob.paywall.geriYukle': 'Satın alımı geri yükle',
   'ob.paywall.geriYuklenemedi': 'Geri yüklenecek bir abonelik bulamadım.',
@@ -142,6 +159,7 @@ export const tr = {
   'ob.paywall.aydaBir': 'ayda',
   'ob.paywall.haftadaBir': 'haftada',
   'ob.paywall.enAvantajli': 'en avantajlı',
+  'ob.paywall.toplamYenileme': 'Toplam {fiyat} · {donem} otomatik yenilenir',
 
   // --- ana ekran
   'ana.merhaba': 'merhaba',
@@ -150,6 +168,8 @@ export const tr = {
   'ana.bugun': 'bugün',
   'ana.gunlukHazirlaniyor': 'Günün yorumu hazırlanıyor. Birazdan burada olacak.',
   'ana.gunlukHazirlanamadi': 'Günün yorumu hazırlanamadı. Biraz sonra yeniden dene.',
+  'ana.gunlukTekrarDene': 'Günün yorumunu yeniden dene',
+  'ana.falinHazir': 'Falın hazır. Geçmiş fallarından açabilirsin.',
   'ana.ritueller': 'ritüeller',
   'ana.dahil': 'dahil',
   'ana.hesabiSorulacak': 'hesabı sorulacak',
@@ -163,6 +183,8 @@ export const tr = {
   'ana.gecmisOk': 'hepsi →',
   'ana.seri': '{n} gündür buradasın',
   'ana.seriOdul': ' · jeton kazandın',
+  'gecmis.hazirlaniyor': 'Yorum hazırlanıyor…',
+  'gecmis.basarisiz': 'Yorum hazırlanamadı · açıp yeniden dene',
 
   'ritual.kahve': 'Kahve falı',
   'ritual.kahveNot': 'fincanını çek',
@@ -289,11 +311,20 @@ export const tr = {
   'sonuc.bekleme.daily2': 'transitler hesaplanıyor',
   'sonuc.bekleme.daily3': 'göstergeler birleşiyor',
   'sonuc.bekleme.daily4': 'günün yorumu hazırlanıyor',
+  'sonuc.bekleme.a11yCoffee': 'Kahve falı bekleme ritüeli',
+  'sonuc.bekleme.a11yTarot': 'Tarot açılımı bekleme ritüeli',
+  'sonuc.bekleme.a11yNatal': 'Doğum haritası bekleme ritüeli',
+  'sonuc.bekleme.a11yDream': 'Rüya yorumu bekleme ritüeli',
+  'sonuc.bekleme.a11yDaily': 'Günün yorumu bekleme ritüeli',
+  'sonuc.beklemeKaydi': 'Okuma kaydı bulunuyor…',
+  'sonuc.beklenendenUzun': 'Beklenenden uzun sürüyor; yorumun kaybolmadı.',
   'sonuc.beklemeDurum': '{adim} / 4 · işleniyor',
   'sonuc.beklemeDurumSureli': '{adim} / 4 · yaklaşık {sure} sn kaldı',
   'sonuc.beklemeNot': 'Hazır olduğunda haber vereceğim. Uygulamayı kapatabilirsin.',
   'sonuc.beklemePushYok':
     'Bu ekranda bekleyebilir veya ana ekrandan daha sonra tekrar kontrol edebilirsin.',
+  'sonuc.ucretsizYenidenDene': 'Jeton harcamadan yeniden dene',
+  'sonuc.yenidenDenenemedi': 'Bu yorum yeniden başlatılamadı. Ritüele dönebilirsin.',
   'sonuc.krizBaslik': 'Bir dakika duralım',
   'sonuc.acilYardim': 'acil yardım',
   'sonuc.destekHatti': 'sosyal destek hattı, 7/24',

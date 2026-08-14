@@ -84,8 +84,8 @@ for (const y of YETENEKLER) {
 console.log('\n\x1b[1mAbonelik güven kapısı\x1b[0m\n');
 const rcKokte = rootLayout.includes('purchases.configure');
 const fiyatKapisi =
-  paywall.includes("onPress={hazirDurum === 'ready' ? go : skip}") &&
-  paywall.includes("disabled={hazirDurum === 'loading' || (hazirDurum === 'ready' && !plan)}");
+  paywall.includes("onPress={storeState === 'ready' ? buy : skip}") &&
+  paywall.includes("disabled={storeState === 'loading' || (storeState === 'ready' && !plan)}");
 console.log(`  ${rcKokte ? OK : NO} RevenueCat uygulama kökünde yapılandırılıyor`);
 console.log(`  ${fiyatKapisi ? OK : NO} Gerçek fiyat gelmeden satın alma çalışmıyor`);
 if (!rcKokte) hata++;

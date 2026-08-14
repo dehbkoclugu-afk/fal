@@ -54,6 +54,25 @@ def push_yakala(monkeypatch):
     return gonderilen
 
 
+async def test_ayni_okuma_icin_iade_yalniz_bir_kez_yaziliyor(db):
+    uid = await _kullanici(db)
+    rid = str(uuid.uuid4())
+    await db.execute(
+        "INSERT INTO readings (id,user_id,kind,status) VALUES ($1,$2,'tarot','failed')",
+        rid, uid)
+    await db.execute(
+        """INSERT INTO coin_ledger (user_id,delta,reason,balance_after)
+           VALUES ($1,-1,'spend_tarot',0)""", uid)
+
+    await tasks.refund(db, str(uid), rid, "tarot")
+    await tasks.refund(db, str(uid), rid, "tarot")
+
+    assert await db.fetchval(
+        "SELECT count(*) FROM coin_ledger WHERE reason=$1", f"refund_{rid}") == 1
+    assert await db.fetchval(
+        "SELECT coalesce(sum(delta),0) FROM coin_ledger WHERE user_id=$1", uid) == 0
+
+
 # ------------------------------------------------------ transit bildirimleri
 
 async def test_transit_bildirimi_gonderiliyor(db, push_yakala, monkeypatch):

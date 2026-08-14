@@ -3,11 +3,12 @@ import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
 import { Screen } from '@/components/Screen';
 import { api } from '@/lib/api';
 import { resetAnonId } from '@/lib/anon';
-import { useDraft } from '@/lib/store';
+import { BUNDLE_STATE_VERSION, useDraft } from '@/lib/store';
 import { color, radius, space, type } from '@/lib/theme';
 import { Eyebrow } from '@/components/Eyebrow';
 import { DILLER, aktifDil, dilSec, t, uygulaYon } from '@/lib/i18n';
@@ -162,6 +163,13 @@ export default function Profile() {
         <Pressable onPress={() => Linking.openURL(KOSULLAR_URL)}>
           <Text style={styles.legalLink}>{t('profil.kosullar')}</Text>
         </Pressable>
+        <Text style={styles.version}>
+          {t('profil.surum', {
+            version: Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? '0.0.0',
+            build: Constants.nativeBuildVersion ?? 'dev',
+            state: BUNDLE_STATE_VERSION,
+          })}
+        </Text>
       </View>
     </Screen>
   );
@@ -200,4 +208,5 @@ const styles = StyleSheet.create({
   legal: { marginTop: space.xxl, gap: space.md },
   legalText: { ...type.data, color: color.kulKoyu, fontSize: 11, lineHeight: 17 },
   legalLink: { ...type.data, color: color.kul, fontSize: 12 },
+  version: { ...type.data, color: color.kulKoyu, fontSize: 10, marginTop: space.md },
 });
