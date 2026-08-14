@@ -81,6 +81,8 @@ export const tr = {
   'ob.reveal.gunesNot': 'özün',
   'ob.reveal.ay': 'Ay',
   'ob.reveal.ayNot': 'duygun',
+  'ob.reveal.kisisel': 'doğum verilerinden kişisel olarak hesaplandı',
+  'ob.reveal.tahmini': 'TAHMİNİ',
 
   'ob.tani.eyebrow': 'Seni tanıyorum',
   'ob.tani.soru': 'Seni biraz daha tanıyayım',

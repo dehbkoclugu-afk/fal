@@ -19,7 +19,7 @@ type ArtSlotProps = {
 export function ArtSlot({ id, art, strength = 'card', selected = false, contentSide }: ArtSlotProps) {
   const scheme = useColorScheme() === 'light' ? 'light' : 'dark';
   const resolved = art ?? (id ? semanticArtwork[id] : undefined);
-  if (!resolved) throw new Error('ArtSlot için id veya art gerekli');
+  if (!resolved) throw new Error('ArtSlot requires an id or art object');
   const baseAlpha = {
     soft: scheme === 'light' ? 0.38 : 0.30,
     card: scheme === 'light' ? 0.58 : 0.55,

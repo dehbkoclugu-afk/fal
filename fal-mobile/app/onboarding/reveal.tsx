@@ -13,7 +13,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
@@ -25,6 +25,7 @@ import { Eyebrow } from '@/components/Eyebrow';
 import { t } from '@/lib/i18n';
 import { NatalChartWheel } from '@/components/NatalChartWheel';
 import { RitualVisual } from '@/components/RitualVisual';
+import { NatalRevealCard } from '@/components/NatalRevealCard';
 
 export default function Reveal() {
   const router = useRouter();
@@ -33,6 +34,7 @@ export default function Reveal() {
   const [chart, setChart] = useState<NatalChart | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0.15);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     let alive = true;
@@ -68,11 +70,28 @@ export default function Reveal() {
 
   const rows = teaser
     ? [
-        { key: t('ob.reveal.yukselen'), value: teaser.yukselen, note: t('ob.reveal.yukselenNot') },
-        { key: t('ob.reveal.gunes'), value: teaser.gunes, note: t('ob.reveal.gunesNot') },
-        { key: t('ob.reveal.ay'), value: teaser.ay, note: t('ob.reveal.ayNot') },
+        {
+          key: 'ascendant', artId: 'natal-wheel' as const, label: t('ob.reveal.yukselen'),
+          value: teaser.yukselen, note: t('ob.reveal.yukselenNot'),
+          detail: chart ? `${chart.ascendant.toFixed(1)}°` : undefined,
+          estimated: !draft.timeKnown,
+        },
+        {
+          key: 'sun', artId: 'natal-planets' as const, label: t('ob.reveal.gunes'),
+          value: teaser.gunes, note: t('ob.reveal.gunesNot'),
+          detail: chart?.bodies.sun ? `${chart.bodies.sun.degree_in_sign.toFixed(1)}°` : undefined,
+        },
+        {
+          key: 'moon', artId: 'natal-aspects' as const, label: t('ob.reveal.ay'),
+          value: teaser.ay, note: t('ob.reveal.ayNot'),
+          detail: chart?.bodies.moon ? `${chart.bodies.moon.degree_in_sign.toFixed(1)}°` : undefined,
+        },
       ]
     : [];
+
+  const reveal = (delay = 0) => reducedMotion
+    ? undefined
+    : FadeInDown.delay(delay).duration(520);
 
   return (
     <Screen scroll>
@@ -85,9 +104,12 @@ export default function Reveal() {
           </View>
         </View>
       ) : (
-        <Animated.View entering={FadeInDown.duration(520)}>
+        <Animated.View entering={reveal()}>
           <NatalChartWheel chart={chart} compact />
-          <Eyebrow style={styles.phase}>{teaser?.ay_fazi}</Eyebrow>
+          <View style={styles.phaseLine}>
+            <Eyebrow style={styles.phase}>{teaser?.ay_fazi}</Eyebrow>
+            <Text style={styles.personal}>{t('ob.reveal.kisisel')}</Text>
+          </View>
         </Animated.View>
       )}
 
@@ -100,20 +122,14 @@ export default function Reveal() {
         <>
           <View style={styles.list}>
             {rows.map((r, i) => (
-              <Animated.View
-                key={r.key}
-                entering={FadeInDown.delay(i * 320).duration(520)}
-                style={styles.row}
-              >
-                <Eyebrow style={styles.rowKey}>{r.key}</Eyebrow>
-                <Text style={styles.rowValue}>{r.value}</Text>
-                <Text style={styles.rowNote}>{r.note}</Text>
+              <Animated.View key={r.key} entering={reveal(i * 240)}>
+                <NatalRevealCard {...r} />
               </Animated.View>
             ))}
           </View>
 
           {teaser && (
-            <Animated.View entering={FadeInDown.delay(1100).duration(520)}>
+            <Animated.View entering={reveal(820)}>
               {!draft.timeKnown && (
                 <Text style={styles.warn}>{t('ob.reveal.saatYokUyari')}</Text>
               )}
@@ -135,16 +151,11 @@ const styles = StyleSheet.create({
   ringCenter: { position: 'absolute', alignItems: 'center' },
   chartPreview: { position: 'absolute', opacity: 0.68 },
   calc: { ...type.data, color: color.kul, textAlign: 'center', fontSize: 11 },
+  phaseLine: { alignItems: 'center', gap: space.xs, marginTop: space.sm },
   phase: { ...type.eyebrow, color: color.bakir, textAlign: 'center' },
+  personal: { ...type.data, color: color.kulKoyu, fontSize: 11 },
 
-  list: { marginTop: space.xxl, gap: space.lg },
-  row: {
-    position: 'relative', overflow: 'hidden', borderTopWidth: 1,
-    borderTopColor: color.cizgi, padding: space.md, borderRadius: 6,
-  },
-  rowKey: { ...type.eyebrow, color: color.kul },
-  rowValue: { ...type.title, color: color.porselen, marginTop: 2 },
-  rowNote: { ...type.data, color: color.kulKoyu, fontSize: 11 },
+  list: { marginTop: space.xl, gap: space.md },
 
   warn: { ...type.body, color: color.kul, marginTop: space.lg, fontSize: 13 },
   errorBox: { marginTop: space.xxl, gap: space.lg },
