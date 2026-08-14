@@ -1,11 +1,14 @@
 import React from 'react';
 import { Image, StyleSheet, useColorScheme, View } from 'react-native';
 
-import { artwork, type ArtId } from '@/lib/artAssets';
+import { semanticArtwork, type ArtId, type SemanticArt } from '@/lib/artAssets';
 
 type ArtSlotProps = {
-  id: ArtId;
+  id?: ArtId;
+  art?: SemanticArt;
   strength?: 'soft' | 'card' | 'strong';
+  selected?: boolean;
+  contentSide?: 'left' | 'right';
 };
 
 /**
@@ -13,17 +16,21 @@ type ArtSlotProps = {
  * avoids the Android cover/crop regression seen in earlier art-slot systems.
  * A flat veil protects copy without creating a grey gradient wall.
  */
-export function ArtSlot({ id, strength = 'card' }: ArtSlotProps) {
+export function ArtSlot({ id, art, strength = 'card', selected = false, contentSide }: ArtSlotProps) {
   const scheme = useColorScheme() === 'light' ? 'light' : 'dark';
-  const alpha = {
+  const resolved = art ?? (id ? semanticArtwork[id] : undefined);
+  if (!resolved) throw new Error('ArtSlot requires an id or art object');
+  const baseAlpha = {
     soft: scheme === 'light' ? 0.38 : 0.30,
     card: scheme === 'light' ? 0.58 : 0.55,
     strong: scheme === 'light' ? 0.70 : 0.68,
   }[strength];
+  const alpha = selected ? Math.max(0.18, baseAlpha - 0.16) : baseAlpha;
+  const subjectSide = contentSide ?? resolved.safeSide;
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <Image source={artwork[id][scheme]} resizeMode="cover" style={styles.image} />
+      <Image source={resolved[scheme]} resizeMode="cover" style={[styles.image, subjectSide === 'right' && styles.imageRight]} />
       <View style={[styles.veil, { backgroundColor: `rgba(22, 16, 14, ${alpha})` }]} />
     </View>
   );
@@ -31,5 +38,6 @@ export function ArtSlot({ id, strength = 'card' }: ArtSlotProps) {
 
 const styles = StyleSheet.create({
   image: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, width: '100%', height: '100%' },
+  imageRight: { transform: [{ scaleX: -1 }] },
   veil: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
 });

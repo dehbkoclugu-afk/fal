@@ -24,6 +24,8 @@ import { ArtSlot } from '@/components/ArtSlot';
 import { ritualArt } from '@/lib/artAssets';
 import { RitualVisual, type RitualKind } from '@/components/RitualVisual';
 import { t } from '@/lib/i18n';
+import type { NatalChart } from '@/lib/api';
+import { NatalShareCard } from '@/components/NatalShareCard';
 
 type Props = {
   line: string;
@@ -31,6 +33,8 @@ type Props = {
   kind: string;
   photoUri?: string;
   computedDetail?: string;
+  natalChart?: NatalChart;
+  selectedBodyKey?: string;
 };
 
 // Anahtar tutuluyor, metin render anında üretiliyor: modül gövdesindeki t()
@@ -52,7 +56,7 @@ const baslik = (k: string) =>
   t(k in BASLIK_ANAHTAR ? BASLIK_ANAHTAR[k as keyof typeof BASLIK_ANAHTAR]
                         : 'sonuc.yorum');
 
-export function ShareCard({ line, symbol, kind, photoUri, computedDetail }: Props) {
+export function ShareCard({ line, symbol, kind, photoUri, computedDetail, natalChart, selectedBodyKey }: Props) {
   const cardRef = useRef<View>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +66,10 @@ export function ShareCard({ line, symbol, kind, photoUri, computedDetail }: Prop
   const visualKind: RitualKind = kind === 'tarot' || kind === 'natal' || kind === 'dream' || kind === 'daily'
     ? kind
     : 'coffee';
+
+  if (kind === 'natal' && natalChart) {
+    return <NatalShareCard chart={natalChart} line={safeLine} selectedBodyKey={selectedBodyKey} />;
+  }
 
   const share = async () => {
     if (busy) return;

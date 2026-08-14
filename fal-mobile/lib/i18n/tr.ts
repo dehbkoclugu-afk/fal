@@ -81,6 +81,8 @@ export const tr = {
   'ob.reveal.gunesNot': 'özün',
   'ob.reveal.ay': 'Ay',
   'ob.reveal.ayNot': 'duygun',
+  'ob.reveal.kisisel': 'doğum verilerinden kişisel olarak hesaplandı',
+  'ob.reveal.tahmini': 'TAHMİNİ',
 
   'ob.tani.eyebrow': 'Seni tanıyorum',
   'ob.tani.soru': 'Seni biraz daha tanıyayım',
@@ -255,14 +257,23 @@ export const tr = {
   'natal.kendimNot': 'Yükselen, Ay, Chiron',
   'natal.yorumla': 'Haritamı yorumla',
   'natal.yorumlaJeton': 'Haritamı yorumla · {n} jeton',
+  'natal.odak': 'ODAK',
+  'natal.secili': 'SEÇİLİ ODAK',
+  'natal.ucretBaslik': 'YORUM HAKKI',
+  'natal.aboneligeDahil': 'Aboneliğine dahil · jeton harcanmaz',
+  'natal.bakiyeVeUcret': 'Bakiyen {bakiye} jeton · bu yorum {ucret} jeton',
+  'natal.tekSeferNot': 'Yalnızca yorumu başlattığında bakiyenden düşer.',
 
   // --- hesaplanmış gökyüzü görselleri
   'harita.hesaplanmis': 'hesaplanmış doğum haritan',
   'harita.erisilebilir': 'Gezegenleri, evleri ve açıları gösteren doğum haritası çemberi',
   'harita.yukselen': 'YÜKSELEN',
   'harita.retro': 'retro',
+  'harita.tahmini': 'YÜKSELEN TAHMİNİ',
+  'harita.gezegenEtiket': '{gezegen}, {burc} burcunda {derece} derece',
+  'harita.motor': 'Hesap motoru: {motor}',
   'harita.saatYok':
-    'Doğum saatin bilinmediği için yükselen ve ev çizgileri gösterilmiyor. Gezegen burçları ve açılar geçerlidir.',
+    'Doğum saatin bilinmediği için yükselen tahmini, ev çizgileri gizli. Gezegen burçları ve açılar geçerlidir.',
   'ruya.geceninGokyuzu': 'rüyayı gördüğün gecenin gökyüzü',
   'ruya.aydinlik': 'aydınlık',
   'ruya.etkinGostergeler': 'yoruma giren hesaplanmış göstergeler',
@@ -401,6 +412,9 @@ export const tr = {
   'paylas.hata': 'Paylaşamadım. Tekrar dener misin?',
   'paylas.cikanSembol': 'çıkan sembol · {sembol}',
   'paylas.gununYorumu': 'günün yorumu',
+  'paylas.natalBaslik': 'DOĞUM HARİTAM',
+  'paylas.natalKisisel': 'Gökyüzündeki imzam',
+  'paylas.seciliGosterge': 'SEÇİLİ GÖSTERGE',
 
   // --- fincan overlay bölge adları
   'fincan.ipucu': 'İşaretlere dokun, fincanın neresi olduğunu göster',

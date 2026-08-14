@@ -62,6 +62,7 @@ export default function ReadingScreen() {
   const [now, setNow] = useState(Date.now());
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const [selectedNatalKey, setSelectedNatalKey] = useState('sun');
   const maxProgress = useRef(0.05);
   const cupPhotos = useDraft((s) => s.cupPhotos);
   const pushRegistered = useDraft((s) => s.pushRegistered);
@@ -257,7 +258,11 @@ export default function ReadingScreen() {
       )}
 
       {data.kind === 'natal' && data.extra_json?.chart && (
-        <NatalChartWheel chart={data.extra_json.chart} />
+        <NatalChartWheel
+          chart={data.extra_json.chart}
+          selectedKey={selectedNatalKey}
+          onSelectionChange={setSelectedNatalKey}
+        />
       )}
 
       {data.kind === 'dream' && data.extra_json?.moon && data.extra_json?.dream_night && (
@@ -320,6 +325,8 @@ export default function ReadingScreen() {
           symbol={out.sembol}
           kind={data.kind}
           photoUri={data.kind === 'coffee' ? cupPhoto : undefined}
+          natalChart={data.kind === 'natal' ? data.extra_json?.chart : undefined}
+          selectedBodyKey={selectedNatalKey}
           computedDetail={
             data.kind === 'tarot'
               ? data.extra_json?.draw?.cards?.[0]?.name_tr

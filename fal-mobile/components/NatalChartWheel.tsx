@@ -6,11 +6,11 @@ import type { NatalChart, NatalChartBody } from '@/lib/api';
 import { Eyebrow } from '@/components/Eyebrow';
 import { color, radius, space, type } from '@/lib/theme';
 import { t } from '@/lib/i18n';
+import { layoutNatalBodies, natalAspectLimit, natalRenderSize } from '@/lib/natalLayout';
 
 const SIZE = 328;
 const C = SIZE / 2;
 const R = 150;
-const BODY_R = 104;
 const ASPECT_R = 82;
 
 const SIGNS = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
@@ -25,11 +25,26 @@ function point(lon: number, radius: number) {
   return { x: C + Math.cos(a) * radius, y: C + Math.sin(a) * radius };
 }
 
-export function NatalChartWheel({ chart, compact = false }: { chart: NatalChart; compact?: boolean }) {
+type NatalChartWheelProps = {
+  chart: NatalChart;
+  compact?: boolean;
+  selectedKey?: string;
+  onSelectionChange?: (key: string) => void;
+};
+
+export function NatalChartWheel({ chart, compact = false, selectedKey: controlledKey, onSelectionChange }: NatalChartWheelProps) {
   const { width } = useWindowDimensions();
-  const renderSize = Math.min(SIZE, width - space.lg * 2 - space.md * 2);
+  const renderSize = natalRenderSize(width, space.lg * 2 + space.md * 2);
   const bodies = useMemo(() => Object.values(chart.bodies), [chart.bodies]);
-  const [selectedKey, setSelectedKey] = useState('sun');
+  const bodyLayout = useMemo(() => {
+    const byKey = new Map(bodies.map((body) => [body.key, body]));
+    return layoutNatalBodies(bodies).map((position) => ({
+      ...position,
+      body: byKey.get(position.key)!,
+    }));
+  }, [bodies]);
+  const [internalKey, setInternalKey] = useState('sun');
+  const selectedKey = controlledKey ?? internalKey;
   const selected: NatalChartBody | undefined = chart.bodies[selectedKey] ?? bodies[0];
   const timeUnknown = !!chart.meta?.time_unknown;
 
@@ -37,16 +52,23 @@ export function NatalChartWheel({ chart, compact = false }: { chart: NatalChart;
     <View style={styles.wrap}>
       <View style={styles.header}>
         <Eyebrow style={styles.label}>{t('harita.hesaplanmis')}</Eyebrow>
-        <Text style={styles.engine}>{chart.meta?.ephe === 'swieph' ? 'SWISS EPHEMERIS' : 'MOSHIER'}</Text>
+        {timeUnknown ? <Text style={styles.estimate}>{t('harita.tahmini')}</Text> : null}
       </View>
 
-      <View style={styles.wheelWrap} accessibilityLabel={t('harita.erisilebilir')}>
+      <View
+        style={styles.wheelWrap}
+        accessible
+        accessibilityRole="image"
+        accessibilityLabel={t('harita.erisilebilir')}
+      >
         <Svg width={renderSize} height={renderSize} viewBox={`0 0 ${SIZE} ${SIZE}`}>
-          <Circle cx={C} cy={C} r={R} fill={color.cezve} stroke={color.cizgi} strokeWidth={1} />
-          <Circle cx={C} cy={C} r={126} fill="none" stroke={color.bakir} strokeOpacity={0.42} />
-          <Circle cx={C} cy={C} r={ASPECT_R} fill="none" stroke={color.cizgi} />
+          <G id="wheel-rings">
+            <Circle cx={C} cy={C} r={R} fill={color.cezve} stroke={color.cizgi} strokeWidth={1} />
+            <Circle cx={C} cy={C} r={126} fill="none" stroke={color.bakir} strokeOpacity={0.42} />
+            <Circle cx={C} cy={C} r={ASPECT_R} fill="none" stroke={color.cizgi} />
+          </G>
 
-          {SIGNS.map((glyph, i) => {
+          <G id="zodiac-layer">{SIGNS.map((glyph, i) => {
             const edge = point(i * 30, R);
             const inner = point(i * 30, 126);
             const label = point(i * 30 + 15, 138);
@@ -56,9 +78,9 @@ export function NatalChartWheel({ chart, compact = false }: { chart: NatalChart;
                 <SvgText x={label.x} y={label.y + 5} fill={color.kul} fontSize={15} textAnchor="middle">{glyph}</SvgText>
               </G>
             );
-          })}
+          })}</G>
 
-          {!timeUnknown && chart.houses.map((cusp, i) => {
+          <G id="house-layer">{!timeUnknown && chart.houses.map((cusp, i) => {
             const a = point(cusp, ASPECT_R);
             const b = point(cusp, 126);
             const n = point(cusp + 7, 92);
@@ -68,9 +90,12 @@ export function NatalChartWheel({ chart, compact = false }: { chart: NatalChart;
                 <SvgText x={n.x} y={n.y + 3} fill={color.kulKoyu} fontSize={8} textAnchor="middle">{i + 1}</SvgText>
               </G>
             );
-          })}
+          })}</G>
 
-          {chart.aspects.filter((a) => a.strength >= 0.55).slice(0, 14).map((a, i) => {
+          <G id="aspect-layer">{chart.aspects
+            .filter((a) => a.strength >= 0.55)
+            .slice(0, natalAspectLimit(renderSize, compact))
+            .map((a, i) => {
             const first = chart.bodies[a.a];
             const second = chart.bodies[a.b];
             if (!first || !second) return null;
@@ -78,10 +103,10 @@ export function NatalChartWheel({ chart, compact = false }: { chart: NatalChart;
             const p2 = point(second.lon, ASPECT_R);
             const hard = ['square', 'opposition', 'conjunction'].includes(a.kind);
             return <Line key={`${a.a}-${a.b}-${i}`} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={hard ? color.kiremit : color.cini} strokeOpacity={0.22 + a.strength * 0.48} />;
-          })}
+          })}</G>
 
-          {bodies.map((b, index) => {
-            const p = point(b.lon, BODY_R + (index % 2 ? 10 : 0));
+          <G id="body-layer">{bodyLayout.map(({ body: b, radius: bodyRadius }) => {
+            const p = point(b.lon, bodyRadius);
             const on = b.key === selected?.key;
             return (
               <G key={b.key}>
@@ -91,12 +116,14 @@ export function NatalChartWheel({ chart, compact = false }: { chart: NatalChart;
                 </SvgText>
               </G>
             );
-          })}
+          })}</G>
 
-          <SvgText x={C} y={C - 5} fill={color.kulKoyu} fontSize={9} textAnchor="middle">{t('harita.yukselen')}</SvgText>
-          <SvgText x={C} y={C + 14} fill={color.porselen} fontSize={14} textAnchor="middle">
-            {timeUnknown ? '—' : `${SIGNS[Math.floor(chart.ascendant / 30)]} ${Math.floor(chart.ascendant % 30)}°`}
-          </SvgText>
+          <G id="center-label">
+            <SvgText x={C} y={C - 5} fill={color.kulKoyu} fontSize={9} textAnchor="middle">{t('harita.yukselen')}</SvgText>
+            <SvgText x={C} y={C + 14} fill={color.porselen} fontSize={14} textAnchor="middle">
+              {`${timeUnknown ? '≈ ' : ''}${SIGNS[Math.floor(chart.ascendant / 30)]} ${Math.floor(chart.ascendant % 30)}°`}
+            </SvgText>
+          </G>
         </Svg>
       </View>
 
@@ -106,10 +133,18 @@ export function NatalChartWheel({ chart, compact = false }: { chart: NatalChart;
           return (
             <Pressable
               key={b.key}
-              onPress={() => setSelectedKey(b.key)}
+              onPress={() => {
+                setInternalKey(b.key);
+                onSelectionChange?.(b.key);
+              }}
               style={[styles.bodyChip, on && styles.bodyChipOn]}
-              accessibilityRole="button"
+              accessibilityRole="radio"
               accessibilityState={{ selected: on }}
+              accessibilityLabel={t('harita.gezegenEtiket', {
+                gezegen: b.name_tr,
+                burc: b.sign_tr,
+                derece: b.degree_in_sign.toFixed(1),
+              })}
             >
               <Text style={[styles.bodyGlyph, on && styles.bodyGlyphOn]}>{BODY_GLYPH[b.key] ?? '•'}</Text>
               <Text style={[styles.bodyName, on && styles.bodyNameOn]}>{b.name_tr}</Text>
@@ -132,7 +167,14 @@ export function NatalChartWheel({ chart, compact = false }: { chart: NatalChart;
         </View>
       ) : null}
 
-      {!compact && timeUnknown ? <Text style={styles.note}>{t('harita.saatYok')}</Text> : null}
+      {!compact ? (
+        <View style={styles.notes}>
+          {timeUnknown ? <Text style={styles.note}>{t('harita.saatYok')}</Text> : null}
+          <Text style={styles.engineNote}>
+            {t('harita.motor', { motor: chart.meta?.ephe === 'swieph' ? 'Swiss Ephemeris' : 'Moshier' })}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -141,10 +183,10 @@ const styles = StyleSheet.create({
   wrap: { marginTop: space.lg, padding: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: color.cizgi, backgroundColor: color.cezve },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   label: { ...type.eyebrow, color: color.bakir },
-  engine: { ...type.data, color: color.kulKoyu, fontSize: 8, letterSpacing: 0.8 },
+  estimate: { ...type.eyebrow, color: color.bakir },
   wheelWrap: { alignItems: 'center', marginTop: space.sm },
   bodyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: space.sm },
-  bodyChip: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: color.cizgi, borderRadius: radius.full, paddingVertical: 5, paddingHorizontal: 8 },
+  bodyChip: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: color.cizgi, borderRadius: radius.full, paddingVertical: 8, paddingHorizontal: 12 },
   bodyChipOn: { borderColor: color.bakir, backgroundColor: color.cezveUst },
   bodyGlyph: { color: color.kul, fontSize: 14 },
   bodyGlyphOn: { color: color.bakir },
@@ -155,4 +197,6 @@ const styles = StyleSheet.create({
   detailValue: { ...type.dataStrong, color: color.porselen, marginTop: 3 },
   detailGlyph: { color: color.bakir, fontSize: 28 },
   note: { ...type.data, color: color.kulKoyu, fontSize: 10, lineHeight: 15, marginTop: space.md },
+  notes: { marginTop: space.sm },
+  engineNote: { ...type.data, color: color.kulKoyu, fontSize: 9, lineHeight: 14, marginTop: space.sm },
 });
